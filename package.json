@@ -2,7 +2,6 @@
   "name": "svelte-app",
   "version": "1.0.0",
   "private": true,
-  "homepage": "https://altrdev.github.io/ed25519-verify/",
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
