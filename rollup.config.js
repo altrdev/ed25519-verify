@@ -7,7 +7,6 @@ import sveltePreprocess from 'svelte-preprocess';
 import typescript from '@rollup/plugin-typescript';
 import css from 'rollup-plugin-css-only';
 import nodePolyfills from 'rollup-plugin-node-polyfills';
-import * as buffer from "buffer";
 
 const production = !process.env.ROLLUP_WATCH;
 
