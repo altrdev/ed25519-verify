@@ -12,10 +12,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install and Build 🔧
+      - name: Install and Test 🔧
         run: |
           npm install
-          npm run-script build
+          npm test
+
+      - name: Build 🔧
+        run: npm run-script build
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@3.6.2
