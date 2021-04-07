@@ -51,7 +51,6 @@
   },
   "dependencies": {
     "@mdi/js": "^5.9.55",
-    "ed25519-supercop": "^2.0.1",
     "noble-ed25519": "^1.0.4",
     "postcss": "^8.2.9",
     "sass": "^1.32.8",

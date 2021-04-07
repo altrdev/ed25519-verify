@@ -1,4 +1,3 @@
-//const ed25519 = require('ed25519-supercop');
 import * as ed from 'noble-ed25519';
 
 class VerifyEd25519 {
