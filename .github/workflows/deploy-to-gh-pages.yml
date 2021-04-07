@@ -12,10 +12,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install and Test 🔧
-        run: |
-          npm install
-          npm test
+      - name: Install ⚙️
+        run: npm install
+
+      - name: Test 🧬
+        run: npm test
 
       - name: Build 🔧
         run: npm run-script build
