@@ -3,9 +3,9 @@
     import VerifyEd25519 from './signature'
     import { mdiCheck, mdiAlert } from '@mdi/js';
 
-    let message;
-    let signature;
-    let publicKey;
+    export let message;
+    export let signature;
+    export let publicKey;
     let verify;
 
     async function performVerify() {
