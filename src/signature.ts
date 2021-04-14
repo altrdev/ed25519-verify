@@ -4,27 +4,43 @@ class VerifyEd25519 {
     message: string;
     signature: string;
     publicKey: string;
+    privateKey: string;
 
-    constructor(message, signature, publicKey) {
+    constructor(message, signature, publicKey, privateKey) {
         this.message = message;
         this.signature = signature;
         this.publicKey = publicKey;
+        this.privateKey = privateKey;
     }
 
     async check() {
-        let messageBuffer = Buffer.from(this.message, 'utf8').toString("hex");
-        let signatureBuffer = Buffer.from(this.signature, 'base64').toString("hex");
-        let publicKeyBuffer = Buffer.from(this.publicKey, 'base64').toString("hex");
-        return await ed.verify(signatureBuffer,messageBuffer,publicKeyBuffer).then(this.getResult,this.getError);
+        let messageHex = Buffer.from(this.message, 'utf8').toString("hex");
+        let signatureHex = Buffer.from(this.signature, 'base64').toString("hex");
+        let publicKeyHex = Buffer.from(this.publicKey, 'base64').toString("hex");
+        return await ed.verify(signatureHex,messageHex,publicKeyHex).then(this.getCheckResult,this.getCheckError);
     }
 
-    getResult(value) {
+    async sign() {
+        let privateKeyHex = Buffer.from(this.privateKey, 'base64').toString("hex");
+        return await ed.sign(this.message, privateKeyHex).then(this.getSignResult,this.getSignError);
+    }
+
+    getCheckResult(value) {
         return value;
     }
 
-    getError(error) {
+    getCheckError(error) {
         console.log(error);
         return false;
+    }
+
+    getSignResult(value) {
+        return value;
+    }
+
+    getSignError(error) {
+        console.log(error);
+        return null;
     }
 }
 
