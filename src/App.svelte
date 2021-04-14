@@ -2,22 +2,21 @@
 	import FormVerify from './FormVerify.svelte';
 	import { MaterialApp, AppBar, Icon, Button } from 'svelte-materialify';
 	import { mdiInvertColors } from '@mdi/js';
-
-	export let theme: "light" | "dark";
+	import { theme } from './store.js';
 
 	function toggleTheme() {
-		if (theme === 'light') theme = 'dark';
-		else theme = 'light';
+		if ($theme === 'light') theme.set('dark');
+		else theme.set('light');
 	}
 </script>
 
-<MaterialApp {theme}>
+<MaterialApp theme={$theme}>
 	<AppBar>
 		<span slot="title">Ed25519 Verify Signature</span>
-		<div style="flex-grow:1" />
+		<div style="flex-grow:1"></div>
 		<Button icon on:click={toggleTheme}>
 			<Icon path={mdiInvertColors}/>
 		</Button>
 	</AppBar>
-	<FormVerify/>
+	<FormVerify message="" signature="" publicKey=""/>
 </MaterialApp>
