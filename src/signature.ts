@@ -35,6 +35,7 @@ class VerifyEd25519 {
     }
 
     getSignResult(value) {
+        console.log(value);
         return value;
     }
 

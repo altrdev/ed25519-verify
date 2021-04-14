@@ -6,40 +6,40 @@
     export let message;
     export let signature;
     export let publicKey;
+    export let privateKey;
     let verify;
 
-    async function performVerify() {
-        const ed25519 = new VerifyEd25519(message, signature, publicKey);
-        verify = await ed25519.check();
+    async function performSign() {
+        const ed25519 = new VerifyEd25519(message, null, null, privateKey);
+        signature = await ed25519.sign();
     }
 
-    function resetVerify(){
-        verify = '';
+    function reset(){
+        signature = '';
     }
 </script>
 <div class="pa-6">
     <div class="pt-6 pb-6" style="max-width: 700px">
         <Container>
-            <Textarea outlined rows="2" bind:value={publicKey} on:input={resetVerify}>Public key</Textarea>
-            <Textarea outlined rows="2" bind:value={message} on:input={resetVerify}>Message</Textarea>
-            <Textarea outlined bind:value={signature} on:input={resetVerify}>Signature</Textarea>
+            <Textarea outlined rows="2" bind:value={privateKey}>Private key</Textarea>
+            <Textarea outlined rows="2" bind:value={message}>Message</Textarea>
         </Container>
         <Container>
-            <Button class="primary-color" on:click={performVerify}>Verify</Button>
+            <Button class="primary-color" on:click={performSign}>Sign</Button>
         </Container>
-        {#if verify}
-            <Alert class="success-color">
-                <div slot="icon">
-                    <Icon path={mdiCheck} />
-                </div>
-                Signature is valid
-            </Alert>
-        {:else if verify === false}
+        {#if signature == null}
             <Alert class="error-color">
                 <div slot="icon">
                     <Icon path={mdiAlert} />
                 </div>
-                Signature is wrong
+                Signature can't be
+            </Alert>
+        {:else if signature !== ''}
+            <Alert class="success-color">
+                <div slot="icon">
+                    <Icon path={mdiCheck} />
+                </div>
+                Signature: {signature}
             </Alert>
         {/if}
     </div>

@@ -9,7 +9,7 @@
     let verify;
 
     async function performVerify() {
-        const ed25519 = new VerifyEd25519(message, signature, publicKey);
+        const ed25519 = new VerifyEd25519(message, signature, publicKey, null);
         verify = await ed25519.check();
     }
 
