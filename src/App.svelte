@@ -6,7 +6,6 @@
 	import { mdiWeatherNight, mdiWeatherSunny } from "@mdi/js";
 
 	let themeIconToggled = themeIcon;
-
 	function toggleTheme() {
 		if ($theme === 'light') {
 			theme.set('dark');
@@ -36,7 +35,7 @@
 			<FormVerify message="" signature="" publicKey=""/>
 		</TabContent>
 		<TabContent>
-			<FormSign message="" signature="" publicKey=""/>
+			<FormSign message="" signature="" privateKey=""/>
 		</TabContent>
 	</Tabs>
 

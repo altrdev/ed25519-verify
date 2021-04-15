@@ -1,4 +1,5 @@
 import * as ed from 'noble-ed25519';
+import {SignEncoding} from "./enum";
 
 class VerifyEd25519 {
     message: string;
@@ -13,16 +14,29 @@ class VerifyEd25519 {
         this.privateKey = privateKey;
     }
 
-    async check() {
+    async check(encoding: SignEncoding) {
         let messageHex = Buffer.from(this.message, 'utf8').toString("hex");
-        let signatureHex = Buffer.from(this.signature, 'base64').toString("hex");
-        let publicKeyHex = Buffer.from(this.publicKey, 'base64').toString("hex");
+        let signatureHex = (encoding === SignEncoding.Base64) ? Buffer.from(this.signature, 'base64').toString("hex") : this.signature;
+        let publicKeyHex = (encoding === SignEncoding.Base64) ? Buffer.from(this.publicKey, 'base64').toString("hex") : this.publicKey;
         return await ed.verify(signatureHex,messageHex,publicKeyHex).then(this.getCheckResult,this.getCheckError);
     }
 
-    async sign() {
-        let privateKeyHex = Buffer.from(this.privateKey, 'base64').toString("hex");
-        return await ed.sign(this.message, privateKeyHex).then(this.getSignResult,this.getSignError);
+    async sign(encoding: SignEncoding) {
+        if(this.privateKey === null || this.privateKey === '')
+            return this.getSignError("Private key missing");
+
+        let privateKeyHex = (encoding === SignEncoding.Base64) ? Buffer.from(this.privateKey, 'base64').toString("hex") : this.privateKey;
+        let hexResult = await ed.sign(Buffer.from(this.message, 'utf8').toString("hex"), privateKeyHex).then(this.getSignResult,this.getSignError);
+        return ((encoding === SignEncoding.Base64) && hexResult != null) ? Buffer.from(hexResult, 'hex').toString("base64")  : hexResult;
+    }
+
+    async getPublicKey(encoding: SignEncoding) {
+        if(this.privateKey === null || this.privateKey === '')
+            return this.getSignError("Private key missing");
+
+        let privateKeyHex = (encoding === SignEncoding.Base64) ? Buffer.from(this.privateKey, 'base64').toString("hex") : this.privateKey;
+        let hexResult = await ed.getPublicKey(privateKeyHex).then(this.getSignResult,this.getSignError);
+        return ((encoding === SignEncoding.Base64) && hexResult != null) ? Buffer.from(hexResult, 'hex').toString("base64")  : hexResult;
     }
 
     getCheckResult(value) {

@@ -1,7 +1,10 @@
 <script lang="ts">
-    import { Alert, Container, Button, Textarea, Icon } from 'svelte-materialify';
+    import {Alert, Container, Button, Textarea, Icon} from 'svelte-materialify';
     import VerifyEd25519 from './signature'
-    import { mdiCheck, mdiAlert } from '@mdi/js';
+    import {mdiCheck, mdiAlert} from '@mdi/js';
+    import SelectorEncoding from "./SelectorEncoding.svelte";
+    import {encodingDefault} from "./store";
+    import {SignEncoding} from "./enum";
 
     export let message;
     export let signature;
@@ -10,15 +13,16 @@
 
     async function performVerify() {
         const ed25519 = new VerifyEd25519(message, signature, publicKey, null);
-        verify = await ed25519.check();
+        verify = await ed25519.check($encodingDefault as SignEncoding);
     }
 
-    function resetVerify(){
+    function resetVerify() {
         verify = '';
     }
 </script>
 <div class="pa-6">
-    <div class="pt-6 pb-6" style="max-width: 700px">
+    <SelectorEncoding reset="{resetVerify}"/>
+    <div class="pt-1 pb-6" style="max-width: 700px">
         <Container>
             <Textarea outlined rows="2" bind:value={publicKey} on:input={resetVerify}>Public key</Textarea>
             <Textarea outlined rows="2" bind:value={message} on:input={resetVerify}>Message</Textarea>
@@ -27,6 +31,8 @@
         <Container>
             <Button class="primary-color" on:click={performVerify}>Verify</Button>
         </Container>
+    </div>
+    <div class="pb-6" style="max-width: 700px">
         {#if verify}
             <Alert class="success-color">
                 <div slot="icon">
