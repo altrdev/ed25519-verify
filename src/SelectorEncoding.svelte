@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Button, Container } from 'svelte-materialify';
-    import {encodingDefault} from './store.js';
+    import {encodingDefault} from './store';
     import {SignEncoding} from "./enum";
     export let reset = () => {};
 

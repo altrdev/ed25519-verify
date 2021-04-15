@@ -3,7 +3,7 @@
     import VerifyEd25519 from './signature'
     import {mdiCheck, mdiAlert} from '@mdi/js';
     import SelectorEncoding from "./SelectorEncoding.svelte";
-    import {encodingDefault} from './store.js';
+    import {encodingDefault} from './store';
     import {SignEncoding} from "./enum";
 
     export let message;
