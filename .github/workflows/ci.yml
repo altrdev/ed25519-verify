@@ -1,0 +1,41 @@
+name: CI
+
+# Runs the same checks as the deploy pipeline on every pull request, so a broken change is caught before it is merged.
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# a new push to the same pull request replaces the run that is still going
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v5
+
+      - name: Setup Node ⚙️
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install 📦
+        run: npm ci
+
+      - name: Type-check 🔎
+        run: npm run typecheck
+
+      - name: Test 🧬
+        run: npm test
+
+      - name: Build 🔧
+        run: npm run build

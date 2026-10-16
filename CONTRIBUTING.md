@@ -37,8 +37,9 @@ npm run dev        # dev server with hot reload
 
 1. Create a branch from `main`.
 2. Make the change, with tests (see below).
-3. Run `npm test` and `npm run build`: both must pass, they are what the pipeline runs.
-4. Open a pull request against `main` explaining what changed and why.
+3. Run `npm run typecheck`, `npm test` and `npm run build`: all three must pass.
+4. Open a pull request against `main` explaining what changed and why. The [CI](.github/workflows/ci.yml) workflow runs the
+   same three commands on every pull request, so you will see a red check if something is broken.
 
 Commit messages in this repository look like `[feat]: short description`, `[fix]: ...`, `[chore]: ...`. Keep the first line short and
 use the body for the reasoning when it is not obvious.
@@ -69,6 +70,12 @@ src/
 - **Test what you change.** Logic goes in `src/__tests__/signature.test.ts` (with known vectors when possible), behaviour of the UI in
   the component tests. A bug fix starts with a test that fails.
 - **Check both themes and a phone width** when you touch styles; colors are CSS variables in `src/style.css`.
+
+## Dependencies
+
+[Dependabot](.github/dependabot.yml) opens a pull request every week for outdated npm packages (minor and patch updates grouped
+together, major ones on their own) and for the versions of the GitHub Actions used by the workflows. They go through the same CI
+as any other pull request: read the release notes of a major update before merging it.
 
 ## Deployment and releases
 
