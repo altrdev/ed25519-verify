@@ -2,11 +2,13 @@ import { useState } from 'preact/hooks';
 import FormSigned from './FormSigned';
 import FormSign from './FormSign';
 import FormVerify from './FormVerify';
+import { type Container, type Handoff, handoffFor } from './detect';
 import { Icon } from './icons';
+import type { MessageFile } from './messagefile';
 import { parseCoseShare, parseJwsShare, parseMinisignShare, parsePgpShare, parseShareFragment, parseSshsigShare } from './share';
 import { theme } from './store';
 
-const TABS = ['Verify signature', 'Sign message', 'Signed formats'];
+const TABS = ['Verify signature', 'Sign message', 'Tokens and files'];
 const REPO_URL = 'https://github.com/altrdev/ed25519-verify';
 
 /** `v2.6.0` linked to its release notes; a build that is not a release ("dev", "main-1a2b3c4") is shown as it is. */
@@ -29,6 +31,14 @@ export default function App() {
     const [sharedCose] = useState(() => parseCoseShare(location.hash));
     const [sharedPgp] = useState(() => parsePgpShare(location.hash));
     const [tab, setTab] = useState(sharedToken || sharedSshsig || sharedMinisign || sharedCose || sharedPgp ? 2 : 0);
+    // a signature pasted in the Verify tab that is a container (a JWT, an SSH signature...) opens in the tab that reads it, with the rest
+    const [handoff, setHandoff] = useState<{ id: number; data: Handoff; file: MessageFile | null } | null>(null);
+    const openContainer = (format: Container, fields: Parameters<typeof handoffFor>[1], file: MessageFile | null) => {
+        setHandoff((current) => ({ id: (current?.id ?? 0) + 1, data: handoffFor(format, fields), file }));
+        setTab(2);
+    };
+    const handed = <F extends Handoff['format']>(format: F, own: unknown) =>
+        handoff?.data.format === format ? (handoff.data.shared as never) : (own as never);
     const dark = theme.value === 'dark';
 
     return (
@@ -83,18 +93,24 @@ export default function App() {
                 </div>
                 {/* both forms stay mounted so switching tab does not lose what was typed */}
                 <div role="tabpanel" hidden={tab !== 0}>
-                    <FormVerify {...shared} autoVerify={shared?.publicKey !== undefined && shared?.signature !== undefined} />
+                    <FormVerify
+                        {...shared}
+                        autoVerify={shared?.publicKey !== undefined && shared?.signature !== undefined}
+                        onOpenContainer={openContainer}
+                    />
                 </div>
                 <div role="tabpanel" hidden={tab !== 1}>
                     <FormSign />
                 </div>
                 <div role="tabpanel" hidden={tab !== 2}>
                     <FormSigned
-                        sharedJws={sharedToken}
-                        sharedSshsig={sharedSshsig}
-                        sharedMinisign={sharedMinisign}
-                        sharedCose={sharedCose}
-                        sharedPgp={sharedPgp}
+                        key={handoff?.id ?? 0}
+                        sharedJws={handed('jws', sharedToken)}
+                        sharedSshsig={handed('sshsig', sharedSshsig)}
+                        sharedMinisign={handed('minisign', sharedMinisign)}
+                        sharedCose={handed('cose', sharedCose)}
+                        sharedPgp={handed('pgp', sharedPgp)}
+                        initialFile={handoff?.file ?? null}
                     />
                 </div>
             </main>

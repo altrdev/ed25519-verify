@@ -98,12 +98,20 @@ function Details({ shown }: { shown: Shown }) {
     );
 }
 
-function Verify({ initial, autoVerify }: { initial?: Partial<SharedPgp>; autoVerify?: boolean }) {
+function Verify({
+    initial,
+    initialFile,
+    autoVerify,
+}: {
+    initial?: Partial<SharedPgp>;
+    initialFile?: MessageFile | null;
+    autoVerify?: boolean;
+}) {
     const [signature, setSignature] = useState(initial?.signature ?? '');
     const [publicKey, setPublicKey] = useState(initial?.publicKey ?? '');
     const [message, setMessage] = useState(initial?.message ?? '');
     const [messageFormat, setMessageFormat] = useState(initial?.messageFormat ?? MessageFormat.Text);
-    const [file, setFile] = useState<MessageFile | null>(null);
+    const [file, setFile] = useState<MessageFile | null>(initialFile ?? null);
     const [errors, setErrors] = useState<Errors>({});
     const [choices, setChoices] = useState<RawFormat[] | undefined>(undefined);
     const [formats, setFormats] = useState<FormatOverrides>({});
@@ -359,16 +367,18 @@ function Create() {
 export default function PgpPanel({
     mode,
     initial,
+    initialFile,
     autoVerify,
 }: {
     mode: 'verify' | 'create';
     initial?: Partial<SharedPgp>;
+    initialFile?: MessageFile | null;
     autoVerify?: boolean;
 }) {
     return (
         <>
             <div class="panel" hidden={mode !== 'verify'}>
-                <Verify initial={initial} autoVerify={autoVerify} />
+                <Verify initial={initial} initialFile={initialFile} autoVerify={autoVerify} />
             </div>
             <div class="panel" hidden={mode !== 'create'}>
                 <Create />

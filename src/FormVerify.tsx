@@ -3,6 +3,7 @@ import CopyButton from './CopyButton';
 import Banner from './Banner';
 import Field from './Field';
 import FormatMenu, { readingFormat, readingHint, readingLabel } from './FormatMenu';
+import { CONTAINER_NAMES, type Container, detectContainer } from './detect';
 import { encodePublicKey, isKeyFile } from './keyfiles';
 import MessageField from './MessageField';
 import type { MessageFile } from './messagefile';
@@ -30,6 +31,12 @@ interface Props {
     messageFormat?: MessageFormat;
     /** open with everything filled in (a share link): verify at once */
     autoVerify?: boolean;
+    /** the signature is a container read by the "Tokens and files" tab: open it there with the other fields */
+    onOpenContainer?: (
+        format: Container,
+        fields: { signature: string; publicKey: string; message: string; messageFormat: MessageFormat },
+        file: MessageFile | null,
+    ) => void;
 }
 
 export default function FormVerify(props: Props) {
@@ -49,6 +56,7 @@ export default function FormVerify(props: Props) {
     // what each text turned out to be, for the format menus and the "Detected" lines
     const publicKeyReading = inspectField('publicKey', publicKey, formats.publicKey);
     const signatureReading = inspectField('signature', signature, formats.signature);
+    const container = props.onOpenContainer ? detectContainer(signature) : null;
 
     /** Picking a format rewrites the text in that format: the same bytes, written another way. */
     const convert = (field: 'publicKey' | 'signature', reading: FieldReading | null, format: FieldFormat) => {
@@ -192,6 +200,20 @@ export default function FormVerify(props: Props) {
                 download={{ filename: fileNameFor('signature', null) }}
                 onInput={edit(setSignature, 'signature')}
             />
+            {container && (
+                <div class="field-choices">
+                    <p class="field-hint" role="status">
+                        This is {CONTAINER_NAMES[container]}, not a plain signature.
+                    </p>
+                    <button
+                        type="button"
+                        class="chip"
+                        onClick={() => props.onOpenContainer?.(container, { signature, publicKey, message, messageFormat }, file)}
+                    >
+                        Open in Tokens and files
+                    </button>
+                </div>
+            )}
             <div class="actions">
                 <button type="button" class="primary" onClick={() => performVerify()}>
                     Verify
