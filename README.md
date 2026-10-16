@@ -45,7 +45,8 @@ Text / Hex / Base64 selector, so you can sign and verify binary data (hashes, al
 ## Privacy
 
 Signing and verification use [@noble/ed25519](https://github.com/paulmillr/noble-ed25519) in your browser and the app makes no
-requests with your data. Even so, treat any web page with care: do not paste production private keys into tools you have not audited,
+requests with your data. The page ships a strict [Content-Security-Policy](src/csp.ts) (`connect-src 'none'`, no inline scripts),
+so the browser itself refuses any network request made by the page. Even so, treat any web page with care: do not paste production private keys into tools you have not audited,
 and prefer throwaway keys for testing. The source is small enough to read.
 
 ## Development

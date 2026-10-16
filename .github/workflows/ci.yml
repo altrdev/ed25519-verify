@@ -39,3 +39,6 @@ jobs:
 
       - name: Build 🔧
         run: npm run build
+
+      - name: Check the Content-Security-Policy is in the build 🔒
+        run: grep -q 'http-equiv="Content-Security-Policy"' dist/index.html

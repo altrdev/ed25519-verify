@@ -61,6 +61,9 @@ src/
 
 - **Keep it client-side and dependency-light.** The app must never send keys, messages or signatures anywhere, and the
   bundle is small on purpose. Think twice before adding a dependency, especially in `signature.ts`.
+- **Do not loosen the Content-Security-Policy** in `src/csp.ts` (it is injected into `index.html` by the production build, not in
+  `npm run dev`). It forbids every network request and any inline script, which is what makes "nothing is uploaded" enforceable.
+  A change that needs a new source must say why in its pull request.
 - **Keep the cryptography out of the components.** Parsing, validation and signing belong in `signature.ts`, where they are easy to test.
   Components only show what it returns.
 - **Be explicit about malformed input.** A malformed key or signature is an `InputError` shown next to the field. "Signature is wrong"
