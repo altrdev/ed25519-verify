@@ -18,7 +18,9 @@ describe('share fragment', () => {
     it('carries the three fields and the message format', () => {
         const parsed = roundTrip('hello', MessageFormat.Hex);
         expect(parsed).toEqual({ publicKey: PUBLIC_HEX, message: 'hello', messageFormat: 'hex', signature: 'abcd' });
-        expect(shareFragment({ publicKey: PUBLIC_HEX, message: 'hi', messageFormat: MessageFormat.Text, signature: 'x' })).not.toContain('mf=');
+        expect(shareFragment({ publicKey: PUBLIC_HEX, message: 'hi', messageFormat: MessageFormat.Text, signature: 'x' })).not.toContain(
+            'mf=',
+        );
     });
 
     it('keeps any message intact: separators, newlines, unicode, spaces at the edges', () => {

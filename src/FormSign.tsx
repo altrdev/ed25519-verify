@@ -44,13 +44,15 @@ export default function FormSign(props: Props) {
         const seed = privateKeyReading.bytes.slice(0, 32);
         let text: string;
         if (isKeyFile(format)) {
-            const publicKey = await new VerifyEd25519('', null, null, privateKey, MessageFormat.Text, { privateKey: keyFormat }).getPublicKeyBytes();
+            const publicKey = await new VerifyEd25519('', null, null, privateKey, MessageFormat.Text, {
+                privateKey: keyFormat,
+            }).getPublicKeyBytes();
             text = encodePrivateKey(seed, publicKey, format);
         } else {
             text = encodeBytes(privateKeyReading.bytes, format);
         }
         setPrivateKey(text);
-        setKeyFormat(isKeyFile(format) ? undefined : format);   // the new text is read as picked, never asked about
+        setKeyFormat(isKeyFile(format) ? undefined : format); // the new text is read as picked, never asked about
         setKeyChoices(undefined);
         setSignatureBytes(null);
         setErrors((current) => ({ ...current, privateKey: undefined }));
@@ -110,7 +112,7 @@ export default function FormSign(props: Props) {
         const override = isKeyFile(format) ? undefined : format;
         setPrivateKey(pair.privateKey);
         setKeyChoices(undefined);
-        setKeyFormat(override);        // written in this format, so read as such (a 43-character base58 key is also valid base64)
+        setKeyFormat(override); // written in this format, so read as such (a 43-character base58 key is also valid base64)
         derive(pair.privateKey, override);
         setRevealed(true);
         setSignatureBytes(null);
@@ -130,9 +132,7 @@ export default function FormSign(props: Props) {
             setSignatureBytes(await ed25519.signBytes());
         } catch (error) {
             setSignatureBytes(null);
-            setErrors(
-                error instanceof InputError ? { [error.field]: error.message } : { privateKey: 'Signing failed.' }
-            );
+            setErrors(error instanceof InputError ? { [error.field]: error.message } : { privateKey: 'Signing failed.' });
         }
     };
 
@@ -202,7 +202,9 @@ export default function FormSign(props: Props) {
                 onInput={onMessageInput}
             />
             <div class="actions">
-                <button type="button" class="primary" onClick={() => performSign()}>Sign</button>
+                <button type="button" class="primary" onClick={() => performSign()}>
+                    Sign
+                </button>
             </div>
 
             {signature && (
@@ -215,7 +217,9 @@ export default function FormSign(props: Props) {
                                 kind="signature"
                                 label={CODECS[formatPreference.signature.value].label}
                                 current={formatPreference.signature.value}
-                                onSelect={(format) => !isKeyFile(format) && (formatPreference.signature.value = format)}
+                                onSelect={(format) => {
+                                    if (!isKeyFile(format)) formatPreference.signature.value = format;
+                                }}
                             />
                             <CopyButton text={signature} label="Copy signature" />
                         </div>

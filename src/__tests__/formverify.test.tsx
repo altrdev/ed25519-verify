@@ -4,11 +4,10 @@ import FormVerify from '../FormVerify';
 import { hexToBytes } from '../bytes';
 import { encodeAs } from '../codecs';
 
-const messageFormat = (name: string) =>
-    within(screen.getByRole('group', { name: 'Message format' })).getByRole('button', { name });
+const messageFormat = (name: string) => within(screen.getByRole('group', { name: 'Message format' })).getByRole('button', { name });
 
-const signature = "BhqKbhnVH3kaNARj/Vht7ImJJ2LMM5TOla7k5OTITjdZ+GpWTY69wH79vRowPmq0c2KFDNipPsUcXSAwrviqDA==";
-const publicKey = "u6xMxXSXi/dL9tWPS+qfxiOHMA6c2Czwh/k2hy/wx/U=";
+const signature = 'BhqKbhnVH3kaNARj/Vht7ImJJ2LMM5TOla7k5OTITjdZ+GpWTY69wH79vRowPmq0c2KFDNipPsUcXSAwrviqDA==';
+const publicKey = 'u6xMxXSXi/dL9tWPS+qfxiOHMA6c2Czwh/k2hy/wx/U=';
 
 describe('FormVerify component', () => {
     beforeEach(() => {
@@ -64,7 +63,10 @@ describe('FormVerify component', () => {
 
     it('verifies a message given as hex or base64', async () => {
         // "000000102" as UTF-8 bytes
-        for (const [format, value] of [['Hex', '303030303030313032'], ['Base64', 'MDAwMDAwMTAy']]) {
+        for (const [format, value] of [
+            ['Hex', '303030303030313032'],
+            ['Base64', 'MDAwMDAwMTAy'],
+        ]) {
             const { unmount } = render(<FormVerify publicKey={publicKey} signature={signature} />);
             fireEvent.click(messageFormat(format));
             fireEvent.input(screen.getByLabelText('Message'), { target: { value } });
@@ -106,7 +108,8 @@ describe('FormVerify component', () => {
 describe('FormVerify with keys in other formats', () => {
     // the key of the key format fixtures, and its signature of "000000001"
     const SPKI_PEM = '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAX4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0=\n-----END PUBLIC KEY-----\n';
-    const SIGNATURE_HEX = 'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
+    const SIGNATURE_HEX =
+        'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
 
     beforeEach(() => {
         setFormats('hex');
@@ -145,7 +148,7 @@ describe('FormVerify with keys in other formats', () => {
         expect(screen.getByLabelText('Public key')).toHaveAttribute('rows', '3');
         unmount();
         render(<FormVerify publicKey={'x\n'.repeat(30)} />);
-        expect(screen.getByLabelText('Public key')).toHaveAttribute('rows', '8');   // capped
+        expect(screen.getByLabelText('Public key')).toHaveAttribute('rows', '8'); // capped
     });
 
     it('has no encoding to choose: keys and signature are recognised, even when written differently', async () => {
@@ -165,7 +168,8 @@ describe('FormVerify with keys in other formats', () => {
     const AMBIGUOUS = {
         publicHex: '01234f729eae247bd3a22e12b33acfa9173d407c4ad8908c518503ce20a930b5',
         publicBase58: '5SdufKhMtY7dsJUnZ4nK3Ui15jpBChFo96g59mRqPAL',
-        signatureHex: '095561c83b7874fe955072576fff9985d919b75b2d7799cad32f81842f3b0a748dc9c0bb315417b8106f7cbe393594b3f9fb1e236d98952a4f31e1c7cde25b0e',
+        signatureHex:
+            '095561c83b7874fe955072576fff9985d919b75b2d7799cad32f81842f3b0a748dc9c0bb315417b8106f7cbe393594b3f9fb1e236d98952a4f31e1c7cde25b0e',
     };
 
     it('asks which format to read an ambiguous key in, instead of guessing', async () => {
@@ -175,7 +179,7 @@ describe('FormVerify with keys in other formats', () => {
         expect(screen.queryByText('Signature is valid')).not.toBeInTheDocument();
         expect(screen.queryByText('Signature is wrong')).not.toBeInTheDocument();
 
-        fireEvent.click(screen.getByRole('button', { name: 'Read as base58' }));   // the right reading: verifies at once
+        fireEvent.click(screen.getByRole('button', { name: 'Read as base58' })); // the right reading: verifies at once
         expect((await screen.findByRole('alert')).textContent?.trim()).toBe('Signature is valid');
         expect(screen.queryByText(/pick the format/)).not.toBeInTheDocument();
     });
@@ -194,7 +198,7 @@ describe('FormVerify with keys in other formats', () => {
         await screen.findByRole('alert');
         fireEvent.input(screen.getByLabelText('Public key'), { target: { value: AMBIGUOUS.publicBase58 } });
         fireEvent.click(screen.getByText('Verify'));
-        expect(await screen.findByRole('button', { name: 'Read as base58' })).toBeInTheDocument();   // asked again
+        expect(await screen.findByRole('button', { name: 'Read as base58' })).toBeInTheDocument(); // asked again
     });
 
     it('verifies with a key and a signature written in any of the formats', async () => {
@@ -218,7 +222,8 @@ describe('FormVerify with keys in other formats', () => {
     });
 
     describe('the format menus', () => {
-        const SPKI_PEM = '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAX4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0=\n-----END PUBLIC KEY-----\n';
+        const SPKI_PEM =
+            '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAX4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0=\n-----END PUBLIC KEY-----\n';
         const publicKeyField = () => screen.getByLabelText('Public key') as HTMLTextAreaElement;
         const signatureField = () => screen.getByLabelText('Signature') as HTMLTextAreaElement;
 
@@ -271,7 +276,7 @@ describe('FormVerify with keys in other formats', () => {
         it('never ask about what they wrote themselves, even a 43-character base58 key', async () => {
             render(<FormVerify publicKey={AMBIGUOUS.publicHex} signature={AMBIGUOUS.signatureHex} message="ambiguous" />);
             pickFormat('Public key format', 'base58');
-            expect(publicKeyField().value).toBe(AMBIGUOUS.publicBase58);        // 43 characters: also valid base64, of another key
+            expect(publicKeyField().value).toBe(AMBIGUOUS.publicBase58); // 43 characters: also valid base64, of another key
             fireEvent.click(screen.getByText('Verify'));
             expect((await screen.findByRole('alert')).textContent?.trim()).toBe('Signature is valid');
             expect(screen.queryByText(/pick the format/)).not.toBeInTheDocument();
@@ -280,7 +285,7 @@ describe('FormVerify with keys in other formats', () => {
         it('forget what they wrote as soon as the text is edited', async () => {
             render(<FormVerify publicKey={AMBIGUOUS.publicHex} signature={AMBIGUOUS.signatureHex} message="ambiguous" />);
             pickFormat('Public key format', 'base58');
-            fireEvent.input(publicKeyField(), { target: { value: AMBIGUOUS.publicBase58 } });   // the same text, typed: now it is asked
+            fireEvent.input(publicKeyField(), { target: { value: AMBIGUOUS.publicBase58 } }); // the same text, typed: now it is asked
             fireEvent.click(screen.getByText('Verify'));
             expect(await screen.findByText(/pick the format/)).toBeInTheDocument();
         });

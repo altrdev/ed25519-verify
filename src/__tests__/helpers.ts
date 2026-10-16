@@ -15,7 +15,9 @@ export const formatButton = (name: string) => screen.getByRole('button', { name:
 /** Opens the menu of a field and picks a format. */
 export function pickFormat(name: string, format: FieldFormat) {
     fireEvent.click(formatButton(name));
-    const item = within(screen.getByRole('menu', { name })).getAllByRole('menuitemradio').find((el) => el.getAttribute('data-format') === format);
+    const item = within(screen.getByRole('menu', { name }))
+        .getAllByRole('menuitemradio')
+        .find((el) => el.getAttribute('data-format') === format);
     if (!item) throw new Error(`no ${format} in the menu of ${name}`);
     fireEvent.click(item);
 }

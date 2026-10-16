@@ -9,11 +9,18 @@ const hex = (bytes: Uint8Array | null) => (bytes ? bytesToHex(bytes) : null);
 describe('base58', () => {
     // Bitcoin's reference vectors, confirmed with an independent implementation (Python base58)
     const VECTORS: [string, string][] = [
-        ['', ''], ['61', '2g'], ['626262', 'a3gV'], ['636363', 'aPEr'],
+        ['', ''],
+        ['61', '2g'],
+        ['626262', 'a3gV'],
+        ['636363', 'aPEr'],
         ['73696d706c792061206c6f6e6720737472696e67', '2cFupjhnEsSn59qHXstmK2ffpLv2'],
         ['00eb15231dfceb60925886b67d065299925915aeb172c06647', '1NS17iag9jJgTHD1VXjvLCEnZuQ3rJDE9L'],
-        ['516b6fcd0f', 'ABnLTmg'], ['bf4f89001e670274dd', '3SEo3LWLoPntC'], ['572e4794', '3EFU7m'],
-        ['ecac89cad93923c02321', 'EJDM8drfXA6uyA'], ['10c8511e', 'Rt5zm'], ['00000000000000000000', '1111111111'],
+        ['516b6fcd0f', 'ABnLTmg'],
+        ['bf4f89001e670274dd', '3SEo3LWLoPntC'],
+        ['572e4794', '3EFU7m'],
+        ['ecac89cad93923c02321', 'EJDM8drfXA6uyA'],
+        ['10c8511e', 'Rt5zm'],
+        ['00000000000000000000', '1111111111'],
     ];
 
     it.each(VECTORS)('encodes and decodes %s', (hexValue, text) => {
@@ -22,9 +29,10 @@ describe('base58', () => {
     });
 
     it('matches the Solana addresses everybody knows', () => {
-        expect(hex(decodeBase58('11111111111111111111111111111111'))).toBe('00'.repeat(32));   // System Program
-        expect(hex(decodeBase58('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')))
-            .toBe('06ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a9');       // Token Program
+        expect(hex(decodeBase58('11111111111111111111111111111111'))).toBe('00'.repeat(32)); // System Program
+        expect(hex(decodeBase58('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'))).toBe(
+            '06ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a9',
+        ); // Token Program
     });
 
     it('rejects characters outside the alphabet (0, O, I, l, +, /)', () => {
@@ -35,8 +43,13 @@ describe('base58', () => {
 describe('base32', () => {
     // RFC 4648, section 10
     const VECTORS: [string, string][] = [
-        ['', ''], ['f', 'MY======'], ['fo', 'MZXQ===='], ['foo', 'MZXW6==='],
-        ['foob', 'MZXW6YQ='], ['fooba', 'MZXW6YTB'], ['foobar', 'MZXW6YTBOI======'],
+        ['', ''],
+        ['f', 'MY======'],
+        ['fo', 'MZXQ===='],
+        ['foo', 'MZXW6==='],
+        ['foob', 'MZXW6YQ='],
+        ['fooba', 'MZXW6YTB'],
+        ['foobar', 'MZXW6YTBOI======'],
     ];
 
     it.each(VECTORS)('encodes and decodes "%s"', (plain, padded) => {
@@ -99,7 +112,7 @@ describe('every codec', () => {
         expect(encodeAs(bytes, 'hex0x')).toBe('0x00ff10');
         expect(encodeAs(bytes, 'base64')).toBe('AP8Q');
         expect(encodeAs(Uint8Array.from([251, 255, 254, 1]), 'base64')).toBe('+//+AQ==');
-        expect(encodeAs(Uint8Array.from([251, 255, 254, 1]), 'base64url')).toBe('-__-AQ');   // URL-safe, no padding
+        expect(encodeAs(Uint8Array.from([251, 255, 254, 1]), 'base64url')).toBe('-__-AQ'); // URL-safe, no padding
         expect(encodeAs(bytes, 'bytes')).toBe('[0, 255, 16]');
     });
 });
@@ -113,12 +126,12 @@ describe('readings of a pasted text', () => {
         expect(formatsOf('0x00ff10')).toEqual(['hex0x']);
         expect(formatsOf('00ff10')).toEqual(['hex']);
         expect(formatsOf('00FF10')).toEqual(['hex']);
-        expect(formatsOf('00ff 10\n')).toEqual(['hex']);          // whitespace from a paste
+        expect(formatsOf('00ff 10\n')).toEqual(['hex']); // whitespace from a paste
     });
 
     it('reads a text made of hex digits only as hex, even when it would also be valid base64 or base58', () => {
         expect(formatsOf('a1'.repeat(22))).toEqual(['hex']);
-        expect(readings('a'.repeat(43))).toEqual([]);            // odd number of digits: hex is the only reading and it fails
+        expect(readings('a'.repeat(43))).toEqual([]); // odd number of digits: hex is the only reading and it fails
     });
 
     it('offers every reading that decodes when the text could be several things', () => {

@@ -20,8 +20,12 @@ export default function App() {
             <header class="topbar">
                 <div class="topbar-inner">
                     <div class="brand">
-                        <span class="logo"><Icon name="key" size={20} /></span>
-                        <h1>Ed25519 <span>signature tools</span></h1>
+                        <span class="logo">
+                            <Icon name="key" size={20} />
+                        </span>
+                        <h1>
+                            Ed25519 <span>signature tools</span>
+                        </h1>
                     </div>
                     <div class="topbar-actions">
                         <a
@@ -62,15 +66,23 @@ export default function App() {
                     ))}
                 </div>
                 {/* both forms stay mounted so switching tab does not lose what was typed */}
-                <div role="tabpanel" hidden={tab !== 0}><FormVerify {...shared} autoVerify={shared?.publicKey !== undefined && shared?.signature !== undefined} /></div>
-                <div role="tabpanel" hidden={tab !== 1}><FormSign /></div>
+                <div role="tabpanel" hidden={tab !== 0}>
+                    <FormVerify {...shared} autoVerify={shared?.publicKey !== undefined && shared?.signature !== undefined} />
+                </div>
+                <div role="tabpanel" hidden={tab !== 1}>
+                    <FormSign />
+                </div>
             </main>
             <footer class="footer">
-                <a href={REPO_URL} target="_blank" rel="noopener noreferrer">Open source on GitHub</a>
+                <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
+                    Open source on GitHub
+                </a>
                 <span aria-hidden="true">·</span>
                 <span>MIT License</span>
                 <span aria-hidden="true">·</span>
-                <a href={`${REPO_URL}/releases/tag/v${VERSION}`} target="_blank" rel="noopener noreferrer" title="Release notes">v{VERSION}</a>
+                <a href={`${REPO_URL}/releases/tag/v${VERSION}`} target="_blank" rel="noopener noreferrer" title="Release notes">
+                    v{VERSION}
+                </a>
             </footer>
         </>
     );

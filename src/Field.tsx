@@ -36,8 +36,24 @@ interface FieldProps {
 }
 
 export default function Field({
-    label, value, rows = 3, growWithContent, disabled, placeholder, error, hint, choices, onChoose, actions, formatControl, copyable, secret,
-    revealed: revealedProp, onRevealedChange, onInput, onChange,
+    label,
+    value,
+    rows = 3,
+    growWithContent,
+    disabled,
+    placeholder,
+    error,
+    hint,
+    choices,
+    onChoose,
+    actions,
+    formatControl,
+    copyable,
+    secret,
+    revealed: revealedProp,
+    onRevealedChange,
+    onInput,
+    onChange,
 }: FieldProps) {
     const id = useId();
     const errorId = `${id}-error`;
@@ -89,7 +105,11 @@ export default function Field({
                 onInput={(e) => onInput?.(e.currentTarget.value)}
                 onChange={(e) => onChange?.(e.currentTarget.value)}
             />
-            {error && <p class="field-error" id={errorId} role="alert">{error}</p>}
+            {error && (
+                <p class="field-error" id={errorId} role="alert">
+                    {error}
+                </p>
+            )}
             {error && choices && choices.length > 0 && (
                 <div class="field-choices">
                     {choices.map((format) => (

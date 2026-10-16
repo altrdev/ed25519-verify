@@ -4,11 +4,10 @@ import FormSign from '../FormSign';
 import { hexToBytes } from '../bytes';
 import { encodeAs } from '../codecs';
 
-const messageFormat = (name: string) =>
-    within(screen.getByRole('group', { name: 'Message format' })).getByRole('button', { name });
+const messageFormat = (name: string) => within(screen.getByRole('group', { name: 'Message format' })).getByRole('button', { name });
 
-const privateKey = "Au+pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo=";
-const expectedSignature = "9as6qIjGsKt5L+m5vcJhMrN007oYMAQk4yUtZBeVQ3LRXWa99R2iStrXND9UWqkSeCfiKB55aO+aUYjMI6XvCQ==";
+const privateKey = 'Au+pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo=';
+const expectedSignature = '9as6qIjGsKt5L+m5vcJhMrN007oYMAQk4yUtZBeVQ3LRXWa99R2iStrXND9UWqkSeCfiKB55aO+aUYjMI6XvCQ==';
 
 describe('FormSign component', () => {
     beforeEach(() => {
@@ -120,7 +119,10 @@ describe('FormSign component', () => {
         // "000000001" as UTF-8 bytes
         const asHex = '303030303030303031';
         const asBase64 = 'MDAwMDAwMDAx';
-        for (const [format, value] of [['Hex', asHex], ['Base64', asBase64]]) {
+        for (const [format, value] of [
+            ['Hex', asHex],
+            ['Base64', asBase64],
+        ]) {
             const { unmount } = render(<FormSign privateKey={privateKey} />);
             fireEvent.click(messageFormat(format));
             fireEvent.input(screen.getByLabelText('Message'), { target: { value } });
@@ -154,8 +156,10 @@ describe('FormSign component', () => {
 });
 
 describe('FormSign with keys in other formats', () => {
-    const PKCS8_PEM = '-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIALvqa+xME6qTRBjjJM97OUZw57pzp4Q2Ak9IY7nmSF6\n-----END PRIVATE KEY-----\n';
-    const JWK = '{"kty":"OKP","crv":"Ed25519","d":"Au-pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo","x":"X4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0"}';
+    const PKCS8_PEM =
+        '-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIALvqa+xME6qTRBjjJM97OUZw57pzp4Q2Ak9IY7nmSF6\n-----END PRIVATE KEY-----\n';
+    const JWK =
+        '{"kty":"OKP","crv":"Ed25519","d":"Au-pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo","x":"X4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0"}';
 
     beforeEach(() => {
         setFormats('base64');
@@ -197,7 +201,8 @@ describe('FormSign with keys in other formats', () => {
 
         pickFormat('Signature format', 'hex');
         pickFormat('Public key format', 'hex');
-        const signatureHex = 'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
+        const signatureHex =
+            'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
         expect(screen.getByRole('alert').textContent).toContain(signatureHex);
         expect(publicKeyField.value).toBe('5f82d54a68d23979e9756866b6b90ce277ef34e1d5daec3871c5409d56351a8d');
 
@@ -212,7 +217,7 @@ describe('FormSign with keys in other formats', () => {
         pickFormat('Public key format', 'base32');
         fireEvent.click(screen.getByText('Sign'));
         await screen.findByRole('alert');
-        pickFormat('Signature format', 'bytes');          // the menu of the signature is part of the result
+        pickFormat('Signature format', 'bytes'); // the menu of the signature is part of the result
         expect(screen.getByRole('alert').textContent).toMatch(/\[\d+, \d+, \d+/);
         const publicKeyField = screen.getByLabelText('Deduced Public key') as HTMLTextAreaElement;
         await waitFor(() => expect(publicKeyField.value).toMatch(/^[A-Z2-7]{52}$/));
@@ -220,32 +225,34 @@ describe('FormSign with keys in other formats', () => {
 
     it('generates a key in the format picked for the private key, even before it exists', async () => {
         render(<FormSign message="hi" />);
-        expect(screen.getByRole('button', { name: /^Private key format: Base64$/ })).toBeEnabled();   // nothing to convert yet
+        expect(screen.getByRole('button', { name: /^Private key format: Base64$/ })).toBeEnabled(); // nothing to convert yet
         pickFormat('Private key format', 'hex');
-        expect((screen.getByLabelText('Private key') as HTMLTextAreaElement).value).toBe('');        // and nothing was written
+        expect((screen.getByLabelText('Private key') as HTMLTextAreaElement).value).toBe(''); // and nothing was written
         fireEvent.click(screen.getByRole('button', { name: /Generate/ }));
         await screen.findByRole('button', { name: 'Hide private key' });
         expect((screen.getByLabelText('Private key') as HTMLTextAreaElement).value).toMatch(/^[0-9a-f]{64}$/);
         expect(screen.getByRole('button', { name: /^Private key format: Hex$/ })).toBeInTheDocument();
-        fireEvent.click(screen.getByText('Sign'));          // the key written as hex still signs; the signature is in the base64 default
+        fireEvent.click(screen.getByText('Sign')); // the key written as hex still signs; the signature is in the base64 default
         expect((await screen.findByRole('alert')).textContent).toMatch(/[A-Za-z0-9+/]{86}==/);
     });
 
     it('converts the private key text when its format is picked', async () => {
-        render(<FormSign message="000000001" privateKey={privateKey} />);                      // base64
+        render(<FormSign message="000000001" privateKey={privateKey} />); // base64
         expect(screen.getByText('Detected: base64 · 32 bytes')).toBeInTheDocument();
         pickFormat('Private key format', 'hex');
-        expect((screen.getByLabelText('Private key') as HTMLTextAreaElement).value).toBe('02efa9afb1304eaa4d10638c933dece519c39ee9ce9e10d8093d218ee799217a');
+        expect((screen.getByLabelText('Private key') as HTMLTextAreaElement).value).toBe(
+            '02efa9afb1304eaa4d10638c933dece519c39ee9ce9e10d8093d218ee799217a',
+        );
         expect(screen.getByText('Detected: hex · 32 bytes')).toBeInTheDocument();
         pickFormat('Private key format', 'bytes');
         expect((screen.getByLabelText('Private key') as HTMLTextAreaElement).value).toMatch(/^\[2, 239, 169, 175/);
         fireEvent.click(screen.getByText('Sign'));
-        expect((await screen.findByRole('alert')).textContent).toContain(expectedSignature);   // same key, same signature
+        expect((await screen.findByRole('alert')).textContent).toContain(expectedSignature); // same key, same signature
     });
 
     it('does not ask about a converted key even when it is written as a 43-character base58', async () => {
         render(<FormSign message="000000001" privateKey={privateKey} />);
-        pickFormat('Private key format', 'base58');          // this seed is one of those that are 43 characters in base58
+        pickFormat('Private key format', 'base58'); // this seed is one of those that are 43 characters in base58
         const text = (screen.getByLabelText('Private key') as HTMLTextAreaElement).value;
         expect(text).toHaveLength(43);
         fireEvent.click(screen.getByText('Sign'));
@@ -254,7 +261,7 @@ describe('FormSign with keys in other formats', () => {
     });
 
     it('keeps a key written one way working while results are written another', async () => {
-        render(<FormSign message="000000001" privateKey={privateKey} />);   // the key is in base64
+        render(<FormSign message="000000001" privateKey={privateKey} />); // the key is in base64
         fireEvent.click(screen.getByText('Sign'));
         await screen.findByRole('alert');
         pickFormat('Signature format', 'hex');
@@ -264,12 +271,13 @@ describe('FormSign with keys in other formats', () => {
     // the same key as the fixtures, written as other tools write it
     const SEED_HEX = '02efa9afb1304eaa4d10638c933dece519c39ee9ce9e10d8093d218ee799217a';
     const PUBLIC_HEX = '5f82d54a68d23979e9756866b6b90ce277ef34e1d5daec3871c5409d56351a8d';
-    const SIGNATURE_HEX = 'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
+    const SIGNATURE_HEX =
+        'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
 
     it('signs with a key written in any of the formats, a Solana keypair file included', async () => {
         setFormats('hex');
         const seed = hexToBytes(SEED_HEX);
-        const keypair = Uint8Array.from([...seed, ...hexToBytes(PUBLIC_HEX)]);   // seed followed by the public key: what Solana writes
+        const keypair = Uint8Array.from([...seed, ...hexToBytes(PUBLIC_HEX)]); // seed followed by the public key: what Solana writes
         const cases: [string, string][] = [
             ['0x hex', encodeAs(seed, 'hex0x')],
             ['base64url', encodeAs(seed, 'base64url')],
@@ -289,7 +297,7 @@ describe('FormSign with keys in other formats', () => {
     it('this very key, in base58, is one of the ambiguous ones, and picking base58 signs with it', async () => {
         setFormats('hex');
         const text = encodeAs(hexToBytes(SEED_HEX), 'base58');
-        expect(text).toHaveLength(43);                       // 43 characters: also valid as unpadded base64
+        expect(text).toHaveLength(43); // 43 characters: also valid as unpadded base64
         render(<FormSign privateKey={text} message="000000001" />);
         fireEvent.click(screen.getByText('Sign'));
         fireEvent.click(await screen.findByRole('button', { name: 'Read as base58' }));
@@ -298,15 +306,16 @@ describe('FormSign with keys in other formats', () => {
 
     it('asks which format to read an ambiguous private key in', async () => {
         setFormats('hex');
-        const ambiguous = 'p2tWK4Y6aiKHMPJLFHFFB9PjyrD5mbwNCx8Sp2FQ6WL';   // 43 characters: base58 of a seed, also valid base64
+        const ambiguous = 'p2tWK4Y6aiKHMPJLFHFFB9PjyrD5mbwNCx8Sp2FQ6WL'; // 43 characters: base58 of a seed, also valid base64
         render(<FormSign privateKey={ambiguous} message="hi" />);
         fireEvent.click(screen.getByText('Sign'));
         expect(await screen.findByText('Private key: this text could be base64 or base58: pick the format.')).toBeInTheDocument();
         expect(screen.queryByText('Signature:')).not.toBeInTheDocument();
 
-        fireEvent.click(screen.getByRole('button', { name: 'Read as base58' }));    // signs at once, with the right key
+        fireEvent.click(screen.getByRole('button', { name: 'Read as base58' })); // signs at once, with the right key
         expect((await screen.findByRole('alert')).textContent).toContain(
-            'f99c651d76c113a2aa83d7b7883cb96e0bebe150dce1c89ed7aebfb8af209b43c6517935fc02bdbf2258586cf4247dcdcc7682ad13be2de94ea5247c5b3ae60d');
+            'f99c651d76c113a2aa83d7b7883cb96e0bebe150dce1c89ed7aebfb8af209b43c6517935fc02bdbf2258586cf4247dcdcc7682ad13be2de94ea5247c5b3ae60d',
+        );
         expect(screen.queryByText(/pick the format/)).not.toBeInTheDocument();
     });
 });

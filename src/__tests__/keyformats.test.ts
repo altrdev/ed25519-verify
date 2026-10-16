@@ -7,7 +7,8 @@ import * as K from './fixtures/keys';
 const hex = (bytes?: Uint8Array) => (bytes ? bytesToHex(bytes) : undefined);
 
 // signature of "000000001" with the key of the fixtures (the same one the signature tests use)
-const SIGNATURE_HEX = 'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
+const SIGNATURE_HEX =
+    'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
 
 const messageOf = (run: () => unknown): string => {
     try {
@@ -83,7 +84,9 @@ describe('Key format parsing', () => {
 
     it('tolerates what a copy and paste does to a PEM', () => {
         const crlf = K.PKCS8_PEM.replace(/\n/g, '\r\n');
-        const indented = K.PKCS8_PEM.split('\n').map((line) => `    ${line}`).join('\n');
+        const indented = K.PKCS8_PEM.split('\n')
+            .map((line) => `    ${line}`)
+            .join('\n');
         const noFinalNewline = K.PKCS8_PEM.trimEnd();
         const concatenated = K.PKCS8_PEM + K.SPKI_PEM; // `cat private.pem public.pem`
         for (const variant of [crlf, indented, noFinalNewline, `\n\n${K.PKCS8_PEM}\n\n`, concatenated]) {
@@ -99,9 +102,15 @@ describe('Key format errors', () => {
         expect(messageOf(() => parseStructuredKey(K.WRONG.ecPem))).toBe('this is an EC key, only Ed25519 is supported.');
         expect(messageOf(() => parseStructuredKey(K.WRONG.rsaPem))).toBe('this is an RSA key, only Ed25519 is supported.');
         expect(messageOf(() => parseStructuredKey(K.WRONG.rsaPublicPem))).toBe('this is an RSA key, only Ed25519 is supported.');
-        expect(messageOf(() => parseStructuredKey(K.WRONG.opensshRsaPublic))).toBe('this is a "ssh-rsa" key, only ssh-ed25519 is supported.');
-        expect(messageOf(() => parseStructuredKey(K.WRONG.opensshEcdsaPublic))).toBe('this is a "ecdsa-sha2-nistp256" key, only ssh-ed25519 is supported.');
-        expect(messageOf(() => parseStructuredKey(K.WRONG.opensshRsaPrivate))).toBe('this is a "ssh-rsa" key, only ssh-ed25519 is supported.');
+        expect(messageOf(() => parseStructuredKey(K.WRONG.opensshRsaPublic))).toBe(
+            'this is a "ssh-rsa" key, only ssh-ed25519 is supported.',
+        );
+        expect(messageOf(() => parseStructuredKey(K.WRONG.opensshEcdsaPublic))).toBe(
+            'this is a "ecdsa-sha2-nistp256" key, only ssh-ed25519 is supported.',
+        );
+        expect(messageOf(() => parseStructuredKey(K.WRONG.opensshRsaPrivate))).toBe(
+            'this is a "ssh-rsa" key, only ssh-ed25519 is supported.',
+        );
         expect(messageOf(() => parseStructuredKey('sk-ssh-ed25519@openssh.com AAAA'))).toContain('security-key');
     });
 
@@ -120,16 +129,22 @@ describe('Key format errors', () => {
         expect(messageOf(() => parseStructuredKey('{"kty": "OKP",'))).toBe('the JWK is not valid JSON.');
         expect(messageOf(() => parseStructuredKey('{}'))).toContain('no "kty"');
         expect(messageOf(() => parseStructuredKey('{"kty":"OKP","crv":"Ed25519"}'))).toContain('neither "x"');
-        expect(messageOf(() => parseStructuredKey('{"kty":"OKP","crv":"Ed25519","x":"AAAA"}'))).toBe('the JWK member "x" must be 32 bytes in base64url.');
+        expect(messageOf(() => parseStructuredKey('{"kty":"OKP","crv":"Ed25519","x":"AAAA"}'))).toBe(
+            'the JWK member "x" must be 32 bytes in base64url.',
+        );
         expect(messageOf(() => parseStructuredKey('{"kty":"OKP","crv":"Ed25519","x":42}'))).toContain('"x"');
         expect(messageOf(() => parseStructuredKey('{"kty":"OKP"}'))).toContain('curve');
     });
 
     it('explains broken PEM blocks', () => {
         expect(messageOf(() => parseStructuredKey('-----BEGIN PRIVATE KEY-----\nAAAA'))).toContain('incomplete');
-        expect(messageOf(() => parseStructuredKey('-----BEGIN PRIVATE KEY-----\n!!!!\n-----END PRIVATE KEY-----'))).toContain('not valid base64');
+        expect(messageOf(() => parseStructuredKey('-----BEGIN PRIVATE KEY-----\n!!!!\n-----END PRIVATE KEY-----'))).toContain(
+            'not valid base64',
+        );
         expect(messageOf(() => parseStructuredKey('-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----'))).toContain('malformed');
-        expect(messageOf(() => parseStructuredKey('-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----'))).toContain('certificate');
+        expect(messageOf(() => parseStructuredKey('-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----'))).toContain(
+            'certificate',
+        );
         expect(messageOf(() => parseStructuredKey('-----BEGIN SOMETHING-----\nAAAA\n-----END SOMETHING-----'))).toContain('"SOMETHING"');
         expect(messageOf(() => parseStructuredKey('ssh-ed25519 !!!'))).toContain('not valid base64');
     });
@@ -145,14 +160,24 @@ describe('Key format errors', () => {
         ];
         let attempts = 0;
         for (const [label, bytes] of samples) {
-            for (let length = 0; length < bytes.length; length++) {   // every truncation
-                try { parseStructuredKey(asPem(label, bytes.slice(0, length))); } catch (e) { expect(e).toBeInstanceOf(KeyFormatError); }
+            for (let length = 0; length < bytes.length; length++) {
+                // every truncation
+                try {
+                    parseStructuredKey(asPem(label, bytes.slice(0, length)));
+                } catch (e) {
+                    expect(e).toBeInstanceOf(KeyFormatError);
+                }
                 attempts++;
             }
-            for (let index = 0; index < bytes.length; index++) {      // every single byte corrupted
+            for (let index = 0; index < bytes.length; index++) {
+                // every single byte corrupted
                 const corrupted = bytes.slice();
                 corrupted[index] ^= 0xff;
-                try { parseStructuredKey(asPem(label, corrupted)); } catch (e) { expect(e).toBeInstanceOf(KeyFormatError); }
+                try {
+                    parseStructuredKey(asPem(label, corrupted));
+                } catch (e) {
+                    expect(e).toBeInstanceOf(KeyFormatError);
+                }
                 attempts++;
             }
         }
@@ -185,15 +210,13 @@ describe('Pasted keys used by the signature code', () => {
     });
 
     it('reports a rejected key on the field it was pasted in', () => {
-        const errors = new VerifyEd25519('', null, K.WRONG.rsaPublicPem, K.WRONG.encryptedPkcs8Pem)
-            .validate(['publicKey', 'privateKey']);
+        const errors = new VerifyEd25519('', null, K.WRONG.rsaPublicPem, K.WRONG.encryptedPkcs8Pem).validate(['publicKey', 'privateKey']);
         expect(errors.publicKey).toBe('Public key: this is an RSA key, only Ed25519 is supported.');
         expect(errors.privateKey).toMatch(/^Private key: the key is encrypted with a passphrase/);
     });
 
     it('tells a public key from a private key pasted in the wrong field', () => {
-        const wrongWayRound = new VerifyEd25519('', null, K.PKCS8_PEM, K.SPKI_PEM)
-            .validate(['publicKey', 'privateKey']);
+        const wrongWayRound = new VerifyEd25519('', null, K.PKCS8_PEM, K.SPKI_PEM).validate(['publicKey', 'privateKey']);
         expect(wrongWayRound.privateKey).toBe('Private key: this is a public key (PEM (SPKI)), the private key goes here.');
         expect(wrongWayRound.publicKey).toContain('this is a private key (PEM (PKCS#8)) that does not include its public part');
     });
@@ -203,14 +226,15 @@ describe('Pasted keys used by the signature code', () => {
         expect(errors.publicKey).toBe('Public key is not valid hex: it has an odd number of digits (3).');
         expect(errors.signature).toBe('Signature is not in a recognised format (hex, base64, base58, base32 or a list of bytes).');
         // a signature is never read as PEM / JWK
-        expect(new VerifyEd25519('', '{"kty":"OKP"}', null, null).validate(['signature']).signature)
-            .toBe('Signature is not in a recognised format (hex, base64, base58, base32 or a list of bytes).');
+        expect(new VerifyEd25519('', '{"kty":"OKP"}', null, null).validate(['signature']).signature).toBe(
+            'Signature is not in a recognised format (hex, base64, base58, base32 or a list of bytes).',
+        );
     });
 
     it('rejects with an InputError on the right field when a rejected key is used', async () => {
-        await expect(new VerifyEd25519('x', null, null, K.WRONG.rsaPem).sign(SignEncoding.Hex))
-            .rejects.toMatchObject({ field: 'privateKey' });
-        await expect(new VerifyEd25519('x', SIGNATURE_HEX, K.WRONG.jwkRsa, null).verdict())
-            .rejects.toBeInstanceOf(InputError);
+        await expect(new VerifyEd25519('x', null, null, K.WRONG.rsaPem).sign(SignEncoding.Hex)).rejects.toMatchObject({
+            field: 'privateKey',
+        });
+        await expect(new VerifyEd25519('x', SIGNATURE_HEX, K.WRONG.jwkRsa, null).verdict()).rejects.toBeInstanceOf(InputError);
     });
 });

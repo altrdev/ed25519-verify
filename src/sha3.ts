@@ -40,7 +40,8 @@ function keccakF(state: bigint[]): void {
             for (let y = 0; y < 5; y++) moved[y + 5 * ((2 * x + 3 * y) % 5)] = rotl(state[x + 5 * y], ROTATIONS[x + 5 * y]);
         }
         for (let x = 0; x < 5; x++) {
-            for (let y = 0; y < 5; y++) state[x + 5 * y] = moved[x + 5 * y] ^ (~moved[((x + 1) % 5) + 5 * y] & moved[((x + 2) % 5) + 5 * y] & MASK);
+            for (let y = 0; y < 5; y++)
+                state[x + 5 * y] = moved[x + 5 * y] ^ (~moved[((x + 1) % 5) + 5 * y] & moved[((x + 2) % 5) + 5 * y] & MASK);
         }
         state[0] ^= constant;
     }

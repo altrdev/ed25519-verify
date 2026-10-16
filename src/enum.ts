@@ -12,7 +12,7 @@ export type SignEncoding = (typeof SignEncoding)[keyof typeof SignEncoding];
 export enum MessageFormat {
     Text = 'text',
     Hex = 'hex',
-    Base64 = 'base64'
+    Base64 = 'base64',
 }
 
 /** Key files: a container that carries the key and says what it is (see keyfiles.ts). Only for the public and private key. */

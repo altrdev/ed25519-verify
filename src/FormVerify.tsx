@@ -7,7 +7,15 @@ import { encodePublicKey, isKeyFile } from './keyfiles';
 import MessageFormatSelector from './MessageFormatSelector';
 import { MessageFormat, type FieldFormat, type RawFormat } from './enum';
 import { shareFragment } from './share';
-import VerifyEd25519, { encodeBytes, inspectField, type Field as FieldName, type FieldErrors, type FieldReading, type FormatOverrides, type Verdict } from './signature';
+import VerifyEd25519, {
+    encodeBytes,
+    inspectField,
+    type Field as FieldName,
+    type FieldErrors,
+    type FieldReading,
+    type FormatOverrides,
+    type Verdict,
+} from './signature';
 
 interface Props {
     message?: string;
@@ -91,7 +99,8 @@ export default function FormVerify(props: Props) {
         if (props.autoVerify && publicKey && signature) performVerify();
     }, []);
 
-    const link = () => `${location.origin}${location.pathname}${location.search}${shareFragment({ publicKey, message, messageFormat, signature })}`;
+    const link = () =>
+        `${location.origin}${location.pathname}${location.search}${shareFragment({ publicKey, message, messageFormat, signature })}`;
     const shareable = shareFragment({ publicKey, message, messageFormat, signature }) !== '';
 
     const choose = (field: 'publicKey' | 'signature') => (format: RawFormat) => {
@@ -136,7 +145,9 @@ export default function FormVerify(props: Props) {
                 onInput={edit(setSignature, 'signature')}
             />
             <div class="actions">
-                <button type="button" class="primary" onClick={() => performVerify()}>Verify</button>
+                <button type="button" class="primary" onClick={() => performVerify()}>
+                    Verify
+                </button>
                 <CopyButton text={shareable ? link() : ''} label="Copy a link to this verification" caption="Copy link" />
             </div>
 
@@ -144,8 +155,8 @@ export default function FormVerify(props: Props) {
             {verify === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
             {verify === 'permissive-only' && (
                 <Banner kind="warning">
-                    Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215,
-                    the more permissive rules used by some systems (e.g. Zcash).
+                    Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive rules
+                    used by some systems (e.g. Zcash).
                 </Banner>
             )}
         </section>

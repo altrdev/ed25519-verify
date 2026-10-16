@@ -52,7 +52,7 @@ const MULTICODEC = [0xed, 0x01];
 const encodeDidKey = (publicKey: Uint8Array) => `did:key:z${CODECS.base58.encode(concat(MULTICODEC, publicKey))}`;
 
 function decodeDidKey(text: string): EcosystemKey {
-    const encoded = text.slice('did:key:'.length).split(/[#?]/)[0];      // a verification method (…#z6Mk…) names the same key
+    const encoded = text.slice('did:key:'.length).split(/[#?]/)[0]; // a verification method (…#z6Mk…) names the same key
     if (!encoded.startsWith('z')) throw new EcosystemError('a did:key is written in base58 (it starts with "z").');
     const bytes = CODECS.base58.decode(encoded.slice(1));
     if (!bytes) throw new EcosystemError('the did:key is not valid base58.');
@@ -83,9 +83,10 @@ function strkey(version: number, payload: Uint8Array): string {
 
 function decodeStellar(text: string): EcosystemKey {
     const bytes = CODECS.base32.decode(text);
-    if (!bytes || bytes.length !== 35) throw new EcosystemError('the Stellar key is not valid.');
+    if (bytes?.length !== 35) throw new EcosystemError('the Stellar key is not valid.');
     const crc = crc16(bytes.slice(0, 33));
-    if ((crc & 255) !== bytes[33] || crc >> 8 !== bytes[34]) throw new EcosystemError('the Stellar key has a wrong checksum (is a character mistyped?).');
+    if ((crc & 255) !== bytes[33] || crc >> 8 !== bytes[34])
+        throw new EcosystemError('the Stellar key has a wrong checksum (is a character mistyped?).');
     if (bytes[0] === STELLAR_VERSION.public) return { format: 'stellar', publicKey: bytes.slice(1, 33) };
     if (bytes[0] === STELLAR_VERSION.private) return { format: 'stellar', privateKey: bytes.slice(1, 33) };
     throw new EcosystemError('this Stellar key is not an account key (G…) or a secret seed (S…).');
@@ -98,15 +99,22 @@ const ONION_VERSION = 3;
 const ONION_PREFIX = new TextEncoder().encode('.onion checksum');
 const onionChecksum = (publicKey: Uint8Array) => sha3_256(concat(Array.from(ONION_PREFIX), publicKey, [ONION_VERSION])).slice(0, 2);
 
-const encodeOnion = (publicKey: Uint8Array) => `${encodeBase32(concat(publicKey, onionChecksum(publicKey), [ONION_VERSION])).toLowerCase()}.onion`;
+const encodeOnion = (publicKey: Uint8Array) =>
+    `${encodeBase32(concat(publicKey, onionChecksum(publicKey), [ONION_VERSION])).toLowerCase()}.onion`;
 
 function decodeOnion(text: string): EcosystemKey {
-    const host = text.replace(/^[a-z]+:\/\//i, '').replace(/[/:].*$/, '').replace(/\.onion$/i, '').split('.').pop()!;   // sub.domain.<address>.onion
+    const host = text
+        .replace(/^[a-z]+:\/\//i, '')
+        .replace(/[/:].*$/, '')
+        .replace(/\.onion$/i, '')
+        .split('.')
+        .pop()!; // sub.domain.<address>.onion
     const bytes = CODECS.base32.decode(host);
-    if (!bytes || bytes.length !== 35) throw new EcosystemError('a v3 onion address has 56 characters (older v2 addresses are not Ed25519 keys).');
+    if (bytes?.length !== 35) throw new EcosystemError('a v3 onion address has 56 characters (older v2 addresses are not Ed25519 keys).');
     if (bytes[34] !== ONION_VERSION) throw new EcosystemError('this is not a v3 onion address.');
     const publicKey = bytes.slice(0, 32);
-    if (!same(onionChecksum(publicKey), bytes.slice(32, 34))) throw new EcosystemError('the onion address has a wrong checksum (is a character mistyped?).');
+    if (!same(onionChecksum(publicKey), bytes.slice(32, 34)))
+        throw new EcosystemError('the onion address has a wrong checksum (is a character mistyped?).');
     return { format: 'onion', publicKey };
 }
 
@@ -142,11 +150,16 @@ export function detectEcosystem(text: string): EcosystemFormat | null {
 export function parseEcosystemKey(text: string): EcosystemKey {
     const t = text.trim();
     switch (detectEcosystem(t)) {
-        case 'didkey': return decodeDidKey(t);
-        case 'near': return decodeNear(t);
-        case 'stellar': return decodeStellar(t);
-        case 'onion': return decodeOnion(t);
-        default: throw new EcosystemError('not a key of these formats.');
+        case 'didkey':
+            return decodeDidKey(t);
+        case 'near':
+            return decodeNear(t);
+        case 'stellar':
+            return decodeStellar(t);
+        case 'onion':
+            return decodeOnion(t);
+        default:
+            throw new EcosystemError('not a key of these formats.');
     }
 }
 
@@ -154,19 +167,28 @@ export function parseEcosystemKey(text: string): EcosystemKey {
 
 export function encodeEcosystemPublic(publicKey: Uint8Array, format: EcosystemFormat): string {
     switch (format) {
-        case 'didkey': return encodeDidKey(publicKey);
-        case 'stellar': return strkey(STELLAR_VERSION.public, publicKey);
-        case 'onion': return encodeOnion(publicKey);
-        case 'near': return encodeNearPublic(publicKey);
-        default: throw new EcosystemError(`${ECOSYSTEM_LABELS[format]} has no public key format.`);
+        case 'didkey':
+            return encodeDidKey(publicKey);
+        case 'stellar':
+            return strkey(STELLAR_VERSION.public, publicKey);
+        case 'onion':
+            return encodeOnion(publicKey);
+        case 'near':
+            return encodeNearPublic(publicKey);
+        default:
+            throw new EcosystemError(`${ECOSYSTEM_LABELS[format]} has no public key format.`);
     }
 }
 
 export function encodeEcosystemPrivate(seed: Uint8Array, publicKey: Uint8Array, format: EcosystemFormat): string {
     switch (format) {
-        case 'stellar': return strkey(STELLAR_VERSION.private, seed);
-        case 'near': return encodeNearPrivate(seed, publicKey);
-        case 'solana': return CODECS.bytes.encode(concat(seed, publicKey));
-        default: throw new EcosystemError(`${ECOSYSTEM_LABELS[format]} has no private key format.`);
+        case 'stellar':
+            return strkey(STELLAR_VERSION.private, seed);
+        case 'near':
+            return encodeNearPrivate(seed, publicKey);
+        case 'solana':
+            return CODECS.bytes.encode(concat(seed, publicKey));
+        default:
+            throw new EcosystemError(`${ECOSYSTEM_LABELS[format]} has no private key format.`);
     }
 }

@@ -52,10 +52,14 @@ export function detectKeyFormat(text: string): string | null {
     const pem = /^-----BEGIN ([A-Z0-9 ]+)-----/.exec(t);
     if (!pem) return null;
     switch (pem[1]) {
-        case 'PRIVATE KEY': return 'PEM (PKCS#8)';
-        case 'PUBLIC KEY': return 'PEM (SPKI)';
-        case 'OPENSSH PRIVATE KEY': return 'OpenSSH private key';
-        default: return 'PEM';
+        case 'PRIVATE KEY':
+            return 'PEM (PKCS#8)';
+        case 'PUBLIC KEY':
+            return 'PEM (SPKI)';
+        case 'OPENSSH PRIVATE KEY':
+            return 'OpenSSH private key';
+        default:
+            return 'PEM';
     }
 }
 
@@ -96,12 +100,18 @@ function parsePem(text: string): ParsedKey {
     if (!der) throw new KeyFormatError('the PEM block is not valid base64.');
 
     switch (label) {
-        case 'PRIVATE KEY': return parsePkcs8(der);
-        case 'PUBLIC KEY': return parseSpki(der);
-        case 'OPENSSH PRIVATE KEY': return parseOpenSshPrivate(der);
+        case 'PRIVATE KEY':
+            return parsePkcs8(der);
+        case 'PUBLIC KEY':
+            return parseSpki(der);
+        case 'OPENSSH PRIVATE KEY':
+            return parseOpenSshPrivate(der);
         case 'ENCRYPTED PRIVATE KEY':
-            throw new KeyFormatError('the key is encrypted with a passphrase, which is not supported: decrypt it first (openssl pkey -in key.pem -out plain.pem).');
-        case 'RSA PRIVATE KEY': case 'RSA PUBLIC KEY':
+            throw new KeyFormatError(
+                'the key is encrypted with a passphrase, which is not supported: decrypt it first (openssl pkey -in key.pem -out plain.pem).',
+            );
+        case 'RSA PRIVATE KEY':
+        case 'RSA PUBLIC KEY':
             throw new KeyFormatError('this is an RSA key, only Ed25519 is supported.');
         case 'EC PRIVATE KEY':
             throw new KeyFormatError('this is an EC key, only Ed25519 is supported.');
@@ -112,7 +122,11 @@ function parsePem(text: string): ParsedKey {
     }
 }
 
-interface Tlv { tag: number; start: number; end: number }
+interface Tlv {
+    tag: number;
+    start: number;
+    end: number;
+}
 
 /** Reads one DER element (tag, length) at `offset`. `start`..`end` is the content. */
 function readTlv(buf: Uint8Array, offset: number): Tlv {
@@ -133,7 +147,7 @@ function readTlv(buf: Uint8Array, offset: number): Tlv {
 
 function children(buf: Uint8Array, parent: Tlv): Tlv[] {
     const found: Tlv[] = [];
-    for (let pos = parent.start; pos < parent.end;) {
+    for (let pos = parent.start; pos < parent.end; ) {
         const child = readTlv(buf, pos);
         if (child.end > parent.end) throw malformed();
         found.push(child);
@@ -155,7 +169,7 @@ const OTHER_ALGORITHMS: [number[], string][] = [
 /** The AlgorithmIdentifier must be Ed25519: say which key it is when it is not. */
 function checkAlgorithm(buf: Uint8Array, algorithm: Tlv) {
     const [oid] = children(buf, algorithm);
-    if (!oid || oid.tag !== 0x06) throw malformed();
+    if (oid?.tag !== 0x06) throw malformed();
     const bytes = buf.subarray(oid.start, oid.end);
     if (sameBytes(bytes, OID_ED25519)) return;
     const known = OTHER_ALGORITHMS.find(([id]) => sameBytes(bytes, id));
@@ -167,7 +181,7 @@ function parsePkcs8(der: Uint8Array): ParsedKey {
     const top = readTlv(der, 0);
     if (top.tag !== 0x30) throw malformed();
     const [version, algorithm, octets, ...rest] = children(der, top);
-    if (!version || version.tag !== 0x02 || !algorithm || algorithm.tag !== 0x30 || !octets || octets.tag !== 0x04) throw malformed();
+    if (version?.tag !== 0x02 || !algorithm || algorithm.tag !== 0x30 || !octets || octets.tag !== 0x04) throw malformed();
     checkAlgorithm(der, algorithm);
 
     const inner = readTlv(der, octets.start);
@@ -187,7 +201,7 @@ function parseSpki(der: Uint8Array): ParsedKey {
     const top = readTlv(der, 0);
     if (top.tag !== 0x30) throw malformed();
     const [algorithm, bits] = children(der, top);
-    if (!algorithm || algorithm.tag !== 0x30 || !bits || bits.tag !== 0x03) throw malformed();
+    if (algorithm?.tag !== 0x30 || !bits || bits.tag !== 0x03) throw malformed();
     checkAlgorithm(der, algorithm);
     if (bits.end - bits.start !== 33 || der[bits.start] !== 0) throw malformed();
     return { format: 'PEM (SPKI)', publicKey: der.slice(bits.start + 1, bits.end) };
@@ -199,7 +213,10 @@ function parseSpki(der: Uint8Array): ParsedKey {
 class SshReader {
     private pos: number;
 
-    constructor(private readonly buf: Uint8Array, pos = 0) {
+    constructor(
+        private readonly buf: Uint8Array,
+        pos = 0,
+    ) {
         this.pos = pos;
     }
 
@@ -252,13 +269,16 @@ function parseOpenSshPrivate(der: Uint8Array): ParsedKey {
     reader.string(); // kdf options
     const count = reader.u32();
     if (cipher !== 'none') {
-        throw new KeyFormatError('the key is encrypted with a passphrase, which is not supported: remove it first (ssh-keygen -p -f <key>).');
+        throw new KeyFormatError(
+            'the key is encrypted with a passphrase, which is not supported: remove it first (ssh-keygen -p -f <key>).',
+        );
     }
     if (count !== 1) throw new KeyFormatError(`the file contains ${count} keys, only one is supported.`);
     reader.string(); // public key blob (repeated in the private section)
 
     const section = new SshReader(reader.string());
-    if (section.u32() !== section.u32()) throw malformed(); // the two "check" integers must match
+    const check = section.u32();
+    if (check !== section.u32()) throw malformed(); // the two "check" integers must match
     const type = textOf(section.string());
     if (type !== 'ssh-ed25519') throw notEd25519(type);
     const publicKey = section.string();
@@ -293,7 +313,7 @@ function parseJwk(text: string): ParsedKey {
         const value = jwk[name];
         if (value === undefined) return undefined;
         const bytes = typeof value === 'string' ? parseBase64(value) : null;
-        if (!bytes || bytes.length !== 32) throw new KeyFormatError(`the JWK member "${name}" must be 32 bytes in base64url.`);
+        if (bytes?.length !== 32) throw new KeyFormatError(`the JWK member "${name}" must be 32 bytes in base64url.`);
         return bytes;
     };
     const publicKey = member('x');

@@ -1,7 +1,6 @@
 /** Hex and base64 helpers shared by the signature code and the key format parsers. */
 
-export const bytesToHex = (bytes: Uint8Array): string =>
-    Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+export const bytesToHex = (bytes: Uint8Array): string => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
 export const hexToBytes = (hex: string): Uint8Array => {
     const bytes = new Uint8Array(hex.length / 2);

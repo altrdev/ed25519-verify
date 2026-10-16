@@ -9,15 +9,21 @@ describe('Format preferences', () => {
 
     it('start as base64 for every result', async () => {
         const { formatPreference } = await load();
-        expect([formatPreference.publicKey.value, formatPreference.privateKey.value, formatPreference.signature.value])
-            .toEqual(['base64', 'base64', 'base64']);
+        expect([formatPreference.publicKey.value, formatPreference.privateKey.value, formatPreference.signature.value]).toEqual([
+            'base64',
+            'base64',
+            'base64',
+        ]);
     });
 
     it('carry over the single choice of earlier versions', async () => {
         localStorage.setItem('encoding', 'hex');
         const { formatPreference } = await load();
-        expect([formatPreference.publicKey.value, formatPreference.privateKey.value, formatPreference.signature.value])
-            .toEqual(['hex', 'hex', 'hex']);
+        expect([formatPreference.publicKey.value, formatPreference.privateKey.value, formatPreference.signature.value]).toEqual([
+            'hex',
+            'hex',
+            'hex',
+        ]);
     });
 
     it('are saved for each result, and restored', async () => {
@@ -35,8 +41,11 @@ describe('Format preferences', () => {
     it('ignore a saved value that is not a format, or not even JSON', async () => {
         localStorage.setItem('formats', JSON.stringify({ publicKey: 'rot13', privateKey: 42, signature: 'hex' }));
         let { formatPreference } = await load();
-        expect([formatPreference.publicKey.value, formatPreference.privateKey.value, formatPreference.signature.value])
-            .toEqual(['base64', 'base64', 'hex']);
+        expect([formatPreference.publicKey.value, formatPreference.privateKey.value, formatPreference.signature.value]).toEqual([
+            'base64',
+            'base64',
+            'hex',
+        ]);
 
         localStorage.setItem('formats', '{not json');
         ({ formatPreference } = await load());

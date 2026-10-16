@@ -48,7 +48,9 @@ describe('ecosystem formats', () => {
         const w3c = parseEcosystemKey('did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK').publicKey!;
         expect(encodeEcosystemPublic(w3c, 'didkey')).toBe('did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK');
         const stellarSeed = parseEcosystemKey('SAV76USXIJOBMEQXPANUOQM6F5LIOTLPDIDVRJBFFE2MDJXG24TAPUU7').privateKey!;
-        expect(encodeEcosystemPublic(await ed.getPublicKeyAsync(stellarSeed), 'stellar')).toBe('GCFXHS4GXL6BVUCXBWXGTITROWLVYXQKQLF4YH5O5JT3YZXCYPAFBJZB');
+        expect(encodeEcosystemPublic(await ed.getPublicKeyAsync(stellarSeed), 'stellar')).toBe(
+            'GCFXHS4GXL6BVUCXBWXGTITROWLVYXQKQLF4YH5O5JT3YZXCYPAFBJZB',
+        );
     });
 
     it('accept the usual ways of writing them', () => {
@@ -60,7 +62,8 @@ describe('ecosystem formats', () => {
     });
 
     it('refuse a mistyped or foreign key with the reason', () => {
-        const change = (text: string, at: number) => text.slice(0, at) + (text[at] === 'A' || text[at] === 'a' ? 'B' : text[at] === 'b' ? 'c' : 'A') + text.slice(at + 1);
+        const change = (text: string, at: number) =>
+            text.slice(0, at) + (text[at] === 'A' || text[at] === 'a' ? 'B' : text[at] === 'b' ? 'c' : 'A') + text.slice(at + 1);
         expect(() => parseEcosystemKey(change(STELLAR_PUBLIC, 20))).toThrow(/checksum/);
         expect(() => parseEcosystemKey(change(ONION, 20))).toThrow(EcosystemError);
         expect(() => parseEcosystemKey('did:key:zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme')).toThrow(/not an Ed25519/);
@@ -89,7 +92,12 @@ describe('ecosystem formats in the forms', () => {
 
     it('convert a public key', () => {
         render(<FormVerify publicKey={PUBLIC_HEX} />);
-        for (const [format, text] of [['didkey', DID], ['stellar', STELLAR_PUBLIC], ['onion', ONION], ['near', NEAR_PUBLIC]] as const) {
+        for (const [format, text] of [
+            ['didkey', DID],
+            ['stellar', STELLAR_PUBLIC],
+            ['onion', ONION],
+            ['near', NEAR_PUBLIC],
+        ] as const) {
             pickFormat('Public key format', format);
             expect(value('Public key')).toBe(text);
             expect(formatButton('Public key format')).toHaveAccessibleName(/^Public key format: /);
@@ -100,7 +108,11 @@ describe('ecosystem formats in the forms', () => {
 
     it('convert a private key, and read a Solana keypair file back as such', async () => {
         render(<FormSign privateKey={SEED_HEX} />);
-        for (const [format, text] of [['stellar', STELLAR_SECRET], ['near', NEAR_SECRET], ['solana', `[${[...seed, ...pub].join(', ')}]`]] as const) {
+        for (const [format, text] of [
+            ['stellar', STELLAR_SECRET],
+            ['near', NEAR_SECRET],
+            ['solana', `[${[...seed, ...pub].join(', ')}]`],
+        ] as const) {
             pickFormat('Private key format', format);
             await waitFor(() => expect(value('Private key')).toBe(text));
         }
