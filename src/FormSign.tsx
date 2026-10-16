@@ -3,100 +3,98 @@ import Banner from './Banner';
 import CopyButton from './CopyButton';
 import Field from './Field';
 import { Icon } from './icons';
-import MessageFormatSelector from './MessageFormatSelector';
 import { keyFormatHint } from './keyformats';
+import MessageFormatSelector from './MessageFormatSelector';
 import SelectorEncoding from './SelectorEncoding';
-import VerifyEd25519, { generateKeyPair, InputError, type FieldErrors } from './signature';
-import { encodingDefault } from './store';
-import { MessageFormat, type SignEncoding } from './enum';
+import VerifyEd25519, { encodeBytes, generateKeyPair, InputError, type FieldErrors } from './signature';
+import { outputEncoding } from './store';
+import { MessageFormat } from './enum';
 
 interface Props {
     message?: string;
     privateKey?: string;
-    signature?: string;
 }
 
 export default function FormSign(props: Props) {
     const [message, setMessage] = useState(props.message ?? '');
     const [privateKey, setPrivateKey] = useState(props.privateKey ?? '');
-    const [signature, setSignature] = useState(props.signature ?? '');
-    const [publicKey, setPublicKey] = useState('');
     const [messageFormat, setMessageFormat] = useState(MessageFormat.Text);
     const [revealed, setRevealed] = useState(false);
     const [errors, setErrors] = useState<FieldErrors>({});
-    const encoding = encodingDefault.value;
+
+    // results are kept as bytes and written in the chosen encoding when shown, so changing it does not lose anything
+    const [signatureBytes, setSignatureBytes] = useState<Uint8Array | null>(null);
+    const [publicKeyBytes, setPublicKeyBytes] = useState<Uint8Array | null>(null);
+    const encoding = outputEncoding.value;
+    const signature = signatureBytes ? encodeBytes(signatureBytes, encoding) : '';
+    const publicKey = publicKeyBytes ? encodeBytes(publicKeyBytes, encoding) : '';
 
     // keystrokes can outpace the async derivation: only the latest one may update the field
     const derivation = useRef(0);
-    const derive = async (key: string, enc: SignEncoding) => {
+    const derive = async (key: string) => {
         const current = ++derivation.current;
-        let derived = '';
+        let derived: Uint8Array | null = null;
         if (key.trim()) {
             try {
-                derived = await new VerifyEd25519('', null, null, key).getPublicKey(enc);
+                derived = await new VerifyEd25519('', null, null, key).getPublicKeyBytes();
             } catch {
                 // incomplete or malformed key: nothing to show (the error appears on blur / on Sign)
             }
         }
-        if (current === derivation.current) setPublicKey(derived);
+        if (current === derivation.current) setPublicKeyBytes(derived);
     };
 
-    // also covers the first render (initial key) and an encoding switch
+    // the key given as a property, if any
     useEffect(() => {
-        derive(privateKey, encoding);
-    }, [encoding]);
-
-    const reset = () => {
-        setSignature('');
-        setErrors({});
-    };
+        derive(privateKey);
+    }, []);
 
     const onPrivateKeyInput = (value: string) => {
         setPrivateKey(value);
-        setSignature('');
+        setSignatureBytes(null);
         setErrors((current) => ({ ...current, privateKey: undefined }));
-        derive(value, encodingDefault.value);
+        derive(value);
     };
 
     const onPrivateKeyBlur = (value: string) => {
         if (!value.trim()) return;
-        const found = new VerifyEd25519(message, null, null, value).validate(encodingDefault.value, ['privateKey']);
+        const found = new VerifyEd25519(message, null, null, value).validate(['privateKey']);
         setErrors((current) => ({ ...current, ...found }));
     };
 
     const onMessageInput = (value: string) => {
         setMessage(value);
-        setSignature('');
+        setSignatureBytes(null);
         setErrors((current) => ({ ...current, message: undefined }));
     };
 
     const changeMessageFormat = (format: MessageFormat) => {
         setMessageFormat(format);
-        setSignature('');
+        setSignatureBytes(null);
         setErrors((current) => ({ ...current, message: undefined }));
     };
 
     const generate = async () => {
-        const pair = await generateKeyPair(encodingDefault.value);
-        derivation.current++;
+        const pair = await generateKeyPair(outputEncoding.value);
         setPrivateKey(pair.privateKey);
-        setPublicKey(pair.publicKey);
+        derive(pair.privateKey);
         setRevealed(true);
-        reset();
+        setSignatureBytes(null);
+        setErrors({});
     };
 
     const performSign = async () => {
         const ed25519 = new VerifyEd25519(message, null, null, privateKey, messageFormat);
-        const found = ed25519.validate(encodingDefault.value, ['privateKey', 'message']);
+        const found = ed25519.validate(['privateKey', 'message']);
         setErrors(found);
         if (Object.keys(found).length > 0) {
-            setSignature('');
+            setSignatureBytes(null);
             return;
         }
         try {
-            setSignature(await ed25519.sign(encodingDefault.value));
+            setSignatureBytes(await ed25519.signBytes());
         } catch (error) {
-            setSignature('');
+            setSignatureBytes(null);
             setErrors(
                 error instanceof InputError ? { [error.field]: error.message } : { privateKey: 'Signing failed.' }
             );
@@ -105,7 +103,7 @@ export default function FormSign(props: Props) {
 
     return (
         <section class="card">
-            <SelectorEncoding reset={reset} />
+            <SelectorEncoding />
             <Field
                 label="Private key"
                 rows={2}

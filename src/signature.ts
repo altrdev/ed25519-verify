@@ -43,15 +43,11 @@ const EXPECTED: Record<Exclude<Field, 'message'>, string> = {
     privateKey: '32 bytes (or 64 in NaCl format)',
 };
 
-const parse = (value: string, encoding: SignEncoding) =>
-    encoding === SignEncoding.Hex ? parseHex(value) : parseBase64(value);
-
-const encode = (bytes: Uint8Array, encoding: SignEncoding): string =>
+/** How a result is written: the only place where the Hex / Base64 choice still matters. */
+export const encodeBytes = (bytes: Uint8Array, encoding: SignEncoding): string =>
     encoding === SignEncoding.Hex ? bytesToHex(bytes) : bytesToBase64(bytes);
 
-const encodingName = (encoding: SignEncoding) => (encoding === SignEncoding.Hex ? 'hex' : 'base64');
-
-/** A key pasted as PEM, OpenSSH or JWK: whichever encoding is selected, it carries its own format. */
+/** A key pasted as PEM, OpenSSH or JWK carries its own format. */
 function decodeStructuredKey(field: 'publicKey' | 'privateKey', text: string): Uint8Array {
     const label = LABELS[field];
     let key;
@@ -71,27 +67,33 @@ function decodeStructuredKey(field: 'publicKey' | 'privateKey', text: string): U
     return key.publicKey;
 }
 
-/** Decodes a key or signature, throwing an InputError that says what is wrong with it. */
-function decodeField(field: Exclude<Field, 'message'>, raw: string | null | undefined, encoding: SignEncoding): Uint8Array {
+/**
+ * Decodes a key or signature written in hex or in base64, throwing an InputError that says what is wrong with it.
+ *
+ * The encoding is not asked for, the text tells. A valid size in hex is 64 or 128 characters, in base64 43, 44, 86 or 88,
+ * so a text cannot be valid under both readings. A text made of hex digits only is read as hex, even when it would also
+ * decode as base64 of another size: that is a truncated hex key (a real base64 key is never made of hex digits only), and
+ * it deserves "expected 32 bytes, got 21" rather than being taken for a different key.
+ */
+function decodeField(field: Exclude<Field, 'message'>, raw: string | null | undefined): Uint8Array {
     const label = LABELS[field];
     if (!(raw ?? '').trim()) throw new InputError(field, `${label} is required.`);
     if (field !== 'signature' && isStructuredKey(raw!)) return decodeStructuredKey(field, raw!);
 
     // tolerate line breaks and spaces coming from a paste
-    const value = (raw ?? '').replace(/\s+/g, '');
+    const value = raw!.replace(/\s+/g, '');
+    const expected = `${label}: expected ${EXPECTED[field]}`;
 
-    const bytes = parse(value, encoding);
-    if (!bytes) throw new InputError(field, `${label} is not valid ${encodingName(encoding)}.`);
-
-    if (!LENGTHS[field].includes(bytes.length)) {
-        // the most common mistake: right data, wrong encoding selected
-        const otherEncoding = encoding === SignEncoding.Hex ? SignEncoding.Base64 : SignEncoding.Hex;
-        const other = parse(value, otherEncoding);
-        const hint = other && LENGTHS[field].includes(other.length)
-            ? ` It looks like ${encodingName(otherEncoding)}: switch the encoding.`
-            : '';
-        throw new InputError(field, `${label}: expected ${EXPECTED[field]}, got ${bytes.length}.${hint}`);
+    if (/^[0-9a-f]+$/i.test(value)) {
+        const bytes = parseHex(value);
+        if (!bytes) throw new InputError(field, `${label} is not valid hex: it has an odd number of digits (${value.length}).`);
+        if (!LENGTHS[field].includes(bytes.length)) throw new InputError(field, `${expected}, got ${bytes.length} (read as hex).`);
+        return bytes;
     }
+
+    const bytes = parseBase64(value);
+    if (!bytes) throw new InputError(field, `${label} is not valid hex or base64.`);
+    if (!LENGTHS[field].includes(bytes.length)) throw new InputError(field, `${expected}, got ${bytes.length} (read as base64).`);
     return bytes;
 }
 
@@ -114,7 +116,7 @@ const seedOf = (key: Uint8Array): Uint8Array => key.slice(0, 32);
 
 export async function generateKeyPair(encoding: SignEncoding): Promise<{ privateKey: string; publicKey: string }> {
     const { secretKey, publicKey } = await ed.keygenAsync();
-    return { privateKey: encode(secretKey, encoding), publicKey: encode(publicKey, encoding) };
+    return { privateKey: encodeBytes(secretKey, encoding), publicKey: encodeBytes(publicKey, encoding) };
 }
 
 class VerifyEd25519 {
@@ -139,12 +141,12 @@ class VerifyEd25519 {
     }
 
     /** Checks the given fields and returns a message for each one that is malformed. */
-    validate(encoding: SignEncoding, fields: Field[]): FieldErrors {
+    validate(fields: Field[]): FieldErrors {
         const errors: FieldErrors = {};
         for (const field of fields) {
             try {
                 if (field === 'message') decodeMessage(this.message, this.messageFormat);
-                else decodeField(field, this[field], encoding);
+                else decodeField(field, this[field]);
             } catch (error) {
                 if (!(error instanceof InputError)) throw error;
                 errors[field] = error.message;
@@ -154,17 +156,17 @@ class VerifyEd25519 {
     }
 
     /** Resolves to false for a wrong signature; rejects with an InputError for malformed input. */
-    async check(encoding: SignEncoding): Promise<boolean> {
-        return (await this.verdict(encoding)) === 'valid';
+    async check(): Promise<boolean> {
+        return (await this.verdict()) === 'valid';
     }
 
     /**
      * Like check(), but tells apart a signature that is only accepted by the permissive ZIP215 rules.
      * Only the strict RFC 8032 / FIPS 186-5 rules make a signature 'valid' (noble defaults to ZIP215).
      */
-    async verdict(encoding: SignEncoding): Promise<Verdict> {
-        const signature = decodeField('signature', this.signature, encoding);
-        const publicKey = decodeField('publicKey', this.publicKey, encoding);
+    async verdict(): Promise<Verdict> {
+        const signature = decodeField('signature', this.signature);
+        const publicKey = decodeField('publicKey', this.publicKey);
         const message = decodeMessage(this.message, this.messageFormat);
 
         const verifies = async (zip215: boolean) => {
@@ -180,15 +182,24 @@ class VerifyEd25519 {
         return (await verifies(true)) ? 'permissive-only' : 'invalid';
     }
 
-    async sign(encoding: SignEncoding): Promise<string> {
-        const seed = seedOf(decodeField('privateKey', this.privateKey, encoding));
+    /** The signature as raw bytes; sign() writes it in the encoding of your choice. */
+    async signBytes(): Promise<Uint8Array> {
+        const seed = seedOf(decodeField('privateKey', this.privateKey));
         const message = decodeMessage(this.message, this.messageFormat);
-        return encode(await ed.signAsync(message, seed), encoding);
+        return ed.signAsync(message, seed);
+    }
+
+    async sign(encoding: SignEncoding): Promise<string> {
+        return encodeBytes(await this.signBytes(), encoding);
+    }
+
+    /** The public key of the private key, as raw bytes. */
+    async getPublicKeyBytes(): Promise<Uint8Array> {
+        return ed.getPublicKeyAsync(seedOf(decodeField('privateKey', this.privateKey)));
     }
 
     async getPublicKey(encoding: SignEncoding): Promise<string> {
-        const seed = seedOf(decodeField('privateKey', this.privateKey, encoding));
-        return encode(await ed.getPublicKeyAsync(seed), encoding);
+        return encodeBytes(await this.getPublicKeyBytes(), encoding);
     }
 }
 

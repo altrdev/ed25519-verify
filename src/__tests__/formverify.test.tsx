@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, within } from '@testing-library/preact';
-import { encodingDefault } from '../store';
+import { outputEncoding } from '../store';
 import { SignEncoding } from '../enum';
 import FormVerify from '../FormVerify';
 
@@ -11,7 +11,7 @@ const publicKey = "u6xMxXSXi/dL9tWPS+qfxiOHMA6c2Czwh/k2hy/wx/U=";
 
 describe('FormVerify component', () => {
     beforeEach(() => {
-        encodingDefault.value = SignEncoding.Base64;
+        outputEncoding.value = SignEncoding.Base64;
     });
 
     it('should render', () => {
@@ -31,7 +31,7 @@ describe('FormVerify component', () => {
     it('should report a malformed field and clear the message when it is edited', async () => {
         render(<FormVerify publicKey="shor" signature={signature} message="000000102" />);
         fireEvent.click(screen.getByText('Verify'));
-        expect(await screen.findByText(/Public key: expected 32 bytes, got 3\./)).toBeInTheDocument();
+        expect(await screen.findByText('Public key: expected 32 bytes, got 3 (read as base64).')).toBeInTheDocument();
         expect(screen.getByLabelText('Signature')).not.toHaveAttribute('aria-invalid'); // only the faulty field is flagged
 
         fireEvent.input(screen.getByLabelText('Public key'), { target: { value: publicKey } });
@@ -90,7 +90,7 @@ describe('FormVerify component', () => {
     });
 
     it('says so when a signature is only accepted under the permissive ZIP215 rules', async () => {
-        encodingDefault.value = SignEncoding.Hex;
+        outputEncoding.value = SignEncoding.Hex;
         const identity = '01' + '00'.repeat(31);
         render(<FormVerify publicKey={identity} signature={identity + '00'.repeat(32)} message="anything" />);
         fireEvent.click(screen.getByText('Verify'));
@@ -108,7 +108,7 @@ describe('FormVerify with keys in other formats', () => {
     const SIGNATURE_HEX = 'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
 
     beforeEach(() => {
-        encodingDefault.value = SignEncoding.Hex;
+        outputEncoding.value = SignEncoding.Hex;
     });
 
     it('verifies with a PEM public key and shows the detected format', async () => {
@@ -145,5 +145,19 @@ describe('FormVerify with keys in other formats', () => {
         unmount();
         render(<FormVerify publicKey={'x\n'.repeat(30)} />);
         expect(screen.getByLabelText('Public key')).toHaveAttribute('rows', '8');   // capped
+    });
+
+    it('has no encoding to choose: keys and signature are recognised, even when written differently', async () => {
+        render(<FormVerify />);
+        expect(screen.queryByText('Show results as')).not.toBeInTheDocument();
+        expect(screen.queryByText(/encoding/i)).not.toBeInTheDocument();
+        // hex public key, base64 signature
+        const hexPublicKey = '5f82d54a68d23979e9756866b6b90ce277ef34e1d5daec3871c5409d56351a8d';
+        const base64Signature = '9as6qIjGsKt5L+m5vcJhMrN007oYMAQk4yUtZBeVQ3LRXWa99R2iStrXND9UWqkSeCfiKB55aO+aUYjMI6XvCQ==';
+        fireEvent.input(screen.getByLabelText('Public key'), { target: { value: hexPublicKey } });
+        fireEvent.input(screen.getByLabelText('Message'), { target: { value: '000000001' } });
+        fireEvent.input(screen.getByLabelText('Signature'), { target: { value: base64Signature } });
+        fireEvent.click(screen.getByText('Verify'));
+        expect((await screen.findByRole('alert')).textContent?.trim()).toBe('Signature is valid');
     });
 });

@@ -20,10 +20,10 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 - **Sign** a message with a private key; the public key is deduced and shown next to it.
 - **Generate** a random key pair with one click, handy for trying things out.
 - **Clear input errors**: a malformed key or signature is explained next to the field ("expected 32 bytes, got 31",
-  "not valid base64", "it looks like hex: switch the encoding") instead of being reported as a wrong signature.
+  "not valid hex or base64") instead of being reported as a wrong signature.
 - Messages as **text, hex or base64**, so binary payloads can be signed and verified as well.
 - Keys in **PEM, OpenSSH or JWK** pasted as they are (detected automatically), or as plain hex / base64.
-- Signatures in **hex or base64** (your choice is remembered). Base64 may be URL-safe, unpadded or wrapped over several lines.
+- **Hex or base64 is recognised by itself** for keys and signatures, by their length: no setting to get wrong, and the two can be mixed. Base64 may be URL-safe, unpadded or wrapped over several lines. On the Sign tab you choose how results are shown, and the choice is remembered.
 - Private key hidden by default, one-click **copy** for private and public keys and for signatures.
 - Light and dark theme, responsive layout, installable as a **PWA** (assets are precached by a service worker).
 
@@ -36,7 +36,7 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 | Private key | 32-byte seed in hex or base64 (the 64-byte NaCl/libsodium form, seed followed by public key, is accepted too: the seed is used), or PEM PKCS#8 (`BEGIN PRIVATE KEY`), an unencrypted OpenSSH private key (`BEGIN OPENSSH PRIVATE KEY`) or a JWK |
 | Signature | 64 bytes, hex or base64 |
 
-**Keys in other formats are recognised by themselves**, whatever encoding is selected: paste the content of the file and a
+**Keys in other formats are recognised by themselves** as well: paste the content of the file and a
 "Detected format" note appears under the field. A public key field also accepts a private JWK or OpenSSH private key (it
 contains the public part). Keys of another type (RSA, EC, X25519, Ed448...) and keys protected by a passphrase are refused with
 a message that says so; to use an encrypted key, remove the passphrase first (`ssh-keygen -p -f key`, or
@@ -46,8 +46,13 @@ Signatures are checked with the strict rules of RFC 8032 / FIPS 186-5 (not the m
 "valid" means that a standards-compliant verifier agrees. In the rare case of a signature that fails the strict check
 but would be accepted under ZIP215 (used by some consensus systems, e.g. Zcash), the result says so instead of just "wrong".
 
-The Hex / Base64 selector at the top of each tab applies to keys and signatures. The message has its own
-Text / Hex / Base64 selector, so you can sign and verify binary data (hashes, already encoded payloads) too.
+Hex and base64 need no setting for keys and signatures: the length tells them apart (a 32-byte key is 64 characters in hex and
+43 or 44 in base64, a 64-byte signature 128 against 86 or 88), so a text can never be read both ways. A text made of hex digits
+only is always read as hex, so a truncated hex key gets "expected 32 bytes, got 21" instead of being mistaken for another key.
+The *Show results as* selector of the Sign tab only decides how the signature, a generated key and the deduced public key are
+written; changing it rewrites them, it does not clear anything. The message has its own Text / Hex / Base64 selector (a text
+cannot tell "abcd" the string from "abcd" the two bytes), so you can sign and verify binary data (hashes, already encoded
+payloads) too.
 
 ## Privacy
 

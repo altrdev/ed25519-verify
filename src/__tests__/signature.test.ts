@@ -9,13 +9,13 @@ const signature = "BhqKbhnVH3kaNARj/Vht7ImJJ2LMM5TOla7k5OTITjdZ+GpWTY69wH79vRowP
 describe('Verify signature', function() {
     it('should return false with wrong signature', async () => {
         const sign = new VerifyEd25519("hello world!", signature, publicKey, null);
-        const result = await sign.check(SignEncoding.Base64);
+        const result = await sign.check();
         expect(result).toBe(false);
     })
 
     it('should return true with correct signature', async () => {
         const sign = new VerifyEd25519("000000102", signature, publicKey, null);
-        const result = await sign.check(SignEncoding.Base64);
+        const result = await sign.check();
         expect(result).toBe(true);
     })
 
@@ -23,61 +23,129 @@ describe('Verify signature', function() {
         const urlSafe = signature.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
         const wrapped = `${urlSafe.slice(0, 40)}\n${urlSafe.slice(40)}`;
         const sign = new VerifyEd25519("000000102", wrapped, ` ${publicKey}\n`, null);
-        expect(await sign.check(SignEncoding.Base64)).toBe(true);
+        expect(await sign.check()).toBe(true);
     })
 
     it('should reject malformed input instead of answering "wrong signature"', async () => {
         const sign = new VerifyEd25519("000000102", "dasdsad", "dasdasd", null);
-        await expect(sign.check(SignEncoding.Base64)).rejects.toBeInstanceOf(InputError);
+        await expect(sign.check()).rejects.toBeInstanceOf(InputError);
     })
 
     it('should return false for a well formed public key that is not a point on the curve', async () => {
         const notAPoint = base64Of(new Uint8Array(32).fill(0xff));
         const sign = new VerifyEd25519("000000102", signature, notAPoint, null);
-        expect(await sign.check(SignEncoding.Base64)).toBe(false);
+        expect(await sign.check()).toBe(false);
     })
 })
 
 describe('Input validation', function() {
-    const validate = (fields: Partial<Record<'message' | 'signature' | 'publicKey' | 'privateKey', string>>, enc: SignEncoding, names: ('signature' | 'publicKey' | 'privateKey')[]) =>
-        new VerifyEd25519(fields.message ?? '', fields.signature ?? null, fields.publicKey ?? null, fields.privateKey ?? null).validate(enc, names);
+    const validate = (fields: Partial<Record<'message' | 'signature' | 'publicKey' | 'privateKey', string>>, names: ('signature' | 'publicKey' | 'privateKey')[]) =>
+        new VerifyEd25519(fields.message ?? '', fields.signature ?? null, fields.publicKey ?? null, fields.privateKey ?? null).validate(names);
 
     it('should report empty fields as required', () => {
-        expect(validate({}, SignEncoding.Base64, ['publicKey', 'signature'])).toEqual({
+        expect(validate({}, ['publicKey', 'signature'])).toEqual({
             publicKey: 'Public key is required.',
             signature: 'Signature is required.',
         });
     })
 
-    it('should report invalid characters and odd length in hex', () => {
-        expect(validate({ publicKey: 'zz'.repeat(32) }, SignEncoding.Hex, ['publicKey']).publicKey).toBe('Public key is not valid hex.');
-        expect(validate({ publicKey: 'a'.repeat(63) }, SignEncoding.Hex, ['publicKey']).publicKey).toBe('Public key is not valid hex.');
+    it('should report text that is neither hex nor base64', () => {
+        expect(validate({ signature: 'not base64!' }, ['signature']).signature).toBe('Signature is not valid hex or base64.');
+        expect(validate({ publicKey: 'zz'.repeat(32) + '#' }, ['publicKey']).publicKey).toBe('Public key is not valid hex or base64.');
+        expect(validate({ signature: 'G' }, ['signature']).signature).toBe('Signature is not valid hex or base64.');
+        // 'A' is a hex digit: a lone one is an odd number of hex digits
+        expect(validate({ signature: 'A' }, ['signature']).signature).toBe('Signature is not valid hex: it has an odd number of digits (1).');
     })
 
-    it('should report invalid base64', () => {
-        expect(validate({ signature: 'not base64!' }, SignEncoding.Base64, ['signature']).signature).toBe('Signature is not valid base64.');
-        expect(validate({ signature: 'A' }, SignEncoding.Base64, ['signature']).signature).toBe('Signature is not valid base64.');
-    })
-
-    it('should report the wrong length, with the expected one', () => {
+    it('should report the wrong length and say how the text was read', () => {
         const short = base64Of(new Uint8Array(31));
-        expect(validate({ publicKey: short }, SignEncoding.Base64, ['publicKey']).publicKey)
-            .toBe('Public key: expected 32 bytes, got 31.');
-        expect(validate({ privateKey: short }, SignEncoding.Base64, ['privateKey']).privateKey)
-            .toBe('Private key: expected 32 bytes (or 64 in NaCl format), got 31.');
+        expect(validate({ publicKey: short }, ['publicKey']).publicKey)
+            .toBe('Public key: expected 32 bytes, got 31 (read as base64).');
+        expect(validate({ privateKey: short }, ['privateKey']).privateKey)
+            .toBe('Private key: expected 32 bytes (or 64 in NaCl format), got 31 (read as base64).');
+        // hex digits only: read as hex, which is what a truncated hex key is
+        expect(validate({ publicKey: 'ab'.repeat(31) }, ['publicKey']).publicKey)
+            .toBe('Public key: expected 32 bytes, got 31 (read as hex).');
+        expect(validate({ signature: 'cd'.repeat(65) }, ['signature']).signature)
+            .toBe('Signature: expected 64 bytes, got 65 (read as hex).');
     })
 
-    it('should hint at the encoding when the data would be valid in the other one', () => {
-        const hexKey = "02efa9afb1304eaa4d10638c933dece519c39ee9ce9e10d8093d218ee799217a";
-        expect(validate({ privateKey: hexKey }, SignEncoding.Base64, ['privateKey']).privateKey)
-            .toContain('It looks like hex: switch the encoding.');
-        const b64Key = "Au+pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo=";
-        expect(validate({ privateKey: b64Key }, SignEncoding.Hex, ['privateKey']).privateKey)
-            .toBe('Private key is not valid hex.');
+    it('should read a truncated hex key as hex, not as an unpadded base64 key of another size', () => {
+        // 43 hex digits would also decode as 32 bytes of base64, and 44 as 33: neither is what was meant
+        expect(validate({ publicKey: 'ab'.repeat(22) }, ['publicKey']).publicKey)
+            .toBe('Public key: expected 32 bytes, got 22 (read as hex).');
+        expect(validate({ publicKey: 'a'.repeat(43) }, ['publicKey']).publicKey)
+            .toBe('Public key is not valid hex: it has an odd number of digits (43).');
+    })
+
+    it('should call an odd number of hex digits by its name', () => {
+        expect(validate({ publicKey: 'a'.repeat(63) }, ['publicKey']).publicKey)
+            .toBe('Public key is not valid hex: it has an odd number of digits (63).');
     })
 
     it('should accept valid input', () => {
-        expect(validate({ publicKey, signature }, SignEncoding.Base64, ['publicKey', 'signature'])).toEqual({});
+        expect(validate({ publicKey, signature }, ['publicKey', 'signature'])).toEqual({});
+    })
+})
+
+describe('Hex or base64 is detected, not chosen', function() {
+    const random = (length: number) => crypto.getRandomValues(new Uint8Array(length));
+    const hexOf = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    const variantsOf = (bytes: Uint8Array) => {
+        const padded = base64Of(bytes);
+        return {
+            hex: hexOf(bytes),
+            HEX: hexOf(bytes).toUpperCase(),
+            base64: padded,
+            unpadded: padded.replace(/=+$/, ''),
+            urlSafe: padded.replace(/\+/g, '-').replace(/\//g, '_'),
+            wrapped: `${padded.slice(0, 20)}\n  ${padded.slice(20)}\n`,
+        };
+    };
+    const errorsOf = (field: 'publicKey' | 'privateKey' | 'signature', value: string) =>
+        new VerifyEd25519('', field === 'signature' ? value : null, field === 'publicKey' ? value : null, field === 'privateKey' ? value : null)
+            .validate([field]);
+
+    it.each([['publicKey', 32], ['signature', 64], ['privateKey', 32], ['privateKey', 64]] as const)(
+        'accepts a %s of %i bytes in every way of writing it', (field, size) => {
+            for (let i = 0; i < 100; i++) {
+                for (const [name, text] of Object.entries(variantsOf(random(size)))) {
+                    expect(errorsOf(field, text), `${field} as ${name}: ${text}`).toEqual({});
+                }
+            }
+        });
+
+    it('reads the same private key the same way whatever it is written in', async () => {
+        const seed = random(32);
+        const signatures = new Set<string>();
+        for (const text of Object.values(variantsOf(seed))) {
+            signatures.add(await new VerifyEd25519('same message', null, null, text).sign(SignEncoding.Hex));
+        }
+        expect(signatures.size).toBe(1);
+    })
+
+    it('can never read a text of hex digits as base64 by accident, whatever its length', () => {
+        // hex digits are valid base64 characters too: the only place where the two readings could clash
+        const limits = { publicKey: [64], signature: [128], privateKey: [64, 128] } as const;
+        for (const [field, hexLengths] of Object.entries(limits) as [keyof typeof limits, readonly number[]][]) {
+            for (let length = 1; length <= 200; length++) {
+                const text = 'a1'.repeat(length).slice(0, length);   // hex digits only
+                const accepted = Object.keys(errorsOf(field, text)).length === 0;
+                expect(accepted, `${field}, ${length} hex digits`).toBe(hexLengths.includes(length));
+            }
+        }
+    })
+
+    it('accepts base64 only at the lengths of a valid size', () => {
+        const limits = { publicKey: [43, 44], signature: [86, 88], privateKey: [43, 44, 86, 88] } as const;
+        for (const [field, lengths] of Object.entries(limits) as [keyof typeof limits, readonly number[]][]) {
+            for (let length = 1; length <= 200; length++) {
+                const text = 'Zz+/'.repeat(length).slice(0, length);   // base64 characters outside the hex alphabet
+                const accepted = Object.keys(errorsOf(field, text)).length === 0;
+                // padding is optional, so a text of the right length with no '=' is valid when it ends on a full quantum
+                if (accepted) expect(lengths, `${field}, ${length} characters`).toContain(length);
+            }
+        }
     })
 })
 
@@ -125,7 +193,7 @@ describe('Generate key pair', function() {
 
         const signed = await signer.sign(encoding);
         const verifier = new VerifyEd25519("round trip", signed, pair.publicKey, null);
-        expect(await verifier.check(encoding)).toBe(true);
+        expect(await verifier.check()).toBe(true);
     })
 
     it('should generate a different pair every time', async () => {
@@ -150,8 +218,8 @@ describe('Message format', function() {
         const pair = await generateKeyPair(SignEncoding.Hex);
         const binary = "00ff80fe7f"; // 0x80 and 0xfe cannot be written as text
         const signed = await new VerifyEd25519(binary, null, null, pair.privateKey, MessageFormat.Hex).sign(SignEncoding.Hex);
-        expect(await new VerifyEd25519(binary, signed, pair.publicKey, null, MessageFormat.Hex).check(SignEncoding.Hex)).toBe(true);
-        expect(await new VerifyEd25519("00ff80fe7e", signed, pair.publicKey, null, MessageFormat.Hex).check(SignEncoding.Hex)).toBe(false);
+        expect(await new VerifyEd25519(binary, signed, pair.publicKey, null, MessageFormat.Hex).check()).toBe(true);
+        expect(await new VerifyEd25519("00ff80fe7e", signed, pair.publicKey, null, MessageFormat.Hex).check()).toBe(false);
     })
 
     it('should accept an empty message in every format', async () => {
@@ -166,7 +234,7 @@ describe('Message format', function() {
         expect(await wrapped.sign(SignEncoding.Base64)).toBe(await new VerifyEd25519("000000001", null, null, privateKey).sign(SignEncoding.Base64));
 
         const bad = (message: string, format: MessageFormat) =>
-            new VerifyEd25519(message, null, null, privateKey, format).validate(SignEncoding.Base64, ['message']).message;
+            new VerifyEd25519(message, null, null, privateKey, format).validate(['message']).message;
         expect(bad("xyz", MessageFormat.Hex)).toBe('Message is not valid hex.');
         expect(bad("abc", MessageFormat.Hex)).toBe('Message is not valid hex.'); // odd number of digits
         expect(bad("not base64!", MessageFormat.Base64)).toBe('Message is not valid base64.');
@@ -200,7 +268,7 @@ describe('Conformance', function() {
         expect(await signer.getPublicKey(SignEncoding.Hex)).toBe(v.publicKey);
         expect(await signer.sign(SignEncoding.Hex)).toBe(v.signature);
         const verifier = new VerifyEd25519(v.message, v.signature, v.publicKey, null, MessageFormat.Hex);
-        expect(await verifier.check(SignEncoding.Hex)).toBe(true);
+        expect(await verifier.check()).toBe(true);
     })
 
     // the identity point as public key and as R, S = 0: accepted by ZIP215 for ANY message, rejected by RFC 8032
@@ -209,16 +277,16 @@ describe('Conformance', function() {
 
     it('should verify strictly: a small-order key with a trivial signature is not valid for an arbitrary message', async () => {
         const verifier = new VerifyEd25519("anything", trivialSignature, identity, null);
-        expect(await verifier.check(SignEncoding.Hex)).toBe(false);
+        expect(await verifier.check()).toBe(false);
     })
 
     it('should tell a signature that only the permissive ZIP215 rules accept from a wrong one', async () => {
         const trivial = new VerifyEd25519("anything", trivialSignature, identity, null);
-        expect(await trivial.verdict(SignEncoding.Hex)).toBe('permissive-only');
+        expect(await trivial.verdict()).toBe('permissive-only');
 
         const pair = await generateKeyPair(SignEncoding.Hex);
         const signed = await new VerifyEd25519("hello", null, null, pair.privateKey).sign(SignEncoding.Hex);
-        expect(await new VerifyEd25519("hello", signed, pair.publicKey, null).verdict(SignEncoding.Hex)).toBe('valid');
-        expect(await new VerifyEd25519("hullo", signed, pair.publicKey, null).verdict(SignEncoding.Hex)).toBe('invalid');
+        expect(await new VerifyEd25519("hello", signed, pair.publicKey, null).verdict()).toBe('valid');
+        expect(await new VerifyEd25519("hullo", signed, pair.publicKey, null).verdict()).toBe('invalid');
     })
 })

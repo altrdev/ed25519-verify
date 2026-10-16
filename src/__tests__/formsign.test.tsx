@@ -1,5 +1,5 @@
-import { render, screen, fireEvent, within } from '@testing-library/preact';
-import { encodingDefault } from '../store';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/preact';
+import { outputEncoding } from '../store';
 import { SignEncoding } from '../enum';
 import FormSign from '../FormSign';
 
@@ -11,7 +11,7 @@ const expectedSignature = "9as6qIjGsKt5L+m5vcJhMrN007oYMAQk4yUtZBeVQ3LRXWa99R2iS
 
 describe('FormSign component', () => {
     beforeEach(() => {
-        encodingDefault.value = SignEncoding.Base64;
+        outputEncoding.value = SignEncoding.Base64;
     });
 
     it('should render', () => {
@@ -32,7 +32,7 @@ describe('FormSign component', () => {
         fireEvent.input(input, { target: { value: 'abc' } });
         expect(screen.queryByRole('alert')).not.toBeInTheDocument(); // no nagging while typing
         fireEvent.change(input);
-        expect(await screen.findByText(/Private key is not valid base64\.|Private key: expected 32 bytes/)).toBeInTheDocument();
+        expect(await screen.findByText('Private key is not valid hex: it has an odd number of digits (3).')).toBeInTheDocument();
 
         fireEvent.input(input, { target: { value: privateKey } });
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -77,8 +77,9 @@ describe('FormSign component', () => {
         expect(input).not.toHaveClass('masked');
         expect(input.value).toMatch(/^[A-Za-z0-9+/]{43}=$/); // 32 bytes in base64
 
+        // the public key is deduced right after the key is generated
         const publicKey = screen.getByLabelText('Deduced Public key') as HTMLTextAreaElement;
-        expect(publicKey.value).toMatch(/^[A-Za-z0-9+/]{43}=$/);
+        await waitFor(() => expect(publicKey.value).toMatch(/^[A-Za-z0-9+/]{43}=$/));
 
         fireEvent.input(screen.getByLabelText('Message'), { target: { value: 'hi' } });
         fireEvent.click(screen.getByText('Sign'));
@@ -86,7 +87,7 @@ describe('FormSign component', () => {
     });
 
     it('should generate hex keys when hex is selected', async () => {
-        encodingDefault.value = SignEncoding.Hex;
+        outputEncoding.value = SignEncoding.Hex;
         render(<FormSign />);
         fireEvent.click(screen.getByRole('button', { name: /Generate/ }));
         await screen.findByRole('button', { name: 'Hide private key' });
@@ -156,7 +157,7 @@ describe('FormSign with keys in other formats', () => {
     const JWK = '{"kty":"OKP","crv":"Ed25519","d":"Au-pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo","x":"X4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0"}';
 
     beforeEach(() => {
-        encodingDefault.value = SignEncoding.Base64;
+        outputEncoding.value = SignEncoding.Base64;
     });
 
     it('signs with a PKCS#8 PEM key, deduces the public key and shows the detected format', async () => {
@@ -184,5 +185,42 @@ describe('FormSign with keys in other formats', () => {
     it('does not announce a format for plain hex or base64', () => {
         render(<FormSign privateKey={privateKey} />);
         expect(screen.queryByText(/^Detected format/)).not.toBeInTheDocument();
+    });
+
+    const outputFormat = (name: string) =>
+        within(screen.getByRole('group', { name: 'Show results as' })).getByRole('button', { name });
+
+    it('rewrites the signature and the public key when the output format changes, without losing them', async () => {
+        render(<FormSign message="000000001" privateKey={privateKey} />);
+        fireEvent.click(screen.getByText('Sign'));
+        expect((await screen.findByRole('alert')).textContent).toContain(expectedSignature);
+        const publicKeyField = screen.getByLabelText('Deduced Public key') as HTMLTextAreaElement;
+        await waitFor(() => expect(publicKeyField.value).toBe('X4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0='));
+
+        fireEvent.click(outputFormat('Hex'));
+        const signatureHex = 'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
+        expect(screen.getByRole('alert').textContent).toContain(signatureHex);
+        expect(publicKeyField.value).toBe('5f82d54a68d23979e9756866b6b90ce277ef34e1d5daec3871c5409d56351a8d');
+
+        fireEvent.click(outputFormat('Base64'));
+        expect(screen.getByRole('alert').textContent).toContain(expectedSignature);
+    });
+
+    it('keeps working with a key written in the other format after the output format changes', async () => {
+        render(<FormSign message="000000001" privateKey={privateKey} />);   // the key is in base64
+        fireEvent.click(outputFormat('Hex'));                               // results now in hex: the key stays valid
+        fireEvent.click(screen.getByText('Sign'));
+        expect((await screen.findByRole('alert')).textContent).toContain('f5ab3aa888c6b0ab');
+    });
+
+    it('generates a key written in the output format and signs with it', async () => {
+        render(<FormSign message="hi" />);
+        fireEvent.click(outputFormat('Hex'));
+        fireEvent.click(screen.getByRole('button', { name: /Generate/ }));
+        await screen.findByRole('button', { name: 'Hide private key' });
+        expect((screen.getByLabelText('Private key') as HTMLTextAreaElement).value).toMatch(/^[0-9a-f]{64}$/);
+        fireEvent.click(outputFormat('Base64'));                            // the key text is left as it is, and still valid
+        fireEvent.click(screen.getByText('Sign'));
+        expect((await screen.findByRole('alert')).textContent).toMatch(/[A-Za-z0-9+/]{86}==/);
     });
 });

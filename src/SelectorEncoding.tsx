@@ -1,5 +1,5 @@
 import Segmented from './Segmented';
-import { encodingDefault } from './store';
+import { outputEncoding } from './store';
 import { SignEncoding } from './enum';
 
 const OPTIONS = [
@@ -7,17 +7,17 @@ const OPTIONS = [
     { value: SignEncoding.Base64, label: 'Base64' },
 ];
 
-export default function SelectorEncoding({ reset = () => {} }: { reset?: () => void }) {
+/** Chooses how results are written. Keys and signatures typed or pasted in are recognised by themselves. */
+export default function SelectorEncoding() {
     return (
         <div class="encoding">
-            <span class="encoding-label" id="encoding-label">Keys and signature encoding</span>
+            <span class="encoding-label" id="encoding-label">Show results as</span>
             <Segmented
                 options={OPTIONS}
-                value={encodingDefault.value}
+                value={outputEncoding.value}
                 labelledBy="encoding-label"
                 onChange={(encoding) => {
-                    reset();
-                    encodingDefault.value = encoding;
+                    outputEncoding.value = encoding;
                 }}
             />
         </div>

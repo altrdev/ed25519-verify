@@ -23,7 +23,8 @@ const storedTheme = read('theme');
 const prefersDark = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
 
 export const theme = signal<Theme>(storedTheme === 'dark' || (storedTheme === null && prefersDark) ? 'dark' : 'light');
-export const encodingDefault = signal<SignEncoding>(
+/** How results (signature, generated and deduced keys) are written. Inputs are detected, not selected. */
+export const outputEncoding = signal<SignEncoding>(
     read('encoding') === SignEncoding.Hex ? SignEncoding.Hex : SignEncoding.Base64
 );
 
@@ -33,5 +34,5 @@ effect(() => {
 });
 
 effect(() => {
-    write('encoding', encodingDefault.value);
+    write('encoding', outputEncoding.value);
 });

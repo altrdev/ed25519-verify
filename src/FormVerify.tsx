@@ -2,11 +2,9 @@ import { useState } from 'preact/hooks';
 import Banner from './Banner';
 import Field from './Field';
 import MessageFormatSelector from './MessageFormatSelector';
-import SelectorEncoding from './SelectorEncoding';
 import { MessageFormat } from './enum';
 import VerifyEd25519, { type Field as FieldName, type FieldErrors, type Verdict } from './signature';
 import { keyFormatHint } from './keyformats';
-import { encodingDefault } from './store';
 
 interface Props {
     message?: string;
@@ -22,11 +20,6 @@ export default function FormVerify(props: Props) {
     const [messageFormat, setMessageFormat] = useState(MessageFormat.Text);
     const [errors, setErrors] = useState<FieldErrors>({});
 
-    const reset = () => {
-        setVerify(undefined);
-        setErrors({});
-    };
-
     const edit = (set: (v: string) => void, field?: FieldName) => (value: string) => {
         set(value);
         setVerify(undefined);
@@ -40,20 +33,18 @@ export default function FormVerify(props: Props) {
     };
 
     const performVerify = async () => {
-        const encoding = encodingDefault.value;
         const ed25519 = new VerifyEd25519(message, signature, publicKey, null, messageFormat);
-        const found = ed25519.validate(encoding, ['publicKey', 'message', 'signature']);
+        const found = ed25519.validate(['publicKey', 'message', 'signature']);
         setErrors(found);
         if (Object.keys(found).length > 0) {
             setVerify(undefined);
             return;
         }
-        setVerify(await ed25519.verdict(encoding));
+        setVerify(await ed25519.verdict());
     };
 
     return (
         <section class="card">
-            <SelectorEncoding reset={reset} />
             <Field
                 label="Public key"
                 rows={2}
