@@ -118,3 +118,85 @@ export const JWS_EXAMPLES: JwsExample[] = [
         source: 'https://www.rfc-editor.org/rfc/rfc7519#section-4.1.4',
     },
 ];
+
+export interface SshsigExample extends ExampleInfo {
+    signature: string;
+    /** the key to trust, as an authorized_keys line */
+    publicKey: string;
+    namespace: string;
+    message: string;
+    hashAlgorithm: 'sha256' | 'sha512';
+    /** for the Create tab: what makes the signature above when signing */
+    privateKey: string;
+}
+
+// made with `ssh-keygen -Y sign` (OpenSSH 9.6) for a key created for these examples: it protects nothing
+const SSH_EXAMPLE_KEY = {
+    publicKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAyj+hwReHmoTLUCU/tIuzHePLxf/02FWL/L7jy/874Z fixture@example',
+    privateKey:
+        '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACAMo/ocEXh5qEy1AlP7SLsx3jy8X/9NhVi/y+48v/O+GQAAAJg7rttQO67b\nUAAAAAtzc2gtZWQyNTUxOQAAACAMo/ocEXh5qEy1AlP7SLsx3jy8X/9NhVi/y+48v/O+GQ\nAAAEDUDBx3weWroYuhBDFhHHT5Nm00pYoVbU193SycVVdCMAyj+hwReHmoTLUCU/tIuzHe\nPLxf/02FWL/L7jy/874ZAAAAD2ZpeHR1cmVAZXhhbXBsZQECAwQFBg==\n-----END OPENSSH PRIVATE KEY-----\n',
+    message: 'hello world\n',
+};
+
+export const SSHSIG_EXAMPLES: SshsigExample[] = [
+    {
+        title: 'Made by ssh-keygen -Y sign',
+        note: 'The signature of the file with the text "hello world", namespace "file" (the default of ssh-keygen), hashed with SHA-512. ssh-keygen -Y verify accepts it.',
+        ...SSH_EXAMPLE_KEY,
+        namespace: 'file',
+        hashAlgorithm: 'sha512',
+        signature:
+            '-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgDKP6HBF4eahMtQJT+0i7Md48vF\n//TYVYv8vuPL/zvhkAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtzc2gtZWQyNTUx\nOQAAAEB1GLc04h4r/PhOYexUxb7AescsAGKkxCdXxWldoo1MnAvS46tPjWUmf3YbvdLTT1\n/OT17qRdQ8DL9EAWgGYroK\n-----END SSH SIGNATURE-----\n',
+        source: 'https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.sshsig',
+    },
+    {
+        title: 'A signature for git',
+        note: 'The same text signed in the namespace "git" with SHA-256, as git does with gpg.format=ssh. Verified under the namespace "file" it would be refused: the namespace is part of what is signed.',
+        ...SSH_EXAMPLE_KEY,
+        namespace: 'git',
+        hashAlgorithm: 'sha256',
+        signature:
+            '-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgDKP6HBF4eahMtQJT+0i7Md48vF\n//TYVYv8vuPL/zvhkAAAADZ2l0AAAAAAAAAAZzaGEyNTYAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQDkezKznm2Z9+yt9gnFpN+glRzkoeEBTebya3MNFxHg+dfnkQENZBbh+935cj+0DaZ\nammTAYOg5wH1a3QRrpBgg=\n-----END SSH SIGNATURE-----\n',
+        source: 'https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.sshsig',
+    },
+];
+
+export interface MinisignExample extends ExampleInfo {
+    signature: string;
+    /** the key to trust: the content of a minisign `.pub` file */
+    publicKey: string;
+    message: string;
+    trustedComment: string;
+    /** for the Create tab: the key and its id, which make the signature above when signing (only for the hashed form) */
+    privateKey: string;
+    keyId: string;
+}
+
+// made with minisign 0.11 (`minisign -G -W`, `minisign -S`) for a key created for these examples: it protects nothing
+const MINISIGN_EXAMPLE_KEY = {
+    publicKey: 'untrusted comment: minisign public key B74960C202F410C9\nRWTJEPQCwmBJt134g5TvjpQuUaPfSyDKhTo8dp2OlM9YDzgm24kHbykm\n',
+    privateKey: 'f1ac93937869f682a585b20db4be66d84ff090c82f42914e69952c649a32c75e',
+    keyId: 'B74960C202F410C9',
+    message: 'hello world\n',
+};
+
+export const MINISIGN_EXAMPLES: MinisignExample[] = [
+    {
+        title: 'Made by minisign',
+        note: 'The signature of the text "hello world" with a trusted comment, in the form minisign writes by default: it signs the BLAKE2b-512 hash of the message. minisign -V accepts it.',
+        ...MINISIGN_EXAMPLE_KEY,
+        trustedComment: 'timestamp:1700000000\tfile:msg.txt',
+        signature:
+            'untrusted comment: signature from minisign secret key\nRUTJEPQCwmBJt1+ho+eXhWVFgLEF3cIAf1KYknPR+0wnBDrSAOc0dX6/6zfCPVq2btUddi6bxZ+d1ill9L/KIE3hUWANdJywcgo=\ntrusted comment: timestamp:1700000000\tfile:msg.txt\n4Z9h8bxCC1lNqEdCSrAPwD8Of9rHLqWq/JWt7Ckn7S4wg0IhKDcgiISy4mejS5me/EKLlbhptrAN0lTh5AvPAA==\n',
+        source: 'https://jedisct1.github.io/minisign/#signature-format',
+    },
+    {
+        title: 'A legacy signature',
+        note: 'The same text signed with minisign -l, the older form that signs the message itself instead of its hash ("Ed" instead of "ED"). Still accepted by minisign.',
+        ...MINISIGN_EXAMPLE_KEY,
+        trustedComment: 'legacy one',
+        signature:
+            'untrusted comment: signature from minisign secret key\nRWTJEPQCwmBJtx3h7m6cUL7+aIl1v3uuE+mu8hjAfoGsuZH0RJxCCBvNJjuvb0SA5YAZBKq8AD84FGU+Rict3kIaQ2Z2nKuAcgY=\ntrusted comment: legacy one\neSHtuzBqUO+7uYe7nX90XkbRDuPesCjh7edvpj/IJSOHc1YdSfBczgXi2yquCemvjVK1pfKkqCRDT4b7tKMkCA==\n',
+        source: 'https://jedisct1.github.io/minisign/#signature-format',
+    },
+];

@@ -265,6 +265,11 @@ class VerifyEd25519 {
         return verdictOf(signature, decodeMessage(this.message, this.messageFormat), publicKey);
     }
 
+    /** The bytes of the message, however it was given (text, hex, base64 or a file). */
+    messageBytes(): Uint8Array {
+        return decodeMessage(this.message, this.messageFormat);
+    }
+
     /** What could explain a signature that does not verify (see diagnose.ts); for a verdict of "invalid". */
     async hints(): Promise<Hints> {
         const message = decodeMessage(this.message, this.messageFormat);

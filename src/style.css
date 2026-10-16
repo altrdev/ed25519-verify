@@ -306,3 +306,5 @@ button.primary:active { transform: translateY(1px); }
 
 .panel { display: flex; flex-direction: column; gap: 18px; }
 .panel[hidden] { display: none; }
+
+.armor { margin: 8px 0 0; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; }

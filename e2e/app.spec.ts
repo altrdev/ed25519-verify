@@ -1,8 +1,10 @@
 import { spawnSync } from 'node:child_process';
 import { createPublicKey, verify as nodeVerify } from 'node:crypto';
-import { chmodSync, readFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { collectProblems, JWS, panel, pickFormat, RFC } from './helpers';
+import { collectProblems, JWS, panel, pickFormat, RFC, signed } from './helpers';
 
 test.describe('verify and sign', () => {
     test('verifies a signature of the RFC 8032 vectors, and rejects a changed one', async ({ page }) => {
@@ -223,37 +225,37 @@ test.describe('signed formats: JWS / JWT', () => {
         const problems = collectProblems(page);
         await page.goto('/');
         await page.getByRole('tab', { name: 'Signed formats' }).click();
-        await panel(page).getByLabel('Token', { exact: true }).fill(JWS.token);
-        await panel(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
-        await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
-        await expect(panel(page).getByText('Signature is valid')).toBeVisible();
-        await expect(panel(page).getByRole('region', { name: 'Token contents' })).toContainText('Example of Ed25519 signing');
+        await signed(page).getByLabel('Token', { exact: true }).fill(JWS.token);
+        await signed(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await expect(signed(page).getByRole('region', { name: 'Token contents' })).toContainText('Example of Ed25519 signing');
         expect(problems).toEqual([]);
     });
 
     test('refuses an unsigned token instead of calling it valid', async ({ page }) => {
         await page.goto('/');
         await page.getByRole('tab', { name: 'Signed formats' }).click();
-        await panel(page).getByLabel('Token', { exact: true }).fill('eyJhbGciOiJub25lIn0.e30.');
-        await panel(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
-        await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
-        await expect(panel(page).getByText(/not signed at all/)).toBeVisible();
-        await expect(panel(page).getByText('Signature is valid')).toHaveCount(0);
+        await signed(page).getByLabel('Token', { exact: true }).fill('eyJhbGciOiJub25lIn0.e30.');
+        await signed(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText(/not signed at all/)).toBeVisible();
+        await expect(signed(page).getByText('Signature is valid')).toHaveCount(0);
     });
 
     test('a token made here is verified by Node crypto, which knows nothing about this code', async ({ page }) => {
         await page.goto('/');
         await page.getByRole('tab', { name: 'Signed formats' }).click();
-        await panel(page).getByRole('button', { name: 'Create a token' }).click();
-        await panel(page).getByLabel('Private key', { exact: true }).fill(JWS.privateKeyHex);
-        await panel(page).getByLabel('Payload', { exact: true }).fill('{"sub":"ada","name":"Zoë"}');
-        await panel(page).getByRole('button', { name: 'Sign', exact: true }).click();
-        const token = (await panel(page).locator('.result').innerText()).trim();
+        await panel(page).getByRole('button', { name: 'Create a signature' }).click();
+        await signed(page).getByLabel('Private key', { exact: true }).fill(JWS.privateKeyHex);
+        await signed(page).getByLabel('Payload', { exact: true }).fill('{"sub":"ada","name":"Zoë"}');
+        await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
+        const token = (await signed(page).locator('.result').innerText()).trim();
         expect(token.split('.')).toHaveLength(3);
 
         const [header, payload, signature] = token.split('.');
         const jwk = JSON.parse(
-            await panel(page)
+            await signed(page)
                 .getByRole('textbox', { name: /Public key to verify it/ })
                 .inputValue(),
         );
@@ -269,39 +271,203 @@ test.describe('signed formats: JWS / JWT', () => {
         const [header, payload, signature] = JWS.token.split('.');
         const bytes = Buffer.from(signature, 'base64url');
         const swapped = `${header}.${payload}.${Buffer.concat([bytes.subarray(32), bytes.subarray(0, 32)]).toString('base64url')}`;
-        await panel(page).getByLabel('Token', { exact: true }).fill(swapped);
-        await panel(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
-        await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
-        await expect(panel(page).getByText('Signature is wrong')).toBeVisible();
-        await expect(panel(page).getByText('It is valid with the two halves of the signature (R and S) swapped.')).toBeVisible();
+        await signed(page).getByLabel('Token', { exact: true }).fill(swapped);
+        await signed(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is wrong')).toBeVisible();
+        await expect(signed(page).getByText('It is valid with the two halves of the signature (R and S) swapped.')).toBeVisible();
     });
 
     test('loads the examples, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
         await page.goto('/');
         await page.getByRole('tab', { name: 'Signed formats' }).click();
-        await panel(page).getByRole('button', { name: 'Load example' }).click();
-        await expect(panel(page).getByText('Signature is valid')).toBeVisible();
-        await expect(panel(page).getByText('RFC 8037 appendix A.4.')).toBeVisible();
-        await panel(page).getByRole('button', { name: 'Load example' }).click();
-        await expect(panel(page).getByText(/^Expired: it expired on/)).toBeVisible();
+        await signed(page).getByRole('button', { name: 'Load example' }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await expect(signed(page).getByText('RFC 8037 appendix A.4.')).toBeVisible();
+        await signed(page).getByRole('button', { name: 'Load example' }).click();
+        await expect(signed(page).getByText(/^Expired: it expired on/)).toBeVisible();
 
-        await panel(page).getByRole('button', { name: 'Copy link to this verification' }).click();
+        await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
         const link = await page.evaluate(() => navigator.clipboard.readText());
         expect(link).toContain('fmt=jws');
         const other = await context.newPage();
         await other.goto(link);
         // the link opens the tab of the signed formats, filled in and verified
-        await expect(panel(other).getByLabel('Token', { exact: true })).toHaveValue(/^eyJ/);
-        await expect(panel(other).getByText('Signature is valid')).toBeVisible();
+        await expect(signed(other).getByLabel('Token', { exact: true })).toHaveValue(/^eyJ/);
+        await expect(signed(other).getByText('Signature is valid')).toBeVisible();
     });
 
     test('the Create tab reproduces the token of the RFC', async ({ page }) => {
         await page.goto('/');
         await page.getByRole('tab', { name: 'Signed formats' }).click();
-        await panel(page).getByRole('button', { name: 'Create a token' }).click();
-        await panel(page).getByRole('button', { name: 'Load example' }).click();
-        await panel(page).getByRole('button', { name: 'Sign', exact: true }).click();
-        await expect(panel(page).getByText('Identical to the token of the example.')).toBeVisible();
-        await expect(panel(page).locator('.result')).toHaveText(JWS.token);
+        await panel(page).getByRole('button', { name: 'Create a signature' }).click();
+        await signed(page).getByRole('button', { name: 'Load example' }).click();
+        await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
+        await expect(signed(page).getByText('Identical to the token of the example.')).toBeVisible();
+        await expect(signed(page).locator('.result')).toHaveText(JWS.token);
+    });
+});
+
+test.describe('signed formats: SSH signatures', () => {
+    const hasSshKeygen = spawnSync('ssh-keygen', ['-?']).error === undefined;
+
+    /** A key made by ssh-keygen and a signature of a message, as ssh-keygen -Y sign writes them. */
+    function withSsh(namespace: string, message: string) {
+        const dir = mkdtempSync(join(tmpdir(), 'e2e-ssh-'));
+        const key = join(dir, 'key');
+        expect(spawnSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-C', 'e2e@example', '-f', key]).status).toBe(0);
+        writeFileSync(join(dir, 'message.txt'), message);
+        expect(spawnSync('ssh-keygen', ['-Y', 'sign', '-q', '-f', key, '-n', namespace, join(dir, 'message.txt')]).status).toBe(0);
+        const publicKey = readFileSync(`${key}.pub`, 'utf8').trim();
+        writeFileSync(join(dir, 'allowed_signers'), `e2e@example ${publicKey.split(' ').slice(0, 2).join(' ')}\n`);
+        return { dir, privateKey: readFileSync(key, 'utf8'), publicKey, signature: readFileSync(join(dir, 'message.txt.sig'), 'utf8') };
+    }
+
+    test('verifies a signature that ssh-keygen made, and says wrong for another message', async ({ page }) => {
+        test.skip(!hasSshKeygen, 'ssh-keygen is not installed');
+        const { publicKey, signature } = withSsh('git', 'a message\nof two lines\n');
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'SSH signature' }).click();
+        await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
+        await signed(page).getByLabel('Message', { exact: true }).fill('a message\nof two lines\n');
+        await signed(page).getByLabel('Public key you trust', { exact: true }).fill(publicKey);
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await expect(signed(page).getByRole('region', { name: 'Signature details' })).toContainText('git');
+
+        await signed(page).getByLabel('Message', { exact: true }).fill('a message\nof two lines');
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is wrong')).toBeVisible();
+        await expect(signed(page).getByText('It is valid with a newline added at the end of the message.')).toBeVisible();
+    });
+
+    test('a signature made in the page is accepted by ssh-keygen -Y verify, in its namespace only', async ({ page }) => {
+        test.skip(!hasSshKeygen, 'ssh-keygen is not installed');
+        const { dir, privateKey } = withSsh('file', 'unused');
+        const message = 'signed in the page, with an accent: è\n';
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'SSH signature' }).click();
+        await panel(page).getByRole('button', { name: 'Create a signature' }).click();
+        await signed(page).getByLabel('Private key', { exact: true }).fill(privateKey);
+        await signed(page).getByLabel('Message', { exact: true }).fill(message);
+        await signed(page).getByLabel('Namespace', { exact: true }).fill('email');
+        await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
+        const armored = await signed(page).locator('pre.armor').innerText();
+        expect(armored).toContain('BEGIN SSH SIGNATURE');
+
+        const signature = join(dir, 'page.sig');
+        writeFileSync(signature, `${armored.trim()}\n`);
+        const check = (namespace: string) =>
+            spawnSync(
+                'ssh-keygen',
+                ['-Y', 'verify', '-f', join(dir, 'allowed_signers'), '-I', 'e2e@example', '-n', namespace, '-s', signature],
+                {
+                    input: message,
+                    encoding: 'utf8',
+                },
+            );
+        const good = check('email');
+        expect(good.status, good.stderr + good.stdout).toBe(0);
+        expect(check('file').status).not.toBe(0); // the namespace is part of what is signed
+    });
+
+    test('loads the examples, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'SSH signature' }).click();
+        await signed(page).getByRole('button', { name: 'Load example' }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
+        const link = await page.evaluate(() => navigator.clipboard.readText());
+        expect(link).toContain('fmt=sshsig');
+        const other = await context.newPage();
+        await other.goto(link);
+        await expect(signed(other).getByText('Signature is valid')).toBeVisible();
+        await expect(panel(other).getByRole('button', { name: 'SSH signature' })).toHaveAttribute('aria-pressed', 'true');
+    });
+});
+
+test.describe('signed formats: minisign', () => {
+    const hasMinisign = spawnSync('minisign', ['-v']).error === undefined;
+
+    test('verifies a signature that minisign made, and refuses a changed trusted comment', async ({ page }) => {
+        test.skip(!hasMinisign, 'minisign is not installed');
+        const dir = mkdtempSync(join(tmpdir(), 'e2e-minisign-'));
+        const message = 'a message\nof two lines\n';
+        writeFileSync(join(dir, 'message.txt'), message);
+        expect(spawnSync('minisign', ['-G', '-W', '-f', '-p', join(dir, 'k.pub'), '-s', join(dir, 'k.key')]).status).toBe(0);
+        const signing = spawnSync('minisign', [
+            '-S',
+            '-s',
+            join(dir, 'k.key'),
+            '-m',
+            join(dir, 'message.txt'),
+            '-t',
+            'checked in the page',
+        ]);
+        expect(signing.status, signing.stderr.toString()).toBe(0);
+        const signature = readFileSync(join(dir, 'message.txt.minisig'), 'utf8');
+
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'minisign' }).click();
+        await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
+        await signed(page).getByLabel('Message', { exact: true }).fill(message);
+        await signed(page)
+            .getByLabel('Public key you trust', { exact: true })
+            .fill(readFileSync(join(dir, 'k.pub'), 'utf8'));
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await expect(signed(page).getByRole('region', { name: 'Signature details' })).toContainText('checked in the page');
+
+        await signed(page).getByLabel('Signature', { exact: true }).fill(signature.replace('checked in the page', 'changed after'));
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText(/trusted comment is not the one that was signed/)).toBeVisible();
+
+        await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
+        await signed(page).getByLabel('Message', { exact: true }).fill('a message\nof two lines');
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is wrong')).toBeVisible();
+        await expect(signed(page).getByText('It is valid with a newline added at the end of the message.')).toBeVisible();
+    });
+
+    test('a signature made in the page, with the public key file it shows, is accepted by minisign -V', async ({ page }) => {
+        test.skip(!hasMinisign, 'minisign is not installed');
+        const dir = mkdtempSync(join(tmpdir(), 'e2e-minisign-'));
+        const message = 'signed in the page, with an accent: è\n';
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'minisign' }).click();
+        await panel(page).getByRole('button', { name: 'Create a signature' }).click();
+        await signed(page).getByLabel('Private key', { exact: true }).fill(RFC.privateKey);
+        await signed(page).getByLabel('Message', { exact: true }).fill(message);
+        await signed(page).getByLabel('Trusted comment (optional)', { exact: true }).fill('from the page');
+        await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
+        const armored = await signed(page).locator('pre.armor').innerText();
+        const publicFile = await signed(page).getByLabel('Public key to verify it', { exact: true }).inputValue();
+
+        writeFileSync(join(dir, 'message.txt'), message);
+        writeFileSync(join(dir, 'message.txt.minisig'), `${armored.trim()}\n`);
+        writeFileSync(join(dir, 'page.pub'), publicFile);
+        const check = spawnSync('minisign', ['-V', '-p', join(dir, 'page.pub'), '-m', join(dir, 'message.txt')], { encoding: 'utf8' });
+        expect(check.status, check.stderr).toBe(0);
+        expect(check.stdout).toContain('Trusted comment: from the page');
+    });
+
+    test('loads the examples, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'minisign' }).click();
+        await signed(page).getByRole('button', { name: 'Load example' }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
+        const link = await page.evaluate(() => navigator.clipboard.readText());
+        expect(link).toContain('fmt=minisign');
+        const other = await context.newPage();
+        await other.goto(link);
+        await expect(signed(other).getByText('Signature is valid')).toBeVisible();
+        await expect(panel(other).getByRole('button', { name: 'minisign' })).toHaveAttribute('aria-pressed', 'true');
     });
 });
