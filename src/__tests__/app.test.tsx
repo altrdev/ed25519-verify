@@ -20,4 +20,11 @@ describe('App', () => {
         expect(document.documentElement.dataset.theme).toBe('dark');
         expect(localStorage.getItem('theme')).toBe('dark');
     });
+
+    it('links to the public GitHub repository', () => {
+        render(<App />);
+        const link = screen.getByRole('link', { name: 'View source on GitHub' });
+        expect(link).toHaveAttribute('href', 'https://github.com/altrdev/ed25519-verify');
+        expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    });
 });

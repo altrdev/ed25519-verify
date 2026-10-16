@@ -5,6 +5,7 @@ import { Icon } from './icons';
 import { theme } from './store';
 
 const TABS = ['Verify signature', 'Sign message'];
+const REPO_URL = 'https://github.com/altrdev/ed25519-verify';
 
 export default function App() {
     const [tab, setTab] = useState(0);
@@ -18,14 +19,26 @@ export default function App() {
                         <span class="logo"><Icon name="key" size={20} /></span>
                         <h1>Ed25519 <span>signature tools</span></h1>
                     </div>
-                    <button
-                        type="button"
-                        class="icon"
-                        aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
-                        onClick={() => (theme.value = dark ? 'light' : 'dark')}
-                    >
-                        <Icon name={dark ? 'sun' : 'moon'} size={22} />
-                    </button>
+                    <div class="topbar-actions">
+                        <a
+                            class="icon"
+                            href={REPO_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="View source on GitHub"
+                            title="View source on GitHub"
+                        >
+                            <Icon name="github" size={22} />
+                        </a>
+                        <button
+                            type="button"
+                            class="icon"
+                            aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
+                            onClick={() => (theme.value = dark ? 'light' : 'dark')}
+                        >
+                            <Icon name={dark ? 'sun' : 'moon'} size={22} />
+                        </button>
+                    </div>
                 </div>
             </header>
             <main class="container">
@@ -48,6 +61,11 @@ export default function App() {
                 <div role="tabpanel" hidden={tab !== 0}><FormVerify /></div>
                 <div role="tabpanel" hidden={tab !== 1}><FormSign /></div>
             </main>
+            <footer class="footer">
+                <a href={REPO_URL} target="_blank" rel="noopener noreferrer">Open source on GitHub</a>
+                <span aria-hidden="true">·</span>
+                <span>MIT License</span>
+            </footer>
         </>
     );
 }
