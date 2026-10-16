@@ -22,4 +22,5 @@ npm run build      # type-check and production build in dist/
 npm run preview    # serve the production build
 ```
 
-Pushes to `main` are tested, built and deployed to GitHub Pages by `.github/workflows/deploy-to-gh-pages.yml`.
+Pushes to `main` are tested, built and deployed to GitHub Pages by `.github/workflows/deploy-to-gh-pages.yml`
+(repository Settings → Pages → Source must be **GitHub Actions**).
