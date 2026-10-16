@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import JwsPanel from './JwsPanel';
 import Segmented from './Segmented';
+import type { SharedToken } from './share';
 
 type SignedFormat = 'jws';
 type Mode = 'verify' | 'create';
@@ -12,7 +13,7 @@ const MODES: { value: Mode; label: string }[] = [
 ];
 
 /** Signatures in the containers other tools use (a JWT, a minisign file...): the container is read, the signed bytes are worked out. */
-export default function FormSigned() {
+export default function FormSigned({ shared }: { shared?: Partial<SharedToken> | null }) {
     const [format, setFormat] = useState<SignedFormat>('jws');
     const [mode, setMode] = useState<Mode>('verify');
 
@@ -22,7 +23,7 @@ export default function FormSigned() {
                 <Segmented options={FORMATS} value={format} onChange={setFormat} label="Signature format" />
                 <Segmented options={MODES} value={mode} onChange={setMode} label="Action" />
             </div>
-            {format === 'jws' && <JwsPanel mode={mode} />}
+            {format === 'jws' && <JwsPanel mode={mode} initial={shared ?? undefined} autoVerify={!!shared?.token && !!shared?.publicKey} />}
         </section>
     );
 }

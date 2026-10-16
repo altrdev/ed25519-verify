@@ -1,7 +1,13 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import Banner from './Banner';
 import CopyButton from './CopyButton';
+import type { Hints } from './diagnose';
+import { diagnose } from './diagnose';
 import DownloadButton from './DownloadButton';
+import { ExampleButton, ExampleNote, nextIndex } from './ExampleButton';
+import { type JwsExample, JWS_EXAMPLES } from './examples';
+import HintList from './HintList';
+import { jwsShareFragment, type SharedToken } from './share';
 import { fileNameFor } from './files';
 import Field from './Field';
 import {
@@ -19,10 +25,12 @@ import {
 import { encodeJwk } from './keyfiles';
 import { readingHint } from './FormatMenu';
 import type { RawFormat } from './enum';
+import { MessageFormat } from './enum';
 import VerifyEd25519, { inspectField, type FormatOverrides, InputError, type Verdict, verdictOf } from './signature';
 
 interface Shown {
     verdict: Verdict;
+    hints?: Hints;
     parsed: ParsedJws;
     info: PayloadInfo;
     notes: string[];
@@ -50,9 +58,10 @@ function Decoded({ shown }: { shown: Shown }) {
     );
 }
 
-function Verify() {
-    const [token, setToken] = useState('');
-    const [publicKey, setPublicKey] = useState('');
+function Verify({ initial, autoVerify }: { initial?: Partial<SharedToken>; autoVerify?: boolean }) {
+    const [token, setToken] = useState(initial?.token ?? '');
+    const [publicKey, setPublicKey] = useState(initial?.publicKey ?? '');
+    const [exampleIndex, setExampleIndex] = useState<number | null>(null);
     const [errors, setErrors] = useState<{ token?: string; publicKey?: string }>({});
     const [choices, setChoices] = useState<RawFormat[] | undefined>(undefined);
     const [formats, setFormats] = useState<FormatOverrides>({});
@@ -60,16 +69,16 @@ function Verify() {
 
     const publicKeyReading = inspectField('publicKey', publicKey, formats.publicKey);
 
-    const verify = async (picked: FormatOverrides = formats) => {
+    const verify = async (picked: FormatOverrides = formats, values = { token, publicKey }) => {
         const found: { token?: string; publicKey?: string } = {};
         let parsed: ParsedJws | undefined;
         try {
-            parsed = parseJws(token);
+            parsed = parseJws(values.token);
         } catch (error) {
             if (!(error instanceof JwsError)) throw error;
             found.token = error.message;
         }
-        const key = new VerifyEd25519('', null, publicKey, null, undefined, picked);
+        const key = new VerifyEd25519('', null, values.publicKey, null, undefined, picked);
         found.publicKey = key.validate(['publicKey']).publicKey;
         setChoices(key.choices(['publicKey']).publicKey);
         setErrors(found);
@@ -78,13 +87,52 @@ function Verify() {
             return;
         }
         const info = describePayload(parsed.payload);
+        const publicKeyBytes = key.bytesOf('publicKey');
+        const verdict = await verdictOf(parsed.signature, parsed.signingInput, publicKeyBytes);
         setShown({
-            verdict: await verdictOf(parsed.signature, parsed.signingInput, key.bytesOf('publicKey')),
+            verdict,
+            // what usually explains a wrong signature, when one of those makes it valid (the signed bytes are the signing input)
+            hints:
+                verdict === 'invalid'
+                    ? await diagnose(
+                          {
+                              publicKey: publicKeyBytes,
+                              signature: parsed.signature,
+                              message: parsed.signingInput,
+                              messageFormat: MessageFormat.Text,
+                              skipHashes: true,
+                          },
+                          parsed.signingInput,
+                      )
+                    : undefined,
             parsed,
             info,
             notes: timeNotes(info, Math.floor(Date.now() / 1000)),
         });
     };
+
+    // a share link: the answer is the first thing the reader sees
+    useEffect(() => {
+        if (autoVerify && token && publicKey) verify();
+    }, []);
+
+    const loadExample = (example: JwsExample) => {
+        setToken(example.token);
+        setPublicKey(example.publicKey);
+        setErrors({});
+        setChoices(undefined);
+        setFormats({});
+        verify({}, example);
+    };
+
+    const loadNextExample = () => {
+        const index = nextIndex(exampleIndex, JWS_EXAMPLES.length);
+        setExampleIndex(index);
+        loadExample(JWS_EXAMPLES[index]);
+    };
+
+    const link = () => `${location.origin}${location.pathname}${location.search}${jwsShareFragment({ token, publicKey })}`;
+    const shareable = jwsShareFragment({ token, publicKey }) !== '';
 
     const edit = (setter: (value: string) => void, field: 'token' | 'publicKey') => (value: string) => {
         setter(value);
@@ -104,6 +152,7 @@ function Verify() {
                 value={token}
                 error={errors.token}
                 placeholder="eyJhbGciOiJFZERTQSJ9.… (a JWS or a JWT signed with EdDSA)"
+                fileKind="text"
                 onInput={edit(setToken, 'token')}
             />
             <Field
@@ -127,9 +176,13 @@ function Verify() {
                 <button type="button" class="primary" onClick={() => verify()}>
                     Verify
                 </button>
+                <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
+                <ExampleButton onClick={loadNextExample} />
             </div>
+            <ExampleNote example={exampleIndex === null ? null : JWS_EXAMPLES[exampleIndex]} />
             {shown?.verdict === 'valid' && <Banner kind="success">Signature is valid</Banner>}
             {shown?.verdict === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
+            {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
             {shown?.verdict === 'permissive-only' && (
                 <Banner kind="warning">
                     Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive rules
@@ -144,6 +197,8 @@ function Verify() {
 const DEFAULT_HEADER = '{"alg":"EdDSA","typ":"JWT"}';
 
 function Create() {
+    const [exampleIndex, setExampleIndex] = useState<number | null>(null);
+    const [published, setPublished] = useState<string | null>(null);
     const [privateKey, setPrivateKey] = useState('');
     const [header, setHeader] = useState(DEFAULT_HEADER);
     const [payload, setPayload] = useState('');
@@ -175,6 +230,22 @@ function Create() {
             if (!(error instanceof InputError)) throw error;
             setErrors({ privateKey: error.message });
         }
+    };
+
+    const loadExample = (example: JwsExample) => {
+        setPrivateKey(example.privateKey);
+        setHeader(example.header);
+        setPayload(example.payload);
+        setRevealed(true);
+        setErrors({});
+        setResult(null);
+        setPublished(example.token);
+    };
+
+    const loadNextExample = () => {
+        const index = nextIndex(exampleIndex, JWS_EXAMPLES.length);
+        setExampleIndex(index);
+        loadExample(JWS_EXAMPLES[index]);
     };
 
     const clear = (setter: (value: string) => void, field: 'privateKey' | 'header') => (value: string) => {
@@ -220,7 +291,9 @@ function Create() {
                 <button type="button" class="primary" onClick={sign}>
                     Sign
                 </button>
+                <ExampleButton onClick={loadNextExample} />
             </div>
+            <ExampleNote example={exampleIndex === null ? null : JWS_EXAMPLES[exampleIndex]} />
             {result && (
                 <>
                     <Banner kind="success">
@@ -232,6 +305,7 @@ function Create() {
                             </div>
                         </div>
                         <div class="result">{result.token}</div>
+                        {published === result.token && <p>Identical to the token of the example.</p>}
                     </Banner>
                     <Field
                         label="Public key to verify it, as a JWK"
@@ -248,11 +322,19 @@ function Create() {
 }
 
 /** Both stay mounted, so what was typed in one is still there after a look at the other. */
-export default function JwsPanel({ mode }: { mode: 'verify' | 'create' }) {
+export default function JwsPanel({
+    mode,
+    initial,
+    autoVerify,
+}: {
+    mode: 'verify' | 'create';
+    initial?: Partial<SharedToken>;
+    autoVerify?: boolean;
+}) {
     return (
         <>
             <div class="panel" hidden={mode !== 'verify'}>
-                <Verify />
+                <Verify initial={initial} autoVerify={autoVerify} />
             </div>
             <div class="panel" hidden={mode !== 'create'}>
                 <Create />

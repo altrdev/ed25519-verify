@@ -261,4 +261,47 @@ test.describe('signed formats: JWS / JWT', () => {
         expect(nodeVerify(null, Buffer.from(`${header}.${payload}`), key, Buffer.from(signature, 'base64url'))).toBe(true);
         expect(JSON.parse(Buffer.from(header, 'base64url').toString())).toEqual({ alg: 'EdDSA', typ: 'JWT' });
     });
+
+    test('suggests what may be wrong with a token, and following it makes it valid', async ({ page }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        // the signature of RFC 8037 with its two halves swapped
+        const [header, payload, signature] = JWS.token.split('.');
+        const bytes = Buffer.from(signature, 'base64url');
+        const swapped = `${header}.${payload}.${Buffer.concat([bytes.subarray(32), bytes.subarray(0, 32)]).toString('base64url')}`;
+        await panel(page).getByLabel('Token', { exact: true }).fill(swapped);
+        await panel(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
+        await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(panel(page).getByText('Signature is wrong')).toBeVisible();
+        await expect(panel(page).getByText('It is valid with the two halves of the signature (R and S) swapped.')).toBeVisible();
+    });
+
+    test('loads the examples, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'Load example' }).click();
+        await expect(panel(page).getByText('Signature is valid')).toBeVisible();
+        await expect(panel(page).getByText('RFC 8037 appendix A.4.')).toBeVisible();
+        await panel(page).getByRole('button', { name: 'Load example' }).click();
+        await expect(panel(page).getByText(/^Expired: it expired on/)).toBeVisible();
+
+        await panel(page).getByRole('button', { name: 'Copy link to this verification' }).click();
+        const link = await page.evaluate(() => navigator.clipboard.readText());
+        expect(link).toContain('fmt=jws');
+        const other = await context.newPage();
+        await other.goto(link);
+        // the link opens the tab of the signed formats, filled in and verified
+        await expect(panel(other).getByLabel('Token', { exact: true })).toHaveValue(/^eyJ/);
+        await expect(panel(other).getByText('Signature is valid')).toBeVisible();
+    });
+
+    test('the Create tab reproduces the token of the RFC', async ({ page }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'Create a token' }).click();
+        await panel(page).getByRole('button', { name: 'Load example' }).click();
+        await panel(page).getByRole('button', { name: 'Sign', exact: true }).click();
+        await expect(panel(page).getByText('Identical to the token of the example.')).toBeVisible();
+        await expect(panel(page).locator('.result')).toHaveText(JWS.token);
+    });
 });

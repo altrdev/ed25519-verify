@@ -76,3 +76,45 @@ export const EXAMPLES: Example[] = [
 
 /** The examples that have a private key, for the Sign tab. */
 export const SIGNABLE_EXAMPLES = EXAMPLES.filter((example) => example.privateKey);
+
+/** What the note under the "Load example" button says: which example, what to notice, where it comes from. */
+export type ExampleInfo = Pick<Example, 'title' | 'note' | 'source'>;
+
+export interface JwsExample extends ExampleInfo {
+    token: string;
+    /** a JWK, the form in which JOSE tools exchange public keys */
+    publicKey: string;
+    /** for the Create tab: what makes the token above when signed */
+    privateKey: string;
+    header: string;
+    payload: string;
+    verdict: Verdict;
+}
+
+const RFC_8037_KEY = {
+    privateKey: '9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60',
+    publicKey: '{"kty":"OKP","crv":"Ed25519","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"}',
+};
+
+export const JWS_EXAMPLES: JwsExample[] = [
+    {
+        title: 'RFC 8037 appendix A.4',
+        note: 'The example token of the specification, signed with the key of RFC 8032 test 1.',
+        ...RFC_8037_KEY,
+        token: 'eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc.hgyY0il_MGCjP0JzlnLWG1PPOt7-09PGcvMg3AIbQR6dWbhijcNR4ki4iylGjg5BhVsPt9g7sVvpAr_MuM0KAg',
+        header: '{"alg":"EdDSA"}',
+        payload: 'Example of Ed25519 signing',
+        verdict: 'valid',
+        source: 'https://www.rfc-editor.org/rfc/rfc8037#appendix-A.4',
+    },
+    {
+        title: 'A JWT that has expired',
+        note: 'Correctly signed, but its "exp" is in the past: the signature is valid and the token says it expired. Made for this page with the same key.',
+        ...RFC_8037_KEY,
+        token: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZGEiLCJuYW1lIjoiQWRhIExvdmVsYWNlIiwiaWF0Ijo5NDY2ODQ4MDAsImV4cCI6OTc4MzA3MjAwfQ.R1kbxsH5bPdgymTg-qVwuVxCplHP8MsNlt-mqhxYk4MV8i4lninmk7Ae9gPY5vSt1jdlnIzfRNUyvYfFgUwqDg',
+        header: '{"alg":"EdDSA","typ":"JWT"}',
+        payload: '{"sub":"ada","name":"Ada Lovelace","iat":946684800,"exp":978307200}',
+        verdict: 'valid',
+        source: 'https://www.rfc-editor.org/rfc/rfc7519#section-4.1.4',
+    },
+];

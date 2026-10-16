@@ -1,4 +1,4 @@
-import type { Example } from './examples';
+import type { ExampleInfo } from './examples';
 import { Icon } from './icons';
 
 /** "Load example": each click asks for the next example of the list. */
@@ -12,7 +12,7 @@ export function ExampleButton({ onClick }: { onClick: () => void }) {
 }
 
 /** Which example is loaded and where it comes from. */
-export function ExampleNote({ example }: { example: Example | null }) {
+export function ExampleNote({ example }: { example: ExampleInfo | null }) {
     if (!example) return null;
     return (
         <p class="example-note">
