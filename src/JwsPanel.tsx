@@ -22,6 +22,7 @@ import {
     timeNotes,
     tokenOf,
 } from './jws';
+import { JwksError, keyChoiceLabel, looksLikeJwkSet, parseJwkSet, selectKey, type SetKey } from './jwks';
 import { encodeJwk } from './keyfiles';
 import { readingHint } from './FormatMenu';
 import type { RawFormat } from './enum';
@@ -66,10 +67,13 @@ function Verify({ initial, autoVerify }: { initial?: Partial<SharedToken>; autoV
     const [choices, setChoices] = useState<RawFormat[] | undefined>(undefined);
     const [formats, setFormats] = useState<FormatOverrides>({});
     const [shown, setShown] = useState<Shown | null>(null);
+    const [keyNote, setKeyNote] = useState<string | undefined>(undefined);
+    const [keyOptions, setKeyOptions] = useState<SetKey[] | undefined>(undefined);
 
-    const publicKeyReading = inspectField('publicKey', publicKey, formats.publicKey);
+    const isSet = looksLikeJwkSet(publicKey);
+    const publicKeyReading = isSet ? null : inspectField('publicKey', publicKey, formats.publicKey);
 
-    const verify = async (picked: FormatOverrides = formats, values = { token, publicKey }) => {
+    const verify = async (picked: FormatOverrides = formats, values = { token, publicKey }, chosen?: number) => {
         const found: { token?: string; publicKey?: string } = {};
         let parsed: ParsedJws | undefined;
         try {
@@ -78,16 +82,42 @@ function Verify({ initial, autoVerify }: { initial?: Partial<SharedToken>; autoV
             if (!(error instanceof JwsError)) throw error;
             found.token = error.message;
         }
-        const key = new VerifyEd25519('', null, values.publicKey, null, undefined, picked);
-        found.publicKey = key.validate(['publicKey']).publicKey;
-        setChoices(key.choices(['publicKey']).publicKey);
+        let publicKeyBytes: Uint8Array | undefined;
+        let note: string | undefined;
+        let options: SetKey[] | undefined;
+        if (looksLikeJwkSet(values.publicKey)) {
+            // a set of keys: the one the token names, from the set the user pasted (never a key carried by the token)
+            setChoices(undefined);
+            try {
+                const set = parseJwkSet(values.publicKey);
+                if (parsed) {
+                    const selection = selectKey(set, parsed.header.kid, chosen);
+                    if ('key' in selection) {
+                        publicKeyBytes = selection.key.publicKey;
+                        note = selection.note;
+                    } else {
+                        found.publicKey = selection.error;
+                        if ('choose' in selection) options = selection.choose;
+                    }
+                }
+            } catch (error) {
+                if (!(error instanceof JwksError)) throw error;
+                found.publicKey = error.message;
+            }
+        } else {
+            const key = new VerifyEd25519('', null, values.publicKey, null, undefined, picked);
+            found.publicKey = key.validate(['publicKey']).publicKey;
+            setChoices(key.choices(['publicKey']).publicKey);
+            if (!found.publicKey) publicKeyBytes = key.bytesOf('publicKey');
+        }
+        setKeyNote(note);
+        setKeyOptions(options);
         setErrors(found);
-        if (!parsed || found.publicKey) {
+        if (!parsed || found.publicKey || !publicKeyBytes) {
             setShown(null);
             return;
         }
         const info = describePayload(parsed.payload);
-        const publicKeyBytes = key.bytesOf('publicKey');
         const verdict = await verdictOf(parsed.signature, parsed.signingInput, publicKeyBytes);
         setShown({
             verdict,
@@ -122,6 +152,7 @@ function Verify({ initial, autoVerify }: { initial?: Partial<SharedToken>; autoV
         setErrors({});
         setChoices(undefined);
         setFormats({});
+        setKeyOptions(undefined);
         verify({}, example);
     };
 
@@ -137,6 +168,8 @@ function Verify({ initial, autoVerify }: { initial?: Partial<SharedToken>; autoV
     const edit = (setter: (value: string) => void, field: 'token' | 'publicKey') => (value: string) => {
         setter(value);
         setShown(null);
+        setKeyNote(undefined);
+        setKeyOptions(undefined);
         setErrors((current) => ({ ...current, [field]: undefined }));
         if (field === 'publicKey') {
             setChoices(undefined);
@@ -167,8 +200,9 @@ function Verify({ initial, autoVerify }: { initial?: Partial<SharedToken>; autoV
                     setFormats(picked);
                     verify(picked);
                 }}
-                hint={readingHint(publicKeyReading)}
-                placeholder="Hex, base64, PEM, OpenSSH or a JWK, such as {&quot;kty&quot;:&quot;OKP&quot;,&quot;crv&quot;:&quot;Ed25519&quot;,&quot;x&quot;:…}"
+                picks={keyOptions?.map((key) => ({ label: keyChoiceLabel(key), onPick: () => verify(formats, undefined, key.position) }))}
+                hint={isSet ? keyNote : readingHint(publicKeyReading)}
+                placeholder="Hex, base64, PEM, OpenSSH, a JWK such as {&quot;kty&quot;:&quot;OKP&quot;,&quot;crv&quot;:&quot;Ed25519&quot;,&quot;x&quot;:…} or a whole JWK Set (the key is picked by the kid of the token)"
                 fileKind="key"
                 onInput={edit(setPublicKey, 'publicKey')}
             />

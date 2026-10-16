@@ -172,6 +172,20 @@ for (const theme of ['light', 'dark'] as const) {
             await check(page);
         });
 
+        test('signed formats, a JWK Set: the key picked, and the choice when the token names none', async ({ page }) => {
+            await page.getByRole('tab', { name: 'Signed formats' }).click();
+            for (let i = 0; i < 3; i++) await signed(page).getByRole('button', { name: 'Load example' }).click();
+            await expect(signed(page).getByText(/Using the key "key-2" of the set/)).toBeVisible();
+            await check(page);
+            const [header, payload, signature] = (await signed(page).getByLabel('Token', { exact: true }).inputValue()).split('.');
+            const noKid = Buffer.from(JSON.stringify({ alg: 'EdDSA', typ: 'JWT' })).toString('base64url');
+            await signed(page).getByLabel('Token', { exact: true }).fill(`${noKid}.${payload}.${signature}`);
+            await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(signed(page).getByRole('button', { name: 'Use the key "key-2"' })).toBeVisible();
+            await check(page);
+            expect(header).toBeTruthy();
+        });
+
         test('signed formats, a token with an error, and creating one', async ({ page }) => {
             await page.getByRole('tab', { name: 'Signed formats' }).click();
             await signed(page).getByLabel('Token', { exact: true }).fill('a.b');

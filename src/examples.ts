@@ -117,6 +117,18 @@ export const JWS_EXAMPLES: JwsExample[] = [
         verdict: 'valid',
         source: 'https://www.rfc-editor.org/rfc/rfc7519#section-4.1.4',
     },
+    {
+        title: 'A token and the key set of its issuer',
+        note: 'The public key is a JWK Set with two Ed25519 keys and an RSA one. The token names "key-2" in its header (kid), so that key is picked from the set; the RSA key is left out. Made for this page.',
+        privateKey: '6b775269140d487bed9fd684816ef7d86543b14fbb9a56d033ef0cddc604d3b7',
+        publicKey:
+            '{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"key-1","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"},{"kty":"OKP","crv":"Ed25519","kid":"key-2","x":"HTAZSIhmy0zYZuoxA9tij6796Ai6Sm-_uDVPqvzc5Uw"},{"kty":"RSA","kid":"rsa-1","n":"sXchDaQebHnPiGvyDOAT4saGEUetSyo9MKLOoWFsueri23bOdgWp4Dy1WlUzewbgBHod5pcM9H95GQRV3JDXboIRROSBigeC5yjU1hGzHHyXss8UDprecbAYxknTcQkhslANGRUZmdTOQ5qTRsLAt6BTYuyvVRdhS8exSZEy_c4gs_7svlJJQ4H9_NxsiIoLwAEk7-Q3UXERGYw_75IDrGA84-lA_-Ct4eTlXHBIY2EaV7t7LjJaynVJCpkv4LKjTMjAsrEzaCQmpjoA","e":"AQAB"}]}',
+        token: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImtleS0yIn0.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlIiwic3ViIjoiYWRhIiwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjQxMDI0NDQ4MDB9.3O1u5UllX-hUsB6jmezhrZJiY6Z1yrOYNyYil4dstJuaOakveQP_VfsxvIHiYVBgx_dr5Q2pdayHENZ9GPMyBA',
+        header: '{"alg":"EdDSA","typ":"JWT","kid":"key-2"}',
+        payload: '{"iss":"https://issuer.example","sub":"ada","iat":1700000000,"exp":4102444800}',
+        verdict: 'valid',
+        source: 'https://www.rfc-editor.org/rfc/rfc7517#section-5',
+    },
 ];
 
 export interface SshsigExample extends ExampleInfo {
