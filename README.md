@@ -21,7 +21,7 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 - **Generate** a random key pair with one click, handy for trying things out.
 - **Clear input errors**: a malformed key or signature is explained next to the field ("expected 32 bytes, got 31",
   "not in a recognised format") instead of being reported as a wrong signature.
-- Messages as **text, hex or base64**, so binary payloads can be signed and verified as well.
+- Messages as **text, hex or base64**, so binary payloads can be signed and verified as well, or **a file** (*Choose file* or drag and drop, up to 100 MB): its bytes are read in the browser only and nothing is uploaded. A share link cannot carry a file.
 - Keys in **PEM, OpenSSH or JWK** pasted as they are (detected automatically), or as plain hex / base64.
 - **Share a verification**: *Copy link* on the Verify tab makes a link with the public key, message and signature in the part after `#`, which browsers never send to any server. Whoever opens it sees the fields filled in and the result at once. Private keys are never put in a link.
 - **Formats are recognised by themselves** for keys and signatures: hex, `0x` hex, base64, base64url, base58, base32 or a list of bytes, mixed as you like. When a text could be two things (rare) you are asked to pick, never guessed for. A menu on every field converts it to another format.
