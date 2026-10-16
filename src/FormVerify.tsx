@@ -29,15 +29,17 @@ export default function FormVerify(props: Props) {
     };
 
     return (
-        <div class="panel">
+        <section class="card">
             <SelectorEncoding reset={resetVerify} />
             <Field label="Public key" rows={2} value={publicKey} onInput={edit(setPublicKey)} />
             <Field label="Message" rows={2} value={message} onInput={edit(setMessage)} />
             <Field label="Signature" value={signature} onInput={edit(setSignature)} />
-            <button type="button" class="primary" onClick={performVerify}>Verify</button>
+            <div class="actions">
+                <button type="button" class="primary" onClick={performVerify}>Verify</button>
+            </div>
 
             {verify === true && <Banner kind="success">Signature is valid</Banner>}
             {verify === false && <Banner kind="error">Signature is wrong</Banner>}
-        </div>
+        </section>
     );
 }

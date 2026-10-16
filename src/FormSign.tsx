@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import Banner from './Banner';
+import CopyButton from './CopyButton';
 import Field from './Field';
 import SelectorEncoding from './SelectorEncoding';
 import VerifyEd25519 from './signature';
@@ -29,28 +30,34 @@ export default function FormSign(props: Props) {
     };
 
     return (
-        <div class="panel">
+        <section class="card">
             <SelectorEncoding reset={() => setSignature('')} />
-            <Field label="Private key" rows={2} value={privateKey} onInput={setPrivateKey} onChange={deductPublicKey} />
+            <Field label="Private key" rows={2} secret value={privateKey} onInput={setPrivateKey} onChange={deductPublicKey} />
             <Field
                 label="Deduced Public key"
                 rows={2}
                 value={publicKey}
+                copyable
                 disabled
                 placeholder="Insert private key for deducing ..."
             />
             <Field label="Message (Plain text)" rows={2} value={message} onInput={setMessage} />
-            <button type="button" class="primary" onClick={performSign}>Sign</button>
+            <div class="actions">
+                <button type="button" class="primary" onClick={performSign}>Sign</button>
+            </div>
 
             {signature === null && (
                 <Banner kind="error">Signature can't be performed. Private key is mandatory</Banner>
             )}
             {signature && (
                 <Banner kind="success">
-                    Signature:
+                    <div class="result-head">
+                        <strong>Signature:</strong>
+                        <CopyButton text={signature} label="Copy signature" />
+                    </div>
                     <div class="result">{signature}</div>
                 </Banner>
             )}
-        </div>
+        </section>
     );
 }
