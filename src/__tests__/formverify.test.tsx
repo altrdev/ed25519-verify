@@ -1,6 +1,5 @@
 import { render, screen, fireEvent, within } from '@testing-library/preact';
-import { outputEncoding } from '../store';
-import { SignEncoding } from '../enum';
+import { formatButton, pickFormat, setFormats } from './helpers';
 import FormVerify from '../FormVerify';
 import { hexToBytes } from '../bytes';
 import { encodeAs } from '../codecs';
@@ -13,7 +12,7 @@ const publicKey = "u6xMxXSXi/dL9tWPS+qfxiOHMA6c2Czwh/k2hy/wx/U=";
 
 describe('FormVerify component', () => {
     beforeEach(() => {
-        outputEncoding.value = SignEncoding.Base64;
+        setFormats('base64');
     });
 
     it('should render', () => {
@@ -92,7 +91,7 @@ describe('FormVerify component', () => {
     });
 
     it('says so when a signature is only accepted under the permissive ZIP215 rules', async () => {
-        outputEncoding.value = SignEncoding.Hex;
+        setFormats('hex');
         const identity = '01' + '00'.repeat(31);
         render(<FormVerify publicKey={identity} signature={identity + '00'.repeat(32)} message="anything" />);
         fireEvent.click(screen.getByText('Verify'));
@@ -110,7 +109,7 @@ describe('FormVerify with keys in other formats', () => {
     const SIGNATURE_HEX = 'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
 
     beforeEach(() => {
-        outputEncoding.value = SignEncoding.Hex;
+        setFormats('hex');
     });
 
     it('verifies with a PEM public key and shows the detected format', async () => {
@@ -151,7 +150,6 @@ describe('FormVerify with keys in other formats', () => {
 
     it('has no encoding to choose: keys and signature are recognised, even when written differently', async () => {
         render(<FormVerify />);
-        expect(screen.queryByText('Show results as')).not.toBeInTheDocument();
         expect(screen.queryByText(/encoding/i)).not.toBeInTheDocument();
         // hex public key, base64 signature
         const hexPublicKey = '5f82d54a68d23979e9756866b6b90ce277ef34e1d5daec3871c5409d56351a8d';
@@ -217,5 +215,74 @@ describe('FormVerify with keys in other formats', () => {
             expect((await screen.findByRole('alert')).textContent?.trim(), name).toBe('Signature is valid');
             unmount();
         }
+    });
+
+    describe('the format menus', () => {
+        const SPKI_PEM = '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAX4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0=\n-----END PUBLIC KEY-----\n';
+        const publicKeyField = () => screen.getByLabelText('Public key') as HTMLTextAreaElement;
+        const signatureField = () => screen.getByLabelText('Signature') as HTMLTextAreaElement;
+
+        it('are disabled, and say Auto, while a field is empty or not valid', () => {
+            render(<FormVerify />);
+            expect(formatButton('Public key format')).toBeDisabled();
+            expect(formatButton('Public key format')).toHaveTextContent('Auto');
+            fireEvent.input(publicKeyField(), { target: { value: 'not a key' } });
+            expect(formatButton('Public key format')).toBeDisabled();
+        });
+
+        it('show the format that was recognised, with the size', () => {
+            render(<FormVerify publicKey={AMBIGUOUS.publicBase58} signature={AMBIGUOUS.signatureHex} />);
+            // 43 characters of base58: ambiguous, so nothing is claimed until the user picks
+            expect(formatButton('Public key format')).toHaveTextContent('Auto');
+            expect(formatButton('Signature format')).toHaveTextContent('Hex');
+            expect(screen.getByText('Detected: hex · 64 bytes')).toBeInTheDocument();
+        });
+
+        it('rewrite the public key in the format picked, and it still verifies', async () => {
+            render(<FormVerify publicKey={AMBIGUOUS.publicHex} signature={AMBIGUOUS.signatureHex} message="ambiguous" />);
+            expect(screen.getByText('Detected: hex · 32 bytes')).toBeInTheDocument();
+
+            pickFormat('Public key format', 'base64');
+            expect(publicKeyField().value).toBe('ASNPcp6uJHvToi4SszrPqRc9QHxK2JCMUYUDziCpMLU=');
+            expect(formatButton('Public key format')).toHaveTextContent('Base64');
+            expect(screen.getByText('Detected: base64 · 32 bytes')).toBeInTheDocument();
+
+            pickFormat('Public key format', 'bytes');
+            expect(publicKeyField().value).toMatch(/^\[1, 35, 79, 114/);
+            fireEvent.click(screen.getByText('Verify'));
+            expect((await screen.findByRole('alert')).textContent?.trim()).toBe('Signature is valid');
+        });
+
+        it('rewrite the signature too', () => {
+            render(<FormVerify publicKey={AMBIGUOUS.publicHex} signature={AMBIGUOUS.signatureHex} />);
+            pickFormat('Signature format', 'base58');
+            expect(signatureField().value).toBe('BpkGf57zKwUt9zk7sw939Q3JBXQjwaN2ksfkp5Rkt16GZVHSnxUZrffJii6YgQ9uRzU1qjigsqZKovtk6jzrPHX');
+            pickFormat('Signature format', 'hex');
+            expect(signatureField().value).toBe(AMBIGUOUS.signatureHex);
+        });
+
+        it('turn a key file into a plain key', () => {
+            render(<FormVerify publicKey={SPKI_PEM} />);
+            expect(formatButton('Public key format')).toHaveTextContent('PEM');
+            pickFormat('Public key format', 'hex');
+            expect(publicKeyField().value).toBe('5f82d54a68d23979e9756866b6b90ce277ef34e1d5daec3871c5409d56351a8d');
+        });
+
+        it('never ask about what they wrote themselves, even a 43-character base58 key', async () => {
+            render(<FormVerify publicKey={AMBIGUOUS.publicHex} signature={AMBIGUOUS.signatureHex} message="ambiguous" />);
+            pickFormat('Public key format', 'base58');
+            expect(publicKeyField().value).toBe(AMBIGUOUS.publicBase58);        // 43 characters: also valid base64, of another key
+            fireEvent.click(screen.getByText('Verify'));
+            expect((await screen.findByRole('alert')).textContent?.trim()).toBe('Signature is valid');
+            expect(screen.queryByText(/pick the format/)).not.toBeInTheDocument();
+        });
+
+        it('forget what they wrote as soon as the text is edited', async () => {
+            render(<FormVerify publicKey={AMBIGUOUS.publicHex} signature={AMBIGUOUS.signatureHex} message="ambiguous" />);
+            pickFormat('Public key format', 'base58');
+            fireEvent.input(publicKeyField(), { target: { value: AMBIGUOUS.publicBase58 } });   // the same text, typed: now it is asked
+            fireEvent.click(screen.getByText('Verify'));
+            expect(await screen.findByText(/pick the format/)).toBeInTheDocument();
+        });
     });
 });

@@ -1,7 +1,7 @@
 import * as ed from '@noble/ed25519';
 import { parseBase64, parseHex } from './bytes';
 import { CODECS, encodeAs, readings } from './codecs';
-import { MessageFormat, type RawFormat, SignEncoding } from './enum';
+import { MessageFormat, type RawFormat } from './enum';
 import { isStructuredKey, KeyFormatError, parseStructuredKey } from './keyformats';
 
 export type Field = 'publicKey' | 'privateKey' | 'signature' | 'message';
@@ -56,8 +56,17 @@ export const encodeBytes = (bytes: Uint8Array, format: RawFormat): string => enc
 const formatName = (format: RawFormat) => CODECS[format].label.toLowerCase();
 const listOf = (names: string[]) => names.length < 3 ? names.join(' or ') : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
 
+/** What the text of a key or signature turned out to be: its bytes and the notation they were written in. */
+export interface FieldReading {
+    bytes: Uint8Array;
+    /** the plain notation (hex, base58, ...), null for a key file */
+    format: RawFormat | null;
+    /** the key file format (PEM, OpenSSH, JWK), null for a plain notation */
+    structured: string | null;
+}
+
 /** A key pasted as PEM, OpenSSH or JWK carries its own format. */
-function decodeStructuredKey(field: 'publicKey' | 'privateKey', text: string): Uint8Array {
+function readStructuredKey(field: 'publicKey' | 'privateKey', text: string): FieldReading {
     const label = LABELS[field];
     let key;
     try {
@@ -68,24 +77,24 @@ function decodeStructuredKey(field: 'publicKey' | 'privateKey', text: string): U
     }
     if (field === 'privateKey') {
         if (!key.privateKey) throw new InputError(field, `${label}: this is a public key (${key.format}), the private key goes here.`);
-        return key.privateKey;
+        return { bytes: key.privateKey, format: null, structured: key.format };
     }
     if (!key.publicKey) {
         throw new InputError(field, `${label}: this is a private key (${key.format}) that does not include its public part: paste the public key instead, or use the Sign tab.`);
     }
-    return key.publicKey;
+    return { bytes: key.publicKey, format: null, structured: key.format };
 }
 
 /**
- * Decodes a key or signature, throwing an InputError that says what is wrong with it. The format is not asked for, the text
+ * Reads a key or signature, throwing an InputError that says what is wrong with it. The format is not asked for, the text
  * tells (see readings() in codecs.ts): a key or signature has one of a few sizes, and in almost every case only one reading of
  * the text has such a size. When two do, the text is ambiguous and the InputError lists the formats to pick from; `forced`
  * is the pick.
  */
-function decodeField(field: Exclude<Field, 'message'>, raw: string | null | undefined, forced?: RawFormat): Uint8Array {
+function readField(field: Exclude<Field, 'message'>, raw: string | null | undefined, forced?: RawFormat): FieldReading {
     const label = LABELS[field];
     if (!(raw ?? '').trim()) throw new InputError(field, `${label} is required.`);
-    if (field !== 'signature' && isStructuredKey(raw!)) return decodeStructuredKey(field, raw!);
+    if (field !== 'signature' && isStructuredKey(raw!)) return readStructuredKey(field, raw!);
 
     const expected = `${label}: expected ${EXPECTED[field]}`;
     const fits = (bytes: Uint8Array) => LENGTHS[field].includes(bytes.length);
@@ -95,12 +104,12 @@ function decodeField(field: Exclude<Field, 'message'>, raw: string | null | unde
         const bytes = CODECS[forced].decode(text);
         if (!bytes) throw new InputError(field, `${label} is not valid ${formatName(forced)}.`);
         if (!fits(bytes)) throw new InputError(field, `${expected}, got ${bytes.length} (read as ${formatName(forced)}).`);
-        return bytes;
+        return { bytes, format: forced, structured: null };
     }
 
     const found = readings(raw!);
     const matching = found.filter((reading) => fits(reading.bytes));
-    if (matching.length === 1) return matching[0].bytes;
+    if (matching.length === 1) return { bytes: matching[0].bytes, format: matching[0].format, structured: null };
     if (matching.length > 1) {
         const formats = matching.map((reading) => reading.format);
         throw new InputError(field, `${label}: this text could be ${listOf(formats.map(formatName))}: pick the format.`, formats);
@@ -120,6 +129,19 @@ function decodeField(field: Exclude<Field, 'message'>, raw: string | null | unde
     throw new InputError(field, `${expected}, got ${listOf(found.map((r) => `${r.bytes.length} as ${formatName(r.format)}`))}.`);
 }
 
+const decodeField = (field: Exclude<Field, 'message'>, raw: string | null | undefined, forced?: RawFormat): Uint8Array =>
+    readField(field, raw, forced).bytes;
+
+/** What a key or signature text is, or null when it is empty, malformed or ambiguous (the form shows why). */
+export function inspectField(field: Exclude<Field, 'message'>, raw: string, forced?: RawFormat): FieldReading | null {
+    try {
+        return readField(field, raw, forced);
+    } catch (error) {
+        if (error instanceof InputError) return null;
+        throw error;
+    }
+}
+
 /** The bytes of the message, which can be plain text (UTF-8) or already encoded as hex / base64. */
 function decodeMessage(raw: string | null | undefined, format: MessageFormat): Uint8Array {
     const text = raw ?? '';
@@ -137,9 +159,12 @@ function decodeMessage(raw: string | null | undefined, format: MessageFormat): U
 /** The seed of a private key, whether it was given as 32 bytes or in the 64-byte NaCl form. */
 const seedOf = (key: Uint8Array): Uint8Array => key.slice(0, 32);
 
-export async function generateKeyPair(encoding: SignEncoding): Promise<{ privateKey: string; publicKey: string }> {
+export async function generateKeyPair(
+    privateFormat: RawFormat,
+    publicFormat: RawFormat = privateFormat,
+): Promise<{ privateKey: string; publicKey: string }> {
     const { secretKey, publicKey } = await ed.keygenAsync();
-    return { privateKey: encodeBytes(secretKey, encoding), publicKey: encodeBytes(publicKey, encoding) };
+    return { privateKey: encodeBytes(secretKey, privateFormat), publicKey: encodeBytes(publicKey, publicFormat) };
 }
 
 class VerifyEd25519 {
@@ -179,6 +204,11 @@ class VerifyEd25519 {
             }
         }
         return errors;
+    }
+
+    /** The bytes of a key or signature field, whatever notation it is written in. */
+    bytesOf(field: 'publicKey' | 'privateKey' | 'signature'): Uint8Array {
+        return decodeField(field, this[field], this.formats[field]);
     }
 
     /** The formats to pick from, for each of the fields whose text can be read in several. */
@@ -229,7 +259,7 @@ class VerifyEd25519 {
         return ed.signAsync(message, seed);
     }
 
-    async sign(encoding: SignEncoding): Promise<string> {
+    async sign(encoding: RawFormat): Promise<string> {
         return encodeBytes(await this.signBytes(), encoding);
     }
 
@@ -238,7 +268,7 @@ class VerifyEd25519 {
         return ed.getPublicKeyAsync(seedOf(decodeField('privateKey', this.privateKey, this.formats.privateKey)));
     }
 
-    async getPublicKey(encoding: SignEncoding): Promise<string> {
+    async getPublicKey(encoding: RawFormat): Promise<string> {
         return encodeBytes(await this.getPublicKeyBytes(), encoding);
     }
 }

@@ -23,7 +23,7 @@ Everything runs client-side: **nothing is uploaded anywhere**.
   "not in a recognised format") instead of being reported as a wrong signature.
 - Messages as **text, hex or base64**, so binary payloads can be signed and verified as well.
 - Keys in **PEM, OpenSSH or JWK** pasted as they are (detected automatically), or as plain hex / base64.
-- **Formats are recognised by themselves** for keys and signatures: hex, `0x` hex, base64, base64url, base58, base32 or a list of bytes, mixed as you like. When a text could be two things (rare) you are asked to pick, never guessed for. On the Sign tab you choose how results are shown, and the choice is remembered.
+- **Formats are recognised by themselves** for keys and signatures: hex, `0x` hex, base64, base64url, base58, base32 or a list of bytes, mixed as you like. When a text could be two things (rare) you are asked to pick, never guessed for. A menu on every field converts it to another format.
 - Private key hidden by default, one-click **copy** for private and public keys and for signatures.
 - Light and dark theme, responsive layout, installable as a **PWA** (assets are precached by a service worker).
 
@@ -59,10 +59,12 @@ truncated hex key gets "expected 32 bytes, got 21" instead of being mistaken for
 are also a valid unpadded base64 key (a different one). It then says so and offers *Read as base64* and *Read as base58*:
 one click settles it. The choice is dropped as soon as you edit the text.
 
-The *Show results as* selector of the Sign tab decides how the signature, a generated key and the deduced public key are
-written (hex or base64); changing it rewrites them, it does not clear anything. The message has its own Text / Hex / Base64
-selector (a text cannot tell "abcd" the string from "abcd" the two bytes), so you can sign and verify binary data (hashes,
-already encoded payloads) too.
+**Every key and signature field has a format menu** (the small button next to *Copy*). It shows what the text was
+recognised as, and picking another format **rewrites the field in that format**: the same bytes, written another way, so the
+app doubles as a converter (a PEM public key to hex, a base58 signature to base64, a keypair file to a seed...). In the
+fields that are results (the signature, a generated or deduced key) the menu chooses how they are written. The choice is
+remembered for each field. The message has its own Text / Hex / Base64 selector (a text cannot tell "abcd" the string
+from "abcd" the two bytes), so you can sign and verify binary data (hashes, already encoded payloads) too.
 
 ## Privacy
 

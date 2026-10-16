@@ -150,7 +150,7 @@ export interface Reading {
 /**
  * Every way a pasted text can be read as bytes. Whitespace is ignored (a paste wraps lines).
  *
- * The notations that cannot be mistaken for anything else win at once: a list of numbers, a `0x` prefix, a text made of hex
+ * The notations that cannot be mistaken for anything else win at once: a list of numbers, a `0x` number, a text made of hex
  * digits only (a real base64 or base58 value is never made of hex digits only, so a truncated hex key stays a hex key).
  * Otherwise base64, base58 and base32 are all candidates: the caller keeps the ones of the right size, and when more than one
  * is left the text is ambiguous.
@@ -165,7 +165,8 @@ export function readings(text: string): Reading[] {
     if (!value) return [];
     if (/^0x/i.test(value)) {
         const bytes = CODECS.hex0x.decode(value);
-        return bytes ? [{ format: 'hex0x', bytes }] : [];
+        if (bytes) return [{ format: 'hex0x', bytes }];
+        // not a 0x number after all: a base64 text begins with "0x" or "0X" about once in 2000 (its first two characters)
     }
     if (/^[0-9a-f]+$/i.test(value)) {
         const bytes = parseHex(value);

@@ -1,10 +1,10 @@
 import { useState } from 'preact/hooks';
 import Banner from './Banner';
 import Field from './Field';
+import FormatMenu, { readingHint, readingLabel } from './FormatMenu';
 import MessageFormatSelector from './MessageFormatSelector';
 import { MessageFormat, type RawFormat } from './enum';
-import VerifyEd25519, { type Field as FieldName, type FieldErrors, type FormatOverrides, type Verdict } from './signature';
-import { keyFormatHint } from './keyformats';
+import VerifyEd25519, { encodeBytes, inspectField, type Field as FieldName, type FieldErrors, type FieldReading, type FormatOverrides, type Verdict } from './signature';
 
 interface Props {
     message?: string;
@@ -22,6 +22,30 @@ export default function FormVerify(props: Props) {
     // when a text can be read in several formats the user picks one; the pick is dropped as soon as the text changes
     const [choices, setChoices] = useState<Partial<Record<FieldName, RawFormat[]>>>({});
     const [formats, setFormats] = useState<FormatOverrides>({});
+
+    // what each text turned out to be, for the format menus and the "Detected" lines
+    const publicKeyReading = inspectField('publicKey', publicKey, formats.publicKey);
+    const signatureReading = inspectField('signature', signature, formats.signature);
+
+    /** Picking a format rewrites the text in that format: the same bytes, written another way. */
+    const convert = (field: 'publicKey' | 'signature', reading: FieldReading | null, format: RawFormat) => {
+        if (!reading) return;
+        (field === 'publicKey' ? setPublicKey : setSignature)(encodeBytes(reading.bytes, format));
+        setVerify(undefined);
+        setErrors((current) => ({ ...current, [field]: undefined }));
+        setChoices((current) => ({ ...current, [field]: undefined }));
+        setFormats((current) => ({ ...current, [field]: format }));   // the new text is read as picked, never asked about
+    };
+
+    const formatMenu = (field: 'publicKey' | 'signature', reading: FieldReading | null, name: string) => (
+        <FormatMenu
+            name={name}
+            label={reading ? readingLabel(reading) : 'Auto'}
+            current={reading?.format ?? null}
+            disabled={!reading}
+            onSelect={(format) => convert(field, reading, format)}
+        />
+    );
 
     const edit = (set: (v: string) => void, field?: FieldName) => (value: string) => {
         set(value);
@@ -68,7 +92,9 @@ export default function FormVerify(props: Props) {
                 error={errors.publicKey}
                 choices={choices.publicKey}
                 onChoose={choose('publicKey')}
-                hint={keyFormatHint(publicKey)}
+                hint={readingHint(publicKeyReading)}
+                copyable
+                formatControl={formatMenu('publicKey', publicKeyReading, 'Public key format')}
                 placeholder="Hex, base64, PEM, OpenSSH or JWK"
                 onInput={edit(setPublicKey, 'publicKey')}
             />
@@ -80,7 +106,17 @@ export default function FormVerify(props: Props) {
                 actions={<MessageFormatSelector value={messageFormat} onChange={changeMessageFormat} />}
                 onInput={edit(setMessage, 'message')}
             />
-            <Field label="Signature" value={signature} error={errors.signature} choices={choices.signature} onChoose={choose('signature')} onInput={edit(setSignature, 'signature')} />
+            <Field
+                label="Signature"
+                value={signature}
+                error={errors.signature}
+                choices={choices.signature}
+                onChoose={choose('signature')}
+                hint={readingHint(signatureReading)}
+                copyable
+                formatControl={formatMenu('signature', signatureReading, 'Signature format')}
+                onInput={edit(setSignature, 'signature')}
+            />
             <div class="actions">
                 <button type="button" class="primary" onClick={() => performVerify()}>Verify</button>
             </div>

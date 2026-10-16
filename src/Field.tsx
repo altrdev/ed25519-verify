@@ -22,6 +22,8 @@ interface FieldProps {
     onChoose?: (format: RawFormat) => void;
     /** extra buttons on the label row */
     actions?: ComponentChildren;
+    /** the format menu, placed before the copy button */
+    formatControl?: ComponentChildren;
     /** copy button on the label row */
     copyable?: boolean;
     /** hide the content (like a password) with a show/hide toggle */
@@ -34,7 +36,7 @@ interface FieldProps {
 }
 
 export default function Field({
-    label, value, rows = 3, growWithContent, disabled, placeholder, error, hint, choices, onChoose, actions, copyable, secret,
+    label, value, rows = 3, growWithContent, disabled, placeholder, error, hint, choices, onChoose, actions, formatControl, copyable, secret,
     revealed: revealedProp, onRevealedChange, onInput, onChange,
 }: FieldProps) {
     const id = useId();
@@ -68,6 +70,7 @@ export default function Field({
                             {revealed ? 'Hide' : 'Show'}
                         </button>
                     )}
+                    {formatControl}
                     {copyable && <CopyButton text={value} label={`Copy ${label.toLowerCase()}`} />}
                 </div>
             </div>

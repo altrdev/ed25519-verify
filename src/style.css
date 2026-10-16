@@ -150,8 +150,6 @@ a.icon:hover, button.icon:hover { color: var(--text); background: var(--surface-
   box-shadow: var(--shadow);
 }
 
-.encoding { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.encoding-label { font-size: 0.8125rem; color: var(--muted); font-weight: 500; }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-head { display: flex; align-items: center; justify-content: space-between; min-height: 28px; }
@@ -194,6 +192,31 @@ a.icon:hover, button.icon:hover { color: var(--text); background: var(--surface-
   transition: color 0.15s, background 0.15s;
 }
 .chip:hover:not(:disabled) { color: var(--text); background: var(--surface-2); }
+
+/* the format menu of a field */
+.chip.format { gap: 6px; padding: 3px 8px 3px 10px; color: var(--text); border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.chip.format:disabled { color: var(--muted); border-color: var(--border); background: transparent; }
+.banner .chip.format { color: inherit; border-color: currentColor; background: transparent; }
+.menu-wrap { position: relative; }
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 5;
+  width: 250px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgb(16 24 40 / 18%);
+}
+.menu h4 { margin: 4px 10px; font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.menu button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; font-size: 0.875rem; text-align: left; }
+.menu button:hover, .menu button:focus-visible { background: var(--surface-2); }
+.menu button.current { color: var(--primary); font-weight: 600; background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.menu small { color: var(--muted); font-weight: 400; font-size: 0.75rem; }
 
 .actions { display: flex; }
 button.primary {

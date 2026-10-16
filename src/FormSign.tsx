@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import Banner from './Banner';
+import { CODECS } from './codecs';
 import CopyButton from './CopyButton';
 import Field from './Field';
+import FormatMenu, { readingHint, readingLabel } from './FormatMenu';
 import { Icon } from './icons';
-import { keyFormatHint } from './keyformats';
 import MessageFormatSelector from './MessageFormatSelector';
-import SelectorEncoding from './SelectorEncoding';
-import VerifyEd25519, { encodeBytes, generateKeyPair, InputError, type FieldErrors } from './signature';
-import { outputEncoding } from './store';
+import VerifyEd25519, { encodeBytes, generateKeyPair, inspectField, InputError, type FieldErrors } from './signature';
+import { formatPreference } from './store';
 import { MessageFormat, type RawFormat } from './enum';
 
 interface Props {
@@ -25,12 +25,27 @@ export default function FormSign(props: Props) {
     const [keyChoices, setKeyChoices] = useState<RawFormat[] | undefined>(undefined);
     const [keyFormat, setKeyFormat] = useState<RawFormat | undefined>(undefined);
 
-    // results are kept as bytes and written in the chosen encoding when shown, so changing it does not lose anything
+    // results are kept as bytes and written in the chosen format when shown, so changing it does not lose anything
     const [signatureBytes, setSignatureBytes] = useState<Uint8Array | null>(null);
     const [publicKeyBytes, setPublicKeyBytes] = useState<Uint8Array | null>(null);
-    const encoding = outputEncoding.value;
-    const signature = signatureBytes ? encodeBytes(signatureBytes, encoding) : '';
-    const publicKey = publicKeyBytes ? encodeBytes(publicKeyBytes, encoding) : '';
+    const signature = signatureBytes ? encodeBytes(signatureBytes, formatPreference.signature.value) : '';
+    const publicKey = publicKeyBytes ? encodeBytes(publicKeyBytes, formatPreference.publicKey.value) : '';
+
+    const privateKeyReading = inspectField('privateKey', privateKey, keyFormat);
+
+    /**
+     * The private key is typed, so its menu converts the text; when there is nothing to convert (empty or not valid yet) it
+     * only picks the format the key is written in when it is generated.
+     */
+    const pickPrivateKeyFormat = (format: RawFormat) => {
+        formatPreference.privateKey.value = format;
+        if (!privateKeyReading) return;
+        setPrivateKey(encodeBytes(privateKeyReading.bytes, format));
+        setKeyFormat(format);          // the new text is read as picked, never asked about
+        setKeyChoices(undefined);
+        setSignatureBytes(null);
+        setErrors((current) => ({ ...current, privateKey: undefined }));
+    };
 
     // keystrokes can outpace the async derivation: only the latest one may update the field
     const derivation = useRef(0);
@@ -81,11 +96,12 @@ export default function FormSign(props: Props) {
     };
 
     const generate = async () => {
-        const pair = await generateKeyPair(outputEncoding.value);
+        const format = formatPreference.privateKey.value;
+        const pair = await generateKeyPair(format);
         setPrivateKey(pair.privateKey);
         setKeyChoices(undefined);
-        setKeyFormat(undefined);
-        derive(pair.privateKey);
+        setKeyFormat(format);          // written in this format, so read as such (a 43-character base58 key is also valid base64)
+        derive(pair.privateKey, format);
         setRevealed(true);
         setSignatureBytes(null);
         setErrors({});
@@ -118,7 +134,6 @@ export default function FormSign(props: Props) {
 
     return (
         <section class="card">
-            <SelectorEncoding />
             <Field
                 label="Private key"
                 rows={2}
@@ -127,12 +142,20 @@ export default function FormSign(props: Props) {
                 error={errors.privateKey}
                 choices={keyChoices}
                 onChoose={chooseKeyFormat}
-                hint={keyFormatHint(privateKey)}
+                hint={readingHint(privateKeyReading)}
                 placeholder="Hex, base64, PEM, OpenSSH or JWK"
                 secret
                 revealed={revealed}
                 onRevealedChange={setRevealed}
                 copyable
+                formatControl={
+                    <FormatMenu
+                        name="Private key format"
+                        label={privateKeyReading ? readingLabel(privateKeyReading) : CODECS[formatPreference.privateKey.value].label}
+                        current={privateKeyReading ? privateKeyReading.format : formatPreference.privateKey.value}
+                        onSelect={pickPrivateKeyFormat}
+                    />
+                }
                 actions={
                     <button type="button" class="chip" onClick={generate}>
                         <Icon name="plus" size={16} />
@@ -147,6 +170,14 @@ export default function FormSign(props: Props) {
                 rows={2}
                 value={publicKey}
                 copyable
+                formatControl={
+                    <FormatMenu
+                        name="Public key format"
+                        label={CODECS[formatPreference.publicKey.value].label}
+                        current={formatPreference.publicKey.value}
+                        onSelect={(format) => (formatPreference.publicKey.value = format)}
+                    />
+                }
                 disabled
                 placeholder="Insert a private key (or generate one) to deduce it ..."
             />
@@ -166,7 +197,15 @@ export default function FormSign(props: Props) {
                 <Banner kind="success">
                     <div class="result-head">
                         <strong>Signature:</strong>
-                        <CopyButton text={signature} label="Copy signature" />
+                        <div class="field-actions">
+                            <FormatMenu
+                                name="Signature format"
+                                label={CODECS[formatPreference.signature.value].label}
+                                current={formatPreference.signature.value}
+                                onSelect={(format) => (formatPreference.signature.value = format)}
+                            />
+                            <CopyButton text={signature} label="Copy signature" />
+                        </div>
                     </div>
                     <div class="result">{signature}</div>
                 </Banner>

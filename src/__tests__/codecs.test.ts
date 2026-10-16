@@ -132,6 +132,18 @@ describe('readings of a pasted text', () => {
         expect(formatsOf('Gjy4uRbVRBZ6zUpDEvKLxzFrWmGB6qYTa9qBBSgqLOd')).toEqual(['base64']);
     });
 
+    it('does not take a base64 text that begins with 0x or 0X for a hex number', () => {
+        // found by the random tests: about 1 key in 2000 starts with these two characters
+        expect(formatsOf('0XT4oL5MnkBEhIYUrMGRqOD7IQzkyBETeTslubcTYBc=')).toEqual(['base64']);
+        // the first bytes 0xd3 0x1c are written "0x" in base64 (built here, not typed by hand)
+        const lower = CODECS.base64.encode(Uint8Array.from([0xd3, 0x1c, ...new Array<number>(30).fill(7)]));
+        expect(lower.slice(0, 2)).toBe('0x');
+        expect(formatsOf(lower)).toEqual(['base64']);
+        // while a real 0x number stays one, and a 0x text that is not hex falls through to the other readings
+        expect(formatsOf('0xAAAA')).toEqual(['hex0x']);
+        expect(formatsOf('0x00ff10')).toEqual(['hex0x']);
+    });
+
     it('finds nothing in text that is not a recognised notation', () => {
         for (const bad of ['', '!!!', 'hello world!', '[1, 2', 'ab+c=d']) expect(readings(bad), bad).toEqual([]);
     });

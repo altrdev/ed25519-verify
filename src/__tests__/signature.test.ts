@@ -1,4 +1,5 @@
-import VerifyEd25519, { generateKeyPair, InputError } from '../signature'
+import VerifyEd25519, { encodeBytes, generateKeyPair, InputError, inspectField } from '../signature'
+import { CODECS } from '../codecs';
 import {MessageFormat, type RawFormat, SignEncoding} from "../enum";
 
 const publicKey = "u6xMxXSXi/dL9tWPS+qfxiOHMA6c2Czwh/k2hy/wx/U=";
@@ -305,4 +306,45 @@ describe('Conformance', function() {
         expect(await new VerifyEd25519("hello", signed, pair.publicKey, null).verdict()).toBe('valid');
         expect(await new VerifyEd25519("hullo", signed, pair.publicKey, null).verdict()).toBe('invalid');
     })
+})
+
+describe('What the app writes it can read back', function() {
+    const FORMATS = Object.keys(CODECS) as RawFormat[];
+    const random = (length: number) => crypto.getRandomValues(new Uint8Array(length));
+    const hexOf = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+
+    // Converting a field writes text in any format, so the text must never be read as another value, silently
+    it.each([['publicKey', 32], ['signature', 64], ['privateKey', 32], ['privateKey', 64]] as const)(
+        'never reads a %s of %i bytes as another value, in any format', (field, size) => {
+            let asked = 0;
+            for (let i = 0; i < 400; i++) {
+                const bytes = random(size);
+                for (const format of FORMATS) {
+                    const text = encodeBytes(bytes, format);
+                    // told which format it is, the text is read back exactly
+                    expect(hexOf(inspectField(field, text, format)?.bytes ?? new Uint8Array()), `${format}: ${text}`).toBe(hexOf(bytes));
+                    // on its own, it is read back exactly or not at all (the app then asks): never as something else
+                    const reading = inspectField(field, text);
+                    if (reading === null) {
+                        asked++;
+                        continue;
+                    }
+                    expect(hexOf(reading.bytes), `${format} read as ${reading.format}: ${text}`).toBe(hexOf(bytes));
+                }
+            }
+            // asking is rare: only a 32-byte value in base58 or unpadded base64url of 43 characters is ambiguous
+            expect(asked).toBeLessThan(400 * 3);
+        }, 30000);
+
+    it('reads back the keys that begin with 0x or 0X in base64, like any other', () => {
+        // the first characters of a base64 key are chosen by the first bytes: 0xd1 0x74 gives "0X", 0xd3 0x1c gives "0x"
+        for (const [first, second] of [[0xd1, 0x74], [0xd3, 0x1c]]) {
+            const bytes = random(32);
+            bytes[0] = first;
+            bytes[1] = second;
+            const text = encodeBytes(bytes, 'base64');
+            expect(text.slice(0, 2).toLowerCase()).toBe('0x');
+            expect(hexOf(inspectField('publicKey', text)!.bytes)).toBe(hexOf(bytes));
+        }
+    });
 })
