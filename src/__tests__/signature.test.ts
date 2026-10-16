@@ -58,7 +58,7 @@ describe('Input validation', () => {
     it('should report text that is neither hex nor base64', () => {
         const unknown = 'is not in a recognised format (hex, base64, base58, base32 or a list of bytes).';
         expect(validate({ signature: 'not base64!' }, ['signature']).signature).toBe(`Signature ${unknown}`);
-        expect(validate({ publicKey: 'zz'.repeat(32) + '#' }, ['publicKey']).publicKey).toBe(`Public key ${unknown}`);
+        expect(validate({ publicKey: `${'zz'.repeat(32)}#` }, ['publicKey']).publicKey).toBe(`Public key ${unknown}`);
         // 'I' is in no alphabet that can stand alone (base58 has no 'I'); 'G' alone would be a valid base58 of 1 byte
         expect(validate({ signature: 'I' }, ['signature']).signature).toBe(`Signature ${unknown}`);
         // 'A' is a hex digit: a lone one is an odd number of hex digits
@@ -327,7 +327,7 @@ describe('Conformance', () => {
     });
 
     // the identity point as public key and as R, S = 0: accepted by ZIP215 for ANY message, rejected by RFC 8032
-    const identity = '01' + '00'.repeat(31);
+    const identity = `01${'00'.repeat(31)}`;
     const trivialSignature = identity + '00'.repeat(32);
 
     it('should verify strictly: a small-order key with a trivial signature is not valid for an arbitrary message', async () => {

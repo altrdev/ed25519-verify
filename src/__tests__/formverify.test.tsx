@@ -94,7 +94,7 @@ describe('FormVerify component', () => {
 
     it('says so when a signature is only accepted under the permissive ZIP215 rules', async () => {
         setFormats('hex');
-        const identity = '01' + '00'.repeat(31);
+        const identity = `01${'00'.repeat(31)}`;
         render(<FormVerify publicKey={identity} signature={identity + '00'.repeat(32)} message="anything" />);
         fireEvent.click(screen.getByText('Verify'));
         const alert = await screen.findByRole('alert');
@@ -208,7 +208,7 @@ describe('FormVerify with keys in other formats', () => {
             ['hex', encodeAs(publicKey, 'hex'), encodeAs(signature, 'hex')],
             ['0x hex', encodeAs(publicKey, 'hex0x'), encodeAs(signature, 'hex0x')],
             ['base64', encodeAs(publicKey, 'base64'), encodeAs(signature, 'base64')],
-            ['base64url', encodeAs(publicKey, 'base64url').replace(/=+$/, '') + '=', encodeAs(signature, 'base64url')],
+            ['base64url', `${encodeAs(publicKey, 'base64url').replace(/=+$/, '')}=`, encodeAs(signature, 'base64url')],
             ['base58 signature', encodeAs(publicKey, 'hex'), encodeAs(signature, 'base58')],
             ['base32', encodeAs(publicKey, 'base32'), encodeAs(signature, 'base32')],
             ['byte array', encodeAs(publicKey, 'bytes'), encodeAs(signature, 'bytes')],
