@@ -4,7 +4,8 @@ import Banner from './Banner';
 import Field from './Field';
 import FormatMenu, { readingFormat, readingHint, readingLabel } from './FormatMenu';
 import { encodePublicKey, isKeyFile } from './keyfiles';
-import MessageFormatSelector from './MessageFormatSelector';
+import MessageField from './MessageField';
+import type { MessageFile } from './messagefile';
 import type { Hints } from './diagnose';
 import { ExampleButton, ExampleNote, nextIndex } from './ExampleButton';
 import { EXAMPLES, type Example } from './examples';
@@ -35,6 +36,7 @@ export default function FormVerify(props: Props) {
     const [signature, setSignature] = useState(props.signature ?? '');
     const [publicKey, setPublicKey] = useState(props.publicKey ?? '');
     const [verify, setVerify] = useState<Verdict | undefined>(undefined);
+    const [file, setFile] = useState<MessageFile | null>(null);
     const [hints, setHints] = useState<Hints | undefined>(undefined);
     const [exampleIndex, setExampleIndex] = useState<number | null>(null);
     const [messageFormat, setMessageFormat] = useState(props.messageFormat ?? MessageFormat.Text);
@@ -87,7 +89,17 @@ export default function FormVerify(props: Props) {
         setErrors((current) => ({ ...current, message: undefined }));
     };
 
-    const performVerify = async (picked: FormatOverrides = formats, values = { publicKey, message, signature, messageFormat }) => {
+    const chooseFile = (chosen: MessageFile | null) => {
+        setFile(chosen);
+        setVerify(undefined);
+        setHints(undefined);
+        setErrors((current) => ({ ...current, message: undefined }));
+    };
+
+    const performVerify = async (
+        picked: FormatOverrides = formats,
+        values = { publicKey, message: file?.bytes ?? message, signature, messageFormat },
+    ) => {
         const ed25519 = new VerifyEd25519(values.message, values.signature, values.publicKey, null, values.messageFormat, picked);
         const fields: FieldName[] = ['publicKey', 'message', 'signature'];
         const found = ed25519.validate(fields);
@@ -119,6 +131,7 @@ export default function FormVerify(props: Props) {
         setChoices({});
         setFormats({});
         setHints(undefined);
+        setFile(null); // an example is typed text
         performVerify({}, example);
     };
 
@@ -129,7 +142,7 @@ export default function FormVerify(props: Props) {
 
     const link = () =>
         `${location.origin}${location.pathname}${location.search}${shareFragment({ publicKey, message, messageFormat, signature })}`;
-    const shareable = shareFragment({ publicKey, message, messageFormat, signature }) !== '';
+    const shareable = !file && shareFragment({ publicKey, message, messageFormat, signature }) !== '';
 
     const choose = (field: 'publicKey' | 'signature') => (format: RawFormat) => {
         const picked = { ...formats, [field]: format };
@@ -153,13 +166,15 @@ export default function FormVerify(props: Props) {
                 placeholder="Hex, base64, PEM, OpenSSH or JWK"
                 onInput={edit(setPublicKey, 'publicKey')}
             />
-            <Field
-                label="Message"
-                rows={2}
+            <MessageField
                 value={message}
-                error={errors.message}
-                actions={<MessageFormatSelector value={messageFormat} onChange={changeMessageFormat} />}
                 onInput={edit(setMessage, 'message')}
+                format={messageFormat}
+                onFormatChange={changeMessageFormat}
+                error={errors.message}
+                file={file}
+                onFile={chooseFile}
+                onFileError={(error) => setErrors((current) => ({ ...current, message: error }))}
             />
             <Field
                 label="Signature"
@@ -180,6 +195,7 @@ export default function FormVerify(props: Props) {
                 <ExampleButton onClick={loadNextExample} />
             </div>
             <ExampleNote example={exampleIndex === null ? null : EXAMPLES[exampleIndex]} />
+            {file && <p class="field-hint">A link cannot carry a file: choose "Type a message" to share this verification.</p>}
 
             {verify === 'valid' && <Banner kind="success">Signature is valid</Banner>}
             {verify === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}

@@ -148,8 +148,10 @@ export function inspectField(field: Exclude<Field, 'message'>, raw: string, forc
     }
 }
 
-/** The bytes of the message, which can be plain text (UTF-8) or already encoded as hex / base64. */
-function decodeMessage(raw: string | null | undefined, format: MessageFormat): Uint8Array {
+/** The bytes of the message, which can be plain text (UTF-8), already encoded as hex / base64, or the bytes of a file. */
+function decodeMessage(raw: string | Uint8Array | null | undefined, format: MessageFormat): Uint8Array {
+    // the bytes of a file chosen as the message: used as they are, whatever the format selector says
+    if (raw instanceof Uint8Array) return raw;
     const text = raw ?? '';
     if (format === MessageFormat.Text) return new TextEncoder().encode(text);
 
@@ -174,7 +176,7 @@ export async function generateKeyPair(
 }
 
 class VerifyEd25519 {
-    message: string;
+    message: string | Uint8Array;
     signature: string | null;
     publicKey: string | null;
     privateKey: string | null;
@@ -182,7 +184,7 @@ class VerifyEd25519 {
     formats: FormatOverrides;
 
     constructor(
-        message: string,
+        message: string | Uint8Array,
         signature: string | null,
         publicKey: string | null,
         privateKey: string | null,

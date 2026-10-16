@@ -70,7 +70,7 @@ describe('ecosystem formats', () => {
         expect(() => parseEcosystemKey('ed25519:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')).toThrow(/expected 32/);
         expect(() => parseEcosystemKey('did:key:abc')).toThrow(EcosystemError);
         // the Stellar addresses of other kinds (muxed M…, pre-auth T…) are not matched at all
-        expect(detectEcosystem('M' + STELLAR_PUBLIC.slice(1))).toBeNull();
+        expect(detectEcosystem(`M${STELLAR_PUBLIC.slice(1)}`)).toBeNull();
     });
 
     it('never come out as another key (random seeds, every format)', async () => {

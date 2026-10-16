@@ -173,6 +173,12 @@ a.icon:hover, button.icon:hover { color: var(--text); background: var(--surface-
 .field textarea:disabled { background: var(--surface-2); color: var(--muted); resize: none; }
 .field.invalid textarea { border-color: var(--error-fg); }
 .field.invalid textarea:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--error-fg) 25%, transparent); }
+.file-message {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; background: var(--surface-2);
+  font-size: 0.875rem; overflow-wrap: anywhere;
+}
+.field.dragging .file-message, .field.dragging textarea { border-color: var(--primary); }
 .field-hint { margin: 0; color: var(--muted); font-size: 0.8125rem; }
 .field-choices { display: flex; flex-wrap: wrap; gap: 6px; }
 .field-error { margin: 0; color: var(--error-fg); font-size: 0.8125rem; }
