@@ -1,0 +1,27 @@
+name: Feature request
+description: A format, a tool or an improvement you would like
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you need to do?
+      description: The situation or tool you are working with matters more than the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like the app to do?
+    validations:
+      required: false
+  - type: textarea
+    id: reference
+    attributes:
+      label: A specification or an example
+      description: A link to the format or the tool, or a sample (public data only).
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: The app stays client-side: nothing is uploaded, and no request is made with your data.

@@ -7,12 +7,12 @@ Thanks for your interest in Ed25519 signature tools! Bug reports, ideas and pull
 Open an [issue](https://github.com/altrdev/ed25519-verify/issues). For a bug, the most useful things are:
 
 - what you did and what you expected to happen;
-- the encoding selected (hex / base64) and the message format;
-- the browser and version.
+- the formats involved (of the key, the message and the signature);
+- the app version (in the page footer) and the browser.
 
 You can include a public key, a message and a signature to reproduce a verification problem. **Never paste a private key
 you care about** in an issue. If you think you found a security problem, please do not post the details publicly:
-contact the maintainer through the email on their GitHub profile.
+follow [SECURITY.md](SECURITY.md) and report it privately.
 
 ## Setting up
 

@@ -1,0 +1,49 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Never paste a private key you care about.** A public key, a message and a signature are fine.
+        For a security problem use the private form instead (see SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce
+      description: The public key, message and signature (and their formats) that show it. A share link made with "Copy link" works too.
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown in the footer of the page, e.g. v2.5.0.
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and operating system
+      placeholder: Firefox 150 on macOS
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Verify signature
+        - Sign message
+        - Format menu / key conversion
+        - Share link
+        - Installing or using it offline
+        - Other
+    validations:
+      required: false
