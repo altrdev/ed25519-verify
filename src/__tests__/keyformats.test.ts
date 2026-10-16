@@ -178,39 +178,39 @@ describe('Pasted keys used by the signature code', () => {
         const signature = toEncoding(SIGNATURE_HEX, encoding);
         for (const publicKey of [K.SPKI_PEM, K.OPENSSH_PUBLIC, K.JWK_PUBLIC, K.JWK_PRIVATE, K.OPENSSH_PRIVATE]) {
             const verifier = new VerifyEd25519('000000001', signature, publicKey, null, MessageFormat.Text);
-            expect(await verifier.verdict(encoding)).toBe('valid');
+            expect(await verifier.verdict()).toBe('valid');
         }
         const wrong = new VerifyEd25519('000000002', signature, K.SPKI_PEM, null);
-        expect(await wrong.verdict(encoding)).toBe('invalid');
+        expect(await wrong.verdict()).toBe('invalid');
     });
 
     it('reports a rejected key on the field it was pasted in', () => {
         const errors = new VerifyEd25519('', null, K.WRONG.rsaPublicPem, K.WRONG.encryptedPkcs8Pem)
-            .validate(SignEncoding.Base64, ['publicKey', 'privateKey']);
+            .validate(['publicKey', 'privateKey']);
         expect(errors.publicKey).toBe('Public key: this is an RSA key, only Ed25519 is supported.');
         expect(errors.privateKey).toMatch(/^Private key: the key is encrypted with a passphrase/);
     });
 
     it('tells a public key from a private key pasted in the wrong field', () => {
         const wrongWayRound = new VerifyEd25519('', null, K.PKCS8_PEM, K.SPKI_PEM)
-            .validate(SignEncoding.Hex, ['publicKey', 'privateKey']);
+            .validate(['publicKey', 'privateKey']);
         expect(wrongWayRound.privateKey).toBe('Private key: this is a public key (PEM (SPKI)), the private key goes here.');
         expect(wrongWayRound.publicKey).toContain('this is a private key (PEM (PKCS#8)) that does not include its public part');
     });
 
-    it('still reports plain hex and base64 problems the old way', () => {
-        const errors = new VerifyEd25519('', 'zz', 'abc', null).validate(SignEncoding.Hex, ['publicKey', 'signature']);
-        expect(errors.publicKey).toBe('Public key is not valid hex.');
-        expect(errors.signature).toBe('Signature is not valid hex.');
+    it('still reports plain hex and base64 problems', () => {
+        const errors = new VerifyEd25519('', 'zz!', 'abc', null).validate(['publicKey', 'signature']);
+        expect(errors.publicKey).toBe('Public key is not valid hex: it has an odd number of digits (3).');
+        expect(errors.signature).toBe('Signature is not in a recognised format (hex, base64, base58, base32 or a list of bytes).');
         // a signature is never read as PEM / JWK
-        expect(new VerifyEd25519('', '{"kty":"OKP"}', null, null).validate(SignEncoding.Hex, ['signature']).signature)
-            .toBe('Signature is not valid hex.');
+        expect(new VerifyEd25519('', '{"kty":"OKP"}', null, null).validate(['signature']).signature)
+            .toBe('Signature is not in a recognised format (hex, base64, base58, base32 or a list of bytes).');
     });
 
     it('rejects with an InputError on the right field when a rejected key is used', async () => {
         await expect(new VerifyEd25519('x', null, null, K.WRONG.rsaPem).sign(SignEncoding.Hex))
             .rejects.toMatchObject({ field: 'privateKey' });
-        await expect(new VerifyEd25519('x', SIGNATURE_HEX, K.WRONG.jwkRsa, null).verdict(SignEncoding.Hex))
+        await expect(new VerifyEd25519('x', SIGNATURE_HEX, K.WRONG.jwkRsa, null).verdict())
             .rejects.toBeInstanceOf(InputError);
     });
 });

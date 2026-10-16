@@ -2,7 +2,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { CONTENT_SECURITY_POLICY } from './src/csp';
+import { CONTENT_SECURITY_POLICY } from './src/csp.ts';
 
 // Production build only: the dev server needs inline scripts and a WebSocket for hot reload.
 // It goes first in <head> because a <meta> policy only applies to what comes after it.

@@ -49,7 +49,9 @@ use the body for the reasoning when it is not obvious.
 ```
 src/
   signature.ts      all the cryptography, input parsing and validation (no UI)
+  codecs.ts         hex, base64, base58, base32 and byte-array codecs, and how a pasted text can be read
   keyformats.ts     parsers for keys pasted as PEM (PKCS#8 / SPKI), OpenSSH or JWK (no UI, no dependencies)
+  FormatMenu.tsx    the format menu of a key / signature field (converts the text, or picks how a result is written)
   bytes.ts          hex and base64 helpers
   store.ts          theme and encoding preferences (signals, persisted in localStorage)
   App.tsx           page shell, tabs, theme toggle
@@ -69,6 +71,8 @@ src/
   A change that needs a new source must say why in its pull request.
 - **Keep the cryptography out of the components.** Parsing, validation and signing belong in `signature.ts`, where they are easy to test.
   Components only show what it returns.
+- **Never read a text as another value.** Anything the app writes must read back to the same bytes, or be refused with a
+  question (`choices`): a silent misreading means verifying with the wrong key. The tests check it for every format.
 - **Be explicit about malformed input.** A malformed key or signature is an `InputError` shown next to the field. "Signature is wrong"
   is only for a well formed signature that does not match.
 - **Verification is strict** (RFC 8032 / FIPS 186-5). Do not loosen it silently: `verdict()` reports when a signature would only pass

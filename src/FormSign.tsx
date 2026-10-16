@@ -1,123 +1,161 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import Banner from './Banner';
+import { CODECS } from './codecs';
 import CopyButton from './CopyButton';
 import Field from './Field';
+import FormatMenu, { readingHint, readingLabel } from './FormatMenu';
 import { Icon } from './icons';
 import MessageFormatSelector from './MessageFormatSelector';
-import { keyFormatHint } from './keyformats';
-import SelectorEncoding from './SelectorEncoding';
-import VerifyEd25519, { generateKeyPair, InputError, type FieldErrors } from './signature';
-import { encodingDefault } from './store';
-import { MessageFormat, type SignEncoding } from './enum';
+import VerifyEd25519, { encodeBytes, generateKeyPair, inspectField, InputError, type FieldErrors } from './signature';
+import { formatPreference } from './store';
+import { MessageFormat, type RawFormat } from './enum';
 
 interface Props {
     message?: string;
     privateKey?: string;
-    signature?: string;
 }
 
 export default function FormSign(props: Props) {
     const [message, setMessage] = useState(props.message ?? '');
     const [privateKey, setPrivateKey] = useState(props.privateKey ?? '');
-    const [signature, setSignature] = useState(props.signature ?? '');
-    const [publicKey, setPublicKey] = useState('');
     const [messageFormat, setMessageFormat] = useState(MessageFormat.Text);
     const [revealed, setRevealed] = useState(false);
     const [errors, setErrors] = useState<FieldErrors>({});
-    const encoding = encodingDefault.value;
+    // a private key that can be read in several formats: the user picks one, until the text changes
+    const [keyChoices, setKeyChoices] = useState<RawFormat[] | undefined>(undefined);
+    const [keyFormat, setKeyFormat] = useState<RawFormat | undefined>(undefined);
+
+    // results are kept as bytes and written in the chosen format when shown, so changing it does not lose anything
+    const [signatureBytes, setSignatureBytes] = useState<Uint8Array | null>(null);
+    const [publicKeyBytes, setPublicKeyBytes] = useState<Uint8Array | null>(null);
+    const signature = signatureBytes ? encodeBytes(signatureBytes, formatPreference.signature.value) : '';
+    const publicKey = publicKeyBytes ? encodeBytes(publicKeyBytes, formatPreference.publicKey.value) : '';
+
+    const privateKeyReading = inspectField('privateKey', privateKey, keyFormat);
+
+    /**
+     * The private key is typed, so its menu converts the text; when there is nothing to convert (empty or not valid yet) it
+     * only picks the format the key is written in when it is generated.
+     */
+    const pickPrivateKeyFormat = (format: RawFormat) => {
+        formatPreference.privateKey.value = format;
+        if (!privateKeyReading) return;
+        setPrivateKey(encodeBytes(privateKeyReading.bytes, format));
+        setKeyFormat(format);          // the new text is read as picked, never asked about
+        setKeyChoices(undefined);
+        setSignatureBytes(null);
+        setErrors((current) => ({ ...current, privateKey: undefined }));
+    };
 
     // keystrokes can outpace the async derivation: only the latest one may update the field
     const derivation = useRef(0);
-    const derive = async (key: string, enc: SignEncoding) => {
+    const derive = async (key: string, format?: RawFormat) => {
         const current = ++derivation.current;
-        let derived = '';
+        let derived: Uint8Array | null = null;
         if (key.trim()) {
             try {
-                derived = await new VerifyEd25519('', null, null, key).getPublicKey(enc);
+                derived = await new VerifyEd25519('', null, null, key, MessageFormat.Text, { privateKey: format }).getPublicKeyBytes();
             } catch {
                 // incomplete or malformed key: nothing to show (the error appears on blur / on Sign)
             }
         }
-        if (current === derivation.current) setPublicKey(derived);
+        if (current === derivation.current) setPublicKeyBytes(derived);
     };
 
-    // also covers the first render (initial key) and an encoding switch
+    // the key given as a property, if any
     useEffect(() => {
-        derive(privateKey, encoding);
-    }, [encoding]);
-
-    const reset = () => {
-        setSignature('');
-        setErrors({});
-    };
+        derive(privateKey);
+    }, []);
 
     const onPrivateKeyInput = (value: string) => {
         setPrivateKey(value);
-        setSignature('');
+        setSignatureBytes(null);
         setErrors((current) => ({ ...current, privateKey: undefined }));
-        derive(value, encodingDefault.value);
+        setKeyChoices(undefined);
+        setKeyFormat(undefined);
+        derive(value);
     };
 
     const onPrivateKeyBlur = (value: string) => {
         if (!value.trim()) return;
-        const found = new VerifyEd25519(message, null, null, value).validate(encodingDefault.value, ['privateKey']);
-        setErrors((current) => ({ ...current, ...found }));
+        const ed25519 = new VerifyEd25519(message, null, null, value, MessageFormat.Text, { privateKey: keyFormat });
+        setErrors((current) => ({ ...current, ...ed25519.validate(['privateKey']) }));
+        setKeyChoices(ed25519.choices(['privateKey']).privateKey);
     };
 
     const onMessageInput = (value: string) => {
         setMessage(value);
-        setSignature('');
+        setSignatureBytes(null);
         setErrors((current) => ({ ...current, message: undefined }));
     };
 
     const changeMessageFormat = (format: MessageFormat) => {
         setMessageFormat(format);
-        setSignature('');
+        setSignatureBytes(null);
         setErrors((current) => ({ ...current, message: undefined }));
     };
 
     const generate = async () => {
-        const pair = await generateKeyPair(encodingDefault.value);
-        derivation.current++;
+        const format = formatPreference.privateKey.value;
+        const pair = await generateKeyPair(format);
         setPrivateKey(pair.privateKey);
-        setPublicKey(pair.publicKey);
+        setKeyChoices(undefined);
+        setKeyFormat(format);          // written in this format, so read as such (a 43-character base58 key is also valid base64)
+        derive(pair.privateKey, format);
         setRevealed(true);
-        reset();
+        setSignatureBytes(null);
+        setErrors({});
     };
 
-    const performSign = async () => {
-        const ed25519 = new VerifyEd25519(message, null, null, privateKey, messageFormat);
-        const found = ed25519.validate(encodingDefault.value, ['privateKey', 'message']);
+    const performSign = async (format: RawFormat | undefined = keyFormat) => {
+        const ed25519 = new VerifyEd25519(message, null, null, privateKey, messageFormat, { privateKey: format });
+        const found = ed25519.validate(['privateKey', 'message']);
         setErrors(found);
+        setKeyChoices(ed25519.choices(['privateKey']).privateKey);
         if (Object.keys(found).length > 0) {
-            setSignature('');
+            setSignatureBytes(null);
             return;
         }
         try {
-            setSignature(await ed25519.sign(encodingDefault.value));
+            setSignatureBytes(await ed25519.signBytes());
         } catch (error) {
-            setSignature('');
+            setSignatureBytes(null);
             setErrors(
                 error instanceof InputError ? { [error.field]: error.message } : { privateKey: 'Signing failed.' }
             );
         }
     };
 
+    const chooseKeyFormat = (format: RawFormat) => {
+        setKeyFormat(format);
+        derive(privateKey, format);
+        performSign(format);
+    };
+
     return (
         <section class="card">
-            <SelectorEncoding reset={reset} />
             <Field
                 label="Private key"
                 rows={2}
                 growWithContent
                 value={privateKey}
                 error={errors.privateKey}
-                hint={keyFormatHint(privateKey)}
+                choices={keyChoices}
+                onChoose={chooseKeyFormat}
+                hint={readingHint(privateKeyReading)}
                 placeholder="Hex, base64, PEM, OpenSSH or JWK"
                 secret
                 revealed={revealed}
                 onRevealedChange={setRevealed}
                 copyable
+                formatControl={
+                    <FormatMenu
+                        name="Private key format"
+                        label={privateKeyReading ? readingLabel(privateKeyReading) : CODECS[formatPreference.privateKey.value].label}
+                        current={privateKeyReading ? privateKeyReading.format : formatPreference.privateKey.value}
+                        onSelect={pickPrivateKeyFormat}
+                    />
+                }
                 actions={
                     <button type="button" class="chip" onClick={generate}>
                         <Icon name="plus" size={16} />
@@ -132,6 +170,14 @@ export default function FormSign(props: Props) {
                 rows={2}
                 value={publicKey}
                 copyable
+                formatControl={
+                    <FormatMenu
+                        name="Public key format"
+                        label={CODECS[formatPreference.publicKey.value].label}
+                        current={formatPreference.publicKey.value}
+                        onSelect={(format) => (formatPreference.publicKey.value = format)}
+                    />
+                }
                 disabled
                 placeholder="Insert a private key (or generate one) to deduce it ..."
             />
@@ -144,14 +190,22 @@ export default function FormSign(props: Props) {
                 onInput={onMessageInput}
             />
             <div class="actions">
-                <button type="button" class="primary" onClick={performSign}>Sign</button>
+                <button type="button" class="primary" onClick={() => performSign()}>Sign</button>
             </div>
 
             {signature && (
                 <Banner kind="success">
                     <div class="result-head">
                         <strong>Signature:</strong>
-                        <CopyButton text={signature} label="Copy signature" />
+                        <div class="field-actions">
+                            <FormatMenu
+                                name="Signature format"
+                                label={CODECS[formatPreference.signature.value].label}
+                                current={formatPreference.signature.value}
+                                onSelect={(format) => (formatPreference.signature.value = format)}
+                            />
+                            <CopyButton text={signature} label="Copy signature" />
+                        </div>
                     </div>
                     <div class="result">{signature}</div>
                 </Banner>

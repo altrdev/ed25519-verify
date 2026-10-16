@@ -32,16 +32,19 @@ const malformed = () => new KeyFormatError('the key data is malformed.');
 const textOf = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
 const shown = (value: unknown) => String(value).slice(0, 30);
 
+/** A JSON object, as opposed to the `{0x01, 0x02}` notation of a list of bytes. */
+const looksLikeJwk = (text: string) => /^\{\s*("|\})/.test(text);
+
 /** True when the text looks like PEM, an OpenSSH public key or JSON (a JWK), rather than plain hex or base64. */
 export function isStructuredKey(text: string): boolean {
     const t = text.trim();
-    return t.startsWith('-----BEGIN') || t.startsWith('{') || /^(ssh|ecdsa|sk)-[\w@.-]+\s/.test(t);
+    return t.startsWith('-----BEGIN') || looksLikeJwk(t) || /^(ssh|ecdsa|sk)-[\w@.-]+\s/.test(t);
 }
 
 /** Name of the format a pasted text appears to be in, or null for plain hex / base64. It does not validate the key. */
 export function detectKeyFormat(text: string): string | null {
     const t = text.trim();
-    if (t.startsWith('{')) return 'JWK';
+    if (looksLikeJwk(t)) return 'JWK';
     if (/^(ssh|ecdsa|sk)-[\w@.-]+\s/.test(t)) return 'OpenSSH public key';
     const pem = /^-----BEGIN ([A-Z0-9 ]+)-----/.exec(t);
     if (!pem) return null;
@@ -62,7 +65,7 @@ export const keyFormatHint = (text: string): string | undefined => {
 export function parseStructuredKey(text: string): ParsedKey {
     const t = text.trim();
     if (t.startsWith('-----BEGIN')) return parsePem(t);
-    if (t.startsWith('{')) return parseJwk(t);
+    if (looksLikeJwk(t)) return parseJwk(t);
     return parseOpenSshPublic(t);
 }
 
