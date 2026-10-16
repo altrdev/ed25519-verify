@@ -5,13 +5,16 @@
 import { bytesToHex } from './bytes';
 import type { FieldFormat } from './enum';
 
-export type FileKind = 'key' | 'signature' | 'text';
+export type FileKind = 'key' | 'signature' | 'text' | 'binary';
 
 /** A key file is a few hundred bytes (an encrypted OpenSSH one a little more): anything bigger is not a key. */
 export const MAX_FILE_BYTES = 16 * 1024;
 
 /** The sizes of a raw binary file (no text): a seed or a seed followed by the public key; a signature. */
-const RAW_SIZES: Record<FileKind, number[]> = { key: [32, 64], signature: [64], text: [] };
+const RAW_SIZES: Record<FileKind, number[]> = { key: [32, 64], signature: [64], text: [], binary: [] };
+
+/** A binary message (COSE) can be bigger than a key, up to a megabyte. */
+const MAX_BINARY_BYTES = 1024 * 1024;
 
 export class FileError extends Error {
     constructor(message: string) {
@@ -45,13 +48,18 @@ function asText(bytes: Uint8Array): string | null {
  * file of the size of a key or of a signature, its bytes written as hex.
  */
 export async function readFileForField(file: File, kind: FileKind): Promise<string> {
-    if (file.size > MAX_FILE_BYTES) {
+    if (kind === 'binary' && file.size > MAX_BINARY_BYTES) {
+        throw new FileError(`${file.name || 'The file'} is too big (${file.size} bytes, at most ${MAX_BINARY_BYTES}).`);
+    }
+    if (kind !== 'binary' && file.size > MAX_FILE_BYTES) {
         throw new FileError(
             `${file.name || 'The file'} is too big for a key or a signature (${file.size} bytes, at most ${MAX_FILE_BYTES}).`,
         );
     }
     const bytes = await readBytes(file);
     const text = asText(bytes);
+    // a binary file is shown as hex, unless it already is the hex or base64 of the bytes
+    if (kind === 'binary') return text !== null && /^[\s0-9a-zA-Z+/=_x-]*$/.test(text) ? text : bytesToHex(bytes);
     if (text !== null) return text;
     if (RAW_SIZES[kind].includes(bytes.length)) return bytesToHex(bytes);
     if (kind === 'text') throw new FileError(`${file.name || 'The file'} is not a text file.`);
@@ -88,5 +96,18 @@ export function downloadText(filename: string, text: string): void {
     link.remove();
     // (octet-stream: with text/plain a browser adds .txt to a name without extension, such as id_ed25519)
     // the download has started when click() returns; the address can be released right after
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Saves bytes through the browser's downloads, exactly as they are (no line break added). */
+export function downloadBytes(filename: string, bytes: Uint8Array): void {
+    const blob = new Blob([bytes as BlobPart], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

@@ -1,0 +1,25 @@
+/**
+ * COSE_Sign1 messages with the key of RFC 8032 test 1. `COSE_ATTACHED` is the example "EdDSA-01" of the COSE working group
+ * (github.com/cose-wg/Examples), the others were made with pycose (and are accepted by it). All in hex.
+ */
+export const COSE_SEED = '9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60';
+export const COSE_PUBLIC = 'd75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a';
+/** the COSE_Key of the public key, with the kid "11" */
+export const COSE_KEY_HEX = 'a301012006215820d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a'.replace(' ', '');
+export const COSE_ATTACHED =
+    'd28445a201270300a10442313154546869732069732074686520636f6e74656e742e58407142fd2ff96d56db85bee905a76ba1d0b7321a95c8c4d3607c5781932b7afb8711497dfa751bf40b58b3bcc32300b1487f3db34085eef013bf08f4a44d6fef0d';
+export const COSE_ATTACHED_PAYLOAD = 'This is the content.';
+/** the bytes that are signed for it, as the working group gives them ("ToBeSign") */
+export const COSE_ATTACHED_TO_BE_SIGNED =
+    '846a5369676e61747572653145a2012703004054546869732069732074686520636f6e74656e742e';
+export const COSE_PLAIN =
+    'd28443a10127a04b68656c6c6f20776f726c645840063370550f67d151527529b886170475a5bff635eb12ff4a21e98b9e9acd2fdfa5231d1283c9de0887f30b50b22fb6807731323531f73b7c2324bb3199bf5e0d';
+export const COSE_UNTAGGED_KID =
+    '8443a10127a104466d792d6b65794b68656c6c6f20776f726c645840063370550f67d151527529b886170475a5bff635eb12ff4a21e98b9e9acd2fdfa5231d1283c9de0887f30b50b22fb6807731323531f73b7c2324bb3199bf5e0d';
+export const COSE_AAD =
+    'd28443a10127a04b68656c6c6f20776f726c6458407d2d0085f5d876bd11ad188ce6de2b96ab5b84a40d2ef0c6bdc5a228d126eda0ca6c319dd868081cb6d5b2b76520a5a923aa5dc2fbf1d2b1e2c6ff5afb39e603';
+export const COSE_DETACHED =
+    'd28443a10127a0f65840063370550f67d151527529b886170475a5bff635eb12ff4a21e98b9e9acd2fdfa5231d1283c9de0887f30b50b22fb6807731323531f73b7c2324bb3199bf5e0d';
+export const COSE_MESSAGE = 'hello world';
+export const COSE_DETACHED_AAD =
+    'd28443a10127a0f658407d2d0085f5d876bd11ad188ce6de2b96ab5b84a40d2ef0c6bdc5a228d126eda0ca6c319dd868081cb6d5b2b76520a5a923aa5dc2fbf1d2b1e2c6ff5afb39e603';

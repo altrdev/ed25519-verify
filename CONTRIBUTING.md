@@ -61,6 +61,8 @@ src/
   sshsig.ts         SSH signatures (ssh-keygen -Y): parsing, the structure that is signed, signing; SshsigPanel.tsx is its screen
   minisign.ts       minisign: the public key and signature files, what is signed, signing; MinisignPanel.tsx is its screen
   blake2b.ts        BLAKE2b-512, for minisign (checked against OpenSSL)
+  cose.ts           COSE_Sign1: parsing, what is refused, the structure that is signed, COSE_Key, signing; CosePanel.tsx is its screen
+  cbor.ts           a small CBOR reader / writer for COSE (refuses indefinite lengths and duplicate keys)
   files.ts          reading a key / signature file into a field, and saving one (names, binary keys, size limit)
   examples.ts      the RFC 8032 vectors (and a ZIP215 case) behind "Load example", checked against the library by the tests
   diagnose.ts      hints for a wrong signature: certain facts, and retries that make it valid

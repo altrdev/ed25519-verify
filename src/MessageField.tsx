@@ -5,6 +5,9 @@ import type { MessageFormat } from './enum';
 import { describeFile, type MessageFile, readMessageFile } from './messagefile';
 
 interface Props {
+    /** the label of the field ("Message") */
+    label?: string;
+    hint?: string;
     value: string;
     onInput: (value: string) => void;
     format: MessageFormat;
@@ -18,7 +21,18 @@ interface Props {
 }
 
 /** The message: typed (with its format) or read from a file chosen or dropped here. */
-export default function MessageField({ value, onInput, format, onFormatChange, error, file, onFile, onFileError }: Props) {
+export default function MessageField({
+    label = 'Message',
+    hint,
+    value,
+    onInput,
+    format,
+    onFormatChange,
+    error,
+    file,
+    onFile,
+    onFileError,
+}: Props) {
     const picker = useRef<HTMLInputElement>(null);
     const [dragging, setDragging] = useState(false);
 
@@ -67,7 +81,8 @@ export default function MessageField({ value, onInput, format, onFormatChange, e
                 }}
             />
             <Field
-                label="Message"
+                label={label}
+                hint={hint}
                 rows={2}
                 value={value}
                 error={error}

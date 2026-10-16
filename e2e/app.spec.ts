@@ -471,3 +471,68 @@ test.describe('signed formats: minisign', () => {
         await expect(panel(other).getByRole('button', { name: 'minisign' })).toHaveAttribute('aria-pressed', 'true');
     });
 });
+
+test.describe('signed formats: COSE', () => {
+    // the example "EdDSA-01" of the COSE working group (github.com/cose-wg/Examples), with the key of RFC 8032 test 1
+    const ATTACHED =
+        'd28445a201270300a10442313154546869732069732074686520636f6e74656e742e58407142fd2ff96d56db85bee905a76ba1d0b7321a95c8c4d3607c5781932b7afb8711497dfa751bf40b58b3bcc32300b1487f3db34085eef013bf08f4a44d6fef0d';
+
+    test('verifies the example of the COSE working group, and a message with a changed signature is wrong', async ({ page }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'COSE', exact: true }).click();
+        await signed(page).getByLabel('COSE message', { exact: true }).fill(ATTACHED);
+        await signed(page)
+            .getByLabel('Public key you trust', { exact: true })
+            .fill('d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a');
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await expect(signed(page).getByRole('region', { name: 'Message details' })).toContainText('This is the content.');
+
+        await signed(page).getByLabel('COSE message', { exact: true }).fill(ATTACHED.replace('7142fd2f', '7142fd2e'));
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is wrong')).toBeVisible();
+    });
+
+    test('creates the published message, and downloads it as the binary file', async ({ page }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'COSE', exact: true }).click();
+        await panel(page).getByRole('button', { name: 'Create a signature' }).click();
+        await signed(page).getByRole('button', { name: 'Load example' }).click();
+        await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
+        await expect(signed(page).getByText('Identical to the message of the example.')).toBeVisible();
+        const downloading = page.waitForEvent('download');
+        await signed(page).getByRole('button', { name: 'Download message' }).click();
+        const download = await downloading;
+        expect(download.suggestedFilename()).toBe('message.cose');
+        const path = await download.path();
+        expect(readFileSync(path as string).toString('hex')).toBe(ATTACHED);
+    });
+
+    test('opens a binary .cose file into the message field, and a copied link opens the same verification elsewhere', async ({
+        page,
+        context,
+    }) => {
+        const dir = mkdtempSync(join(tmpdir(), 'e2e-cose-'));
+        const file = join(dir, 'message.cose');
+        writeFileSync(file, Buffer.from(ATTACHED, 'hex'));
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'COSE', exact: true }).click();
+        await signed(page).locator('input[type=file]').first().setInputFiles(file);
+        await expect(signed(page).getByLabel('COSE message', { exact: true })).toHaveValue(ATTACHED);
+        await signed(page)
+            .getByLabel('Public key you trust', { exact: true })
+            .fill('d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a');
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
+        const link = await page.evaluate(() => navigator.clipboard.readText());
+        expect(link).toContain('fmt=cose');
+        const other = await context.newPage();
+        await other.goto(link);
+        await expect(signed(other).getByText('Signature is valid')).toBeVisible();
+        await expect(panel(other).getByRole('button', { name: 'COSE', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    });
+});
