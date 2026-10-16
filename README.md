@@ -109,6 +109,7 @@ In the repository settings, **Pages → Source** must be set to **GitHub Actions
 
 Issues and pull requests are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md). Tagged versions are listed under
 [Releases](https://github.com/altrdev/ed25519-verify/releases).
+To report a security problem privately, see [SECURITY.md](SECURITY.md).
 
 ## License
 
