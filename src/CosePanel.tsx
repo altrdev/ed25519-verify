@@ -118,13 +118,21 @@ function Details({ shown }: { shown: Shown }) {
     );
 }
 
-function Verify({ initial, autoVerify }: { initial?: Partial<SharedCose>; autoVerify?: boolean }) {
+function Verify({
+    initial,
+    initialFile,
+    autoVerify,
+}: {
+    initial?: Partial<SharedCose>;
+    initialFile?: MessageFile | null;
+    autoVerify?: boolean;
+}) {
     const [message, setMessage] = useState(initial?.message ?? '');
     const [publicKey, setPublicKey] = useState(initial?.publicKey ?? '');
     const [payload, setPayload] = useState(initial?.payload ?? '');
     const [payloadFormat, setPayloadFormat] = useState(initial?.payloadFormat ?? MessageFormat.Text);
     const [externalData, setExternalData] = useState(initial?.externalData ?? '');
-    const [file, setFile] = useState<MessageFile | null>(null);
+    const [file, setFile] = useState<MessageFile | null>(initialFile ?? null);
     const [errors, setErrors] = useState<Errors>({});
     const [choices, setChoices] = useState<RawFormat[] | undefined>(undefined);
     const [formats, setFormats] = useState<FormatOverrides>({});
@@ -563,16 +571,18 @@ function Create() {
 export default function CosePanel({
     mode,
     initial,
+    initialFile,
     autoVerify,
 }: {
     mode: 'verify' | 'create';
     initial?: Partial<SharedCose>;
+    initialFile?: MessageFile | null;
     autoVerify?: boolean;
 }) {
     return (
         <>
             <div class="panel" hidden={mode !== 'verify'}>
-                <Verify initial={initial} autoVerify={autoVerify} />
+                <Verify initial={initial} initialFile={initialFile} autoVerify={autoVerify} />
             </div>
             <div class="panel" hidden={mode !== 'create'}>
                 <Create />

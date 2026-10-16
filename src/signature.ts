@@ -176,7 +176,7 @@ export async function generateKeyPair(
 }
 
 /**
- * The verdict for bytes already decoded (what the container formats of the "Signed formats" tab give): strict RFC 8032 rules make a
+ * The verdict for bytes already decoded (what the container formats of the "Tokens and files" tab give): strict RFC 8032 rules make a
  * signature 'valid', and one that only the permissive ZIP215 rules accept is told apart from a wrong one.
  */
 export async function verdictOf(signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array): Promise<Verdict> {

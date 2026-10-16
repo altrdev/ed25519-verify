@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import CosePanel from './CosePanel';
 import JwsPanel from './JwsPanel';
 import MinisignPanel from './MinisignPanel';
+import type { MessageFile } from './messagefile';
 import PgpPanel from './PgpPanel';
 import Segmented from './Segmented';
 import type { SharedCose, SharedMinisign, SharedPgp, SharedSshsig, SharedToken } from './share';
@@ -29,10 +30,12 @@ interface Props {
     sharedMinisign?: Partial<SharedMinisign> | null;
     sharedCose?: Partial<SharedCose> | null;
     sharedPgp?: Partial<SharedPgp> | null;
+    /** a file chosen as the message in the Verify tab, carried over with the rest */
+    initialFile?: MessageFile | null;
 }
 
 /** Signatures in the containers other tools use (a JWT, an SSH signature...): the container is read, the signed bytes are worked out. */
-export default function FormSigned({ sharedJws, sharedSshsig, sharedMinisign, sharedCose, sharedPgp }: Props) {
+export default function FormSigned({ sharedJws, sharedSshsig, sharedMinisign, sharedCose, sharedPgp, initialFile }: Props) {
     const [format, setFormat] = useState<SignedFormat>(
         sharedPgp ? 'pgp' : sharedCose ? 'cose' : sharedMinisign ? 'minisign' : sharedSshsig ? 'sshsig' : 'jws',
     );
@@ -49,16 +52,26 @@ export default function FormSigned({ sharedJws, sharedSshsig, sharedMinisign, sh
                 <JwsPanel mode={mode} initial={sharedJws ?? undefined} autoVerify={!!sharedJws?.token && !!sharedJws?.publicKey} />
             </div>
             <div class="panel" hidden={format !== 'sshsig'}>
-                <SshsigPanel mode={mode} initial={sharedSshsig ?? undefined} autoVerify={!!sharedSshsig?.signature} />
+                <SshsigPanel
+                    mode={mode}
+                    initialFile={initialFile}
+                    initial={sharedSshsig ?? undefined}
+                    autoVerify={!!sharedSshsig?.signature}
+                />
             </div>
             <div class="panel" hidden={format !== 'minisign'}>
-                <MinisignPanel mode={mode} initial={sharedMinisign ?? undefined} autoVerify={!!sharedMinisign?.signature} />
+                <MinisignPanel
+                    mode={mode}
+                    initialFile={initialFile}
+                    initial={sharedMinisign ?? undefined}
+                    autoVerify={!!sharedMinisign?.signature}
+                />
             </div>
             <div class="panel" hidden={format !== 'cose'}>
-                <CosePanel mode={mode} initial={sharedCose ?? undefined} autoVerify={!!sharedCose?.message} />
+                <CosePanel mode={mode} initialFile={initialFile} initial={sharedCose ?? undefined} autoVerify={!!sharedCose?.message} />
             </div>
             <div class="panel" hidden={format !== 'pgp'}>
-                <PgpPanel mode={mode} initial={sharedPgp ?? undefined} autoVerify={!!sharedPgp?.signature} />
+                <PgpPanel mode={mode} initialFile={initialFile} initial={sharedPgp ?? undefined} autoVerify={!!sharedPgp?.signature} />
             </div>
         </section>
     );
