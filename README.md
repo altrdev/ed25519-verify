@@ -10,8 +10,8 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 **Live demo: <https://ed25519.altr.dev/>**
 
 <p align="center">
-  <img src="docs/screenshot-light.png" alt="Verifying a signature, light theme" width="49%">
-  <img src="docs/screenshot-dark.png" alt="Signing a message, dark theme" width="49%">
+  <img src="docs/screenshot-light.png" alt="Verifying a raw signature, light theme" width="49%">
+  <img src="docs/screenshot-dark.png" alt="Verifying a JWT in Tokens and files, dark theme" width="49%">
 </p>
 
 ## Features
