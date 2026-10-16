@@ -308,3 +308,4 @@ button.primary:active { transform: translateY(1px); }
 .panel[hidden] { display: none; }
 
 .armor { margin: 8px 0 0; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; }
+.muted { color: var(--muted); }

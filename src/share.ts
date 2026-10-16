@@ -164,3 +164,34 @@ export function parseCoseShare(fragment: string): Partial<SharedCose> | null {
         payloadFormat: format !== null && MESSAGE_FORMATS.includes(format) ? (format as MessageFormat) : MessageFormat.Text,
     };
 }
+
+export interface SharedPgp {
+    signature: string;
+    publicKey: string;
+    message: string;
+    messageFormat: MessageFormat;
+}
+
+/** The fragment of a link to an OpenPGP verification, or '' when there is nothing to share (a file cannot be in a link). */
+export function pgpShareFragment({ signature, publicKey, message, messageFormat }: SharedPgp): string {
+    if (!signature.trim() && !publicKey.trim() && !message) return '';
+    const params = new URLSearchParams({ fmt: 'pgp' });
+    if (signature.trim()) params.set('sig', signature.trim());
+    if (publicKey.trim()) params.set('key', publicKey.trim());
+    if (message) params.set('msg', message);
+    if (message && messageFormat !== MessageFormat.Text) params.set('mf', messageFormat);
+    return `#${params}`;
+}
+
+export function parsePgpShare(fragment: string): Partial<SharedPgp> | null {
+    const params = new URLSearchParams(fragment.replace(/^#/, ''));
+    if (params.get('fmt') !== 'pgp') return null;
+    const get = (key: string) => params.get(key);
+    const format = get('mf');
+    return {
+        ...(get('sig') !== null && { signature: get('sig') as string }),
+        ...(get('key') !== null && { publicKey: get('key') as string }),
+        ...(get('msg') !== null && { message: get('msg') as string }),
+        messageFormat: format !== null && MESSAGE_FORMATS.includes(format) ? (format as MessageFormat) : MessageFormat.Text,
+    };
+}
