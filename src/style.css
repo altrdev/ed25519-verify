@@ -280,3 +280,11 @@ button.primary:active { transform: translateY(1px); }
   .segmented:not(.small) button { flex: 1; padding-left: 8px; padding-right: 8px; }
   .card { padding: 16px; }
 }
+
+.hints { margin-top: 12px; padding: 12px 14px; border-left: 3px solid var(--border); color: var(--muted); font-size: 0.9rem; }
+.hints h2 { margin: 0 0 4px; font-size: 0.9rem; color: var(--text); }
+.hints ul { margin: 0 0 8px; padding-left: 18px; }
+.hints ul:last-child { margin-bottom: 0; }
+
+.example-note { margin: 12px 0 0; color: var(--muted); font-size: 0.9rem; }
+.example-note a { color: inherit; }

@@ -18,6 +18,42 @@ test.describe('verify and sign', () => {
         expect(problems).toEqual([]);
     });
 
+    test('loads the examples: RFC vectors are valid, the ZIP215 one shows the warning', async ({ page }) => {
+        await page.goto('/');
+        const load = panel(page).getByRole('button', { name: 'Load example' });
+        for (const title of ['RFC 8032 test 1.', 'RFC 8032 test 2.', 'RFC 8032 test 3.']) {
+            await load.click();
+            await expect(panel(page).getByText(title)).toBeVisible();
+            await expect(panel(page).getByText('Signature is valid')).toBeVisible();
+        }
+        await load.click();
+        await expect(panel(page).getByText('Only valid under ZIP215.')).toBeVisible();
+        await expect(panel(page).getByText(/not valid under the strict RFC 8032 rules/)).toBeVisible();
+    });
+
+    test('the Sign tab reproduces the published signature of a vector', async ({ page }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Sign message' }).click();
+        await panel(page).getByRole('button', { name: 'Load example' }).click();
+        await panel(page).getByRole('button', { name: 'Sign', exact: true }).click();
+        await expect(panel(page).getByText('Identical to the signature published in RFC 8032.')).toBeVisible();
+    });
+
+    test('suggests what may be wrong when a signature does not verify', async ({ page }) => {
+        await page.goto('/');
+        await panel(page).getByLabel('Public key', { exact: true }).fill(RFC.publicKey);
+        // the message "72" is hex, but the selector is left on Text
+        await panel(page).getByLabel('Message', { exact: true }).fill(RFC.messageHex);
+        await panel(page).getByLabel('Signature', { exact: true }).fill(RFC.signature);
+        await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(panel(page).getByText('Signature is wrong')).toBeVisible();
+        await expect(panel(page).getByText('It is valid with the message read as hex (the selector is on Text).')).toBeVisible();
+        // the hint is right: switching the selector makes it valid
+        await panel(page).getByRole('group', { name: 'Message format' }).getByRole('button', { name: 'Hex' }).click();
+        await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(panel(page).getByText('Signature is valid')).toBeVisible();
+    });
+
     test('says what is wrong with an input instead of a wrong signature', async ({ page }) => {
         await page.goto('/');
         await panel(page).getByLabel('Public key', { exact: true }).fill('abcd');
