@@ -113,7 +113,7 @@ test.describe('offline and security', () => {
         await page.goto('/');
         await panel(page).getByLabel('Public key', { exact: true }).fill(RFC.publicKey);
         await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
-        await expect(page.getByRole('link', { name: /^v\d+\.\d+\.\d+$/ })).toBeVisible();
+        await expect(page.locator('footer')).toContainText(/\bv\d+\.\d+\.\d+\b|\bdev\b|\bmain-\w+/); // a local or CI build says "dev"
         expect([...hosts]).toEqual(['localhost:4173']);
         expect(problems).toEqual([]);
     });

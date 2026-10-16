@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/preact';
-import App from '../App';
+import App, { VersionLabel } from '../App';
 
 describe('App', () => {
     it('switches between tabs without unmounting the forms', () => {
@@ -23,11 +23,20 @@ describe('App', () => {
         expect(localStorage.getItem('theme')).toBe('dark');
     });
 
-    it('shows the version, linked to its release notes', () => {
+    it('shows the version of the build', () => {
         render(<App />);
-        const link = screen.getByRole('link', { name: /^v\d+\.\d+\.\d+/ });
-        expect(link).toHaveAttribute('href', expect.stringMatching(/\/releases\/tag\/v\d+\.\d+\.\d+$/));
-        expect(link.textContent).toBe(`v${__APP_VERSION__}`);
+        expect(screen.getByText(__APP_VERSION__)).toBeInTheDocument();
+    });
+
+    it('links a release to its notes and shows any other build as it is', () => {
+        const { rerender } = render(<VersionLabel version="2.6.0" />);
+        const link = screen.getByRole('link', { name: 'v2.6.0' });
+        expect(link).toHaveAttribute('href', 'https://github.com/altrdev/ed25519-verify/releases/tag/v2.6.0');
+        rerender(<VersionLabel version="main-1a2b3c4" />);
+        expect(screen.queryByRole('link')).not.toBeInTheDocument();
+        expect(screen.getByText('main-1a2b3c4')).toBeInTheDocument();
+        rerender(<VersionLabel version="dev" />);
+        expect(screen.getByText('dev')).toBeInTheDocument();
     });
 
     it('links to the public GitHub repository', () => {

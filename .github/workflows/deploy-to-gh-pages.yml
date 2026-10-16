@@ -1,8 +1,15 @@
 name: Build and Deploy
+
+# Publishes the site on GitHub Pages. It is not run by pushes to main any more: the site is what a release ships.
+#  - the Release workflow calls it with the version it has just created;
+#  - by hand (Actions → Build and Deploy → Run workflow) it publishes the chosen branch as "main-<commit>", for an emergency or a test.
 on:
-  push:
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      version:
+        description: The version of the release being published (e.g. 2.6.0)
+        required: true
+        type: string
   workflow_dispatch:
 
 permissions:
@@ -10,17 +17,13 @@ permissions:
   pages: write
   id-token: write
 
-# one deploy at a time; a newer push replaces a queued one but never cancels a running deploy
+# one deploy at a time; a newer one waits for the running one and never cancels it
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  checks:
-    uses: ./.github/workflows/ci.yml
-
   build:
-    needs: checks
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout 🛎️
@@ -36,7 +39,14 @@ jobs:
         run: npm ci
 
       - name: Build 🔧
-        run: npm run build
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          # the version shown in the footer: the release, or for a manual deploy "<branch>-<commit>"
+          version="$RELEASE_VERSION"
+          if [ -z "$version" ]; then version="${GITHUB_REF_NAME//\//-}-${GITHUB_SHA::7}"; fi
+          echo "Building version $version"
+          APP_VERSION="$version" npm run build
 
       - name: Upload artifact 📤
         uses: actions/upload-pages-artifact@v5
