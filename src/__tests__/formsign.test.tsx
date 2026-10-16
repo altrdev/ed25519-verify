@@ -1,40 +1,93 @@
 import { render, screen, fireEvent } from '@testing-library/preact';
+import { encodingDefault } from '../store';
+import { SignEncoding } from '../enum';
 import FormSign from '../FormSign';
 
+const privateKey = "Au+pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo=";
+const expectedSignature = "9as6qIjGsKt5L+m5vcJhMrN007oYMAQk4yUtZBeVQ3LRXWa99R2iStrXND9UWqkSeCfiKB55aO+aUYjMI6XvCQ==";
+
 describe('FormSign component', () => {
+    beforeEach(() => {
+        encodingDefault.value = SignEncoding.Base64;
+    });
+
     it('should render', () => {
         render(<FormSign />);
         expect(screen.getByLabelText('Private key')).toBeInTheDocument();
     });
 
-    it('should render with error banner', async () => {
+    it('should ask for the private key when it is missing', async () => {
         render(<FormSign />);
         fireEvent.click(screen.getByText('Sign'));
-        const alert = await screen.findByRole('alert');
-        expect(alert.textContent?.trim()).toBe("Signature can't be performed. Private key is mandatory");
+        expect(await screen.findByText('Private key is required.')).toBeInTheDocument();
+        expect(screen.queryByText('Signature:')).not.toBeInTheDocument();
+    });
+
+    it('should explain a malformed private key, on blur and on Sign', async () => {
+        render(<FormSign />);
+        const input = screen.getByLabelText('Private key');
+        fireEvent.input(input, { target: { value: 'abc' } });
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument(); // no nagging while typing
+        fireEvent.change(input);
+        expect(await screen.findByText(/Private key is not valid base64\.|Private key: expected 32 bytes/)).toBeInTheDocument();
+
+        fireEvent.input(input, { target: { value: privateKey } });
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
     it('should render with valid banner', async () => {
-        render(
-            <FormSign
-                message="000000001"
-                privateKey="Au+pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo="
-            />
-        );
+        render(<FormSign message="000000001" privateKey={privateKey} />);
         fireEvent.click(screen.getByText('Sign'));
         const alert = await screen.findByRole('alert');
         expect(alert.textContent).toContain('Signature:');
-        expect(alert.textContent).toContain(
-            '9as6qIjGsKt5L+m5vcJhMrN007oYMAQk4yUtZBeVQ3LRXWa99R2iStrXND9UWqkSeCfiKB55aO+aUYjMI6XvCQ=='
-        );
+        expect(alert.textContent).toContain(expectedSignature);
     });
 
-    it('should deduce the public key from the private key', async () => {
-        render(<FormSign privateKey="" />);
-        const input = screen.getByLabelText('Private key');
-        fireEvent.input(input, { target: { value: '3WrwK5pNuYUbYeWeid1jr8+YJ5BIJ9bE5AoU7TpEXwERZ6w1rApJuqlpLg3Kjd7bYKonCPHScUS4Ufjrp8dRTg==' } });
-        fireEvent.change(input);
+    it('should deduce the public key as the private key is typed', async () => {
+        render(<FormSign />);
+        fireEvent.input(screen.getByLabelText('Private key'), {
+            target: { value: '3WrwK5pNuYUbYeWeid1jr8+YJ5BIJ9bE5AoU7TpEXwERZ6w1rApJuqlpLg3Kjd7bYKonCPHScUS4Ufjrp8dRTg==' },
+        });
         expect(await screen.findByDisplayValue('EWesNawKSbqpaS4Nyo3e22CqJwjx0nFEuFH466fHUU4=')).toBeInTheDocument();
+    });
+
+    it('should deduce the public key of an initial private key', async () => {
+        render(<FormSign privateKey={privateKey} />);
+        expect(await screen.findByDisplayValue('X4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0=')).toBeInTheDocument();
+    });
+
+    it('should drop a stale signature when the message changes', async () => {
+        render(<FormSign message="000000001" privateKey={privateKey} />);
+        fireEvent.click(screen.getByText('Sign'));
+        await screen.findByRole('alert');
+        fireEvent.input(screen.getByLabelText('Message (Plain text)'), { target: { value: 'other' } });
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('should generate a key pair, reveal the private key and show the public key', async () => {
+        render(<FormSign />);
+        const input = screen.getByLabelText('Private key') as HTMLTextAreaElement;
+        expect(input.value).toBe('');
+
+        fireEvent.click(screen.getByRole('button', { name: /Generate/ }));
+        await screen.findByRole('button', { name: 'Hide private key' });
+        expect(input).not.toHaveClass('masked');
+        expect(input.value).toMatch(/^[A-Za-z0-9+/]{43}=$/); // 32 bytes in base64
+
+        const publicKey = screen.getByLabelText('Deduced Public key') as HTMLTextAreaElement;
+        expect(publicKey.value).toMatch(/^[A-Za-z0-9+/]{43}=$/);
+
+        fireEvent.input(screen.getByLabelText('Message (Plain text)'), { target: { value: 'hi' } });
+        fireEvent.click(screen.getByText('Sign'));
+        expect((await screen.findByRole('alert')).textContent).toContain('Signature:');
+    });
+
+    it('should generate hex keys when hex is selected', async () => {
+        encodingDefault.value = SignEncoding.Hex;
+        render(<FormSign />);
+        fireEvent.click(screen.getByRole('button', { name: /Generate/ }));
+        await screen.findByRole('button', { name: 'Hide private key' });
+        expect((screen.getByLabelText('Private key') as HTMLTextAreaElement).value).toMatch(/^[0-9a-f]{64}$/);
     });
 
     it('masks the private key until it is revealed', () => {
@@ -50,18 +103,11 @@ describe('FormSign component', () => {
     it('copies the signature to the clipboard', async () => {
         const writeText = vi.fn().mockResolvedValue(undefined);
         Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-        render(
-            <FormSign
-                message="000000001"
-                privateKey="Au+pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo="
-            />
-        );
+        render(<FormSign message="000000001" privateKey={privateKey} />);
         fireEvent.click(screen.getByText('Sign'));
         await screen.findByRole('alert');
         fireEvent.click(screen.getByRole('button', { name: 'Copy signature' }));
-        expect(writeText).toHaveBeenCalledWith(
-            '9as6qIjGsKt5L+m5vcJhMrN007oYMAQk4yUtZBeVQ3LRXWa99R2iStrXND9UWqkSeCfiKB55aO+aUYjMI6XvCQ=='
-        );
+        expect(writeText).toHaveBeenCalledWith(expectedSignature);
         expect(await screen.findByText('Copied')).toBeInTheDocument();
     });
 });

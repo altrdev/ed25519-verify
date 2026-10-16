@@ -18,8 +18,11 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 
 - **Verify** a signature given a public key and a message, with a clear valid / wrong result.
 - **Sign** a message with a private key; the public key is deduced and shown next to it.
-- Keys and signatures in **hex or base64** (your choice is remembered).
-- Private key hidden by default, one-click **copy** for signatures and public keys.
+- **Generate** a random key pair with one click, handy for trying things out.
+- **Clear input errors**: a malformed key or signature is explained next to the field ("expected 32 bytes, got 31",
+  "not valid base64", "it looks like hex: switch the encoding") instead of being reported as a wrong signature.
+- Keys and signatures in **hex or base64** (your choice is remembered). Base64 may be URL-safe, unpadded or wrapped over several lines.
+- Private key hidden by default, one-click **copy** for private and public keys and for signatures.
 - Light and dark theme, responsive layout, installable as a **PWA** (assets are precached by a service worker).
 
 ## Input formats

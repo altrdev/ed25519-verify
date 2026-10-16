@@ -1,7 +1,9 @@
-import VerifyEd25519 from '../signature'
+import VerifyEd25519, { generateKeyPair, InputError } from '../signature'
 import {SignEncoding} from "../enum";
 
 const publicKey = "u6xMxXSXi/dL9tWPS+qfxiOHMA6c2Czwh/k2hy/wx/U=";
+const base64Of = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
+
 const signature = "BhqKbhnVH3kaNARj/Vht7ImJJ2LMM5TOla7k5OTITjdZ+GpWTY69wH79vRowPmq0c2KFDNipPsUcXSAwrviqDA==";
 
 describe('Verify signature', function() {
@@ -17,24 +19,77 @@ describe('Verify signature', function() {
         expect(result).toBe(true);
     })
 
-    it('should return error if data are wrong', async () => {
+    it('should accept base64 without padding, with the URL-safe alphabet and with line breaks', async () => {
+        const urlSafe = signature.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const wrapped = `${urlSafe.slice(0, 40)}\n${urlSafe.slice(40)}`;
+        const sign = new VerifyEd25519("000000102", wrapped, ` ${publicKey}\n`, null);
+        expect(await sign.check(SignEncoding.Base64)).toBe(true);
+    })
+
+    it('should reject malformed input instead of answering "wrong signature"', async () => {
         const sign = new VerifyEd25519("000000102", "dasdsad", "dasdasd", null);
-        const result = await sign.check(SignEncoding.Base64);
-        expect(result).toBe(false);
+        await expect(sign.check(SignEncoding.Base64)).rejects.toBeInstanceOf(InputError);
+    })
+
+    it('should return false for a well formed public key that is not a point on the curve', async () => {
+        const notAPoint = base64Of(new Uint8Array(32).fill(0xff));
+        const sign = new VerifyEd25519("000000102", signature, notAPoint, null);
+        expect(await sign.check(SignEncoding.Base64)).toBe(false);
+    })
+})
+
+describe('Input validation', function() {
+    const validate = (fields: Partial<Record<'message' | 'signature' | 'publicKey' | 'privateKey', string>>, enc: SignEncoding, names: ('signature' | 'publicKey' | 'privateKey')[]) =>
+        new VerifyEd25519(fields.message ?? '', fields.signature ?? null, fields.publicKey ?? null, fields.privateKey ?? null).validate(enc, names);
+
+    it('should report empty fields as required', () => {
+        expect(validate({}, SignEncoding.Base64, ['publicKey', 'signature'])).toEqual({
+            publicKey: 'Public key is required.',
+            signature: 'Signature is required.',
+        });
+    })
+
+    it('should report invalid characters and odd length in hex', () => {
+        expect(validate({ publicKey: 'zz'.repeat(32) }, SignEncoding.Hex, ['publicKey']).publicKey).toBe('Public key is not valid hex.');
+        expect(validate({ publicKey: 'a'.repeat(63) }, SignEncoding.Hex, ['publicKey']).publicKey).toBe('Public key is not valid hex.');
+    })
+
+    it('should report invalid base64', () => {
+        expect(validate({ signature: 'not base64!' }, SignEncoding.Base64, ['signature']).signature).toBe('Signature is not valid base64.');
+        expect(validate({ signature: 'A' }, SignEncoding.Base64, ['signature']).signature).toBe('Signature is not valid base64.');
+    })
+
+    it('should report the wrong length, with the expected one', () => {
+        const short = base64Of(new Uint8Array(31));
+        expect(validate({ publicKey: short }, SignEncoding.Base64, ['publicKey']).publicKey)
+            .toBe('Public key: expected 32 bytes, got 31.');
+        expect(validate({ privateKey: short }, SignEncoding.Base64, ['privateKey']).privateKey)
+            .toBe('Private key: expected 32 bytes (or 64 in NaCl format), got 31.');
+    })
+
+    it('should hint at the encoding when the data would be valid in the other one', () => {
+        const hexKey = "02efa9afb1304eaa4d10638c933dece519c39ee9ce9e10d8093d218ee799217a";
+        expect(validate({ privateKey: hexKey }, SignEncoding.Base64, ['privateKey']).privateKey)
+            .toContain('It looks like hex: switch the encoding.');
+        const b64Key = "Au+pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo=";
+        expect(validate({ privateKey: b64Key }, SignEncoding.Hex, ['privateKey']).privateKey)
+            .toBe('Private key is not valid hex.');
+    })
+
+    it('should accept valid input', () => {
+        expect(validate({ publicKey, signature }, SignEncoding.Base64, ['publicKey', 'signature'])).toEqual({});
     })
 })
 
 describe('Sign message', function() {
-    it('should return null with absent private key', async () => {
+    it('should reject with absent private key', async () => {
         const sign = new VerifyEd25519("hello world!", null, null, null);
-        const result = await sign.sign(SignEncoding.Hex);
-        expect(result).toBe(null);
+        await expect(sign.sign(SignEncoding.Hex)).rejects.toMatchObject({ field: 'privateKey', message: 'Private key is required.' });
     })
 
-    it('should return null with empty private key', async () => {
+    it('should reject with empty private key', async () => {
         const sign = new VerifyEd25519("hello world!", null, null, "");
-        const result = await sign.sign(SignEncoding.Hex);
-        expect(result).toBe(null);
+        await expect(sign.sign(SignEncoding.Hex)).rejects.toBeInstanceOf(InputError);
     })
 
     it('should return signature with base64 private key', async () => {
@@ -56,9 +111,26 @@ describe('Sign message', function() {
         expect(result).toBe("EWesNawKSbqpaS4Nyo3e22CqJwjx0nFEuFH466fHUU4=");
     })
 
-    it('should return null public key', async () => {
+    it('should reject the public key of a missing private key', async () => {
         const sign = new VerifyEd25519("12345", null, null, null);
-        let result = await sign.getPublicKey(SignEncoding.Base64);
-        expect(result).toBe(null);
+        await expect(sign.getPublicKey(SignEncoding.Base64)).rejects.toBeInstanceOf(InputError);
+    })
+})
+
+describe('Generate key pair', function() {
+    it.each([SignEncoding.Hex, SignEncoding.Base64])('should generate a usable pair (%s)', async (encoding) => {
+        const pair = await generateKeyPair(encoding);
+        const signer = new VerifyEd25519("round trip", null, null, pair.privateKey);
+        expect(await signer.getPublicKey(encoding)).toBe(pair.publicKey);
+
+        const signed = await signer.sign(encoding);
+        const verifier = new VerifyEd25519("round trip", signed, pair.publicKey, null);
+        expect(await verifier.check(encoding)).toBe(true);
+    })
+
+    it('should generate a different pair every time', async () => {
+        const a = await generateKeyPair(SignEncoding.Hex);
+        const b = await generateKeyPair(SignEncoding.Hex);
+        expect(a.privateKey).not.toBe(b.privateKey);
     })
 })
