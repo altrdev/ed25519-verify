@@ -4,6 +4,12 @@ import { MessageFormat, SignEncoding } from './enum';
 export type Field = 'publicKey' | 'privateKey' | 'signature' | 'message';
 export type FieldErrors = Partial<Record<Field, string>>;
 
+/**
+ * Outcome of a verification of well formed input.
+ * `permissive-only`: rejected by the strict RFC 8032 rules but accepted under ZIP215.
+ */
+export type Verdict = 'valid' | 'invalid' | 'permissive-only';
+
 /** Malformed input (as opposed to a signature that is well formed but does not match). */
 export class InputError extends Error {
     field: Field;
@@ -151,16 +157,29 @@ class VerifyEd25519 {
 
     /** Resolves to false for a wrong signature; rejects with an InputError for malformed input. */
     async check(encoding: SignEncoding): Promise<boolean> {
+        return (await this.verdict(encoding)) === 'valid';
+    }
+
+    /**
+     * Like check(), but tells apart a signature that is only accepted by the permissive ZIP215 rules.
+     * Only the strict RFC 8032 / FIPS 186-5 rules make a signature 'valid' (noble defaults to ZIP215).
+     */
+    async verdict(encoding: SignEncoding): Promise<Verdict> {
         const signature = decodeField('signature', this.signature, encoding);
         const publicKey = decodeField('publicKey', this.publicKey, encoding);
         const message = decodeMessage(this.message, this.messageFormat);
-        try {
-            // strict RFC 8032 / FIPS 186-5 verification (noble defaults to the more permissive ZIP215)
-            return await ed.verifyAsync(signature, message, publicKey, { zip215: false });
-        } catch {
-            // well formed but not usable (e.g. a public key that is not a point on the curve)
-            return false;
-        }
+
+        const verifies = async (zip215: boolean) => {
+            try {
+                return await ed.verifyAsync(signature, message, publicKey, { zip215 });
+            } catch {
+                // well formed but not usable (e.g. a public key that is not a point on the curve)
+                return false;
+            }
+        };
+
+        if (await verifies(false)) return 'valid';
+        return (await verifies(true)) ? 'permissive-only' : 'invalid';
     }
 
     async sign(encoding: SignEncoding): Promise<string> {

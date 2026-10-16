@@ -12,6 +12,9 @@
   --success-bg: #e6f6ec;
   --success-fg: #14663a;
   --success-border: #b7e3c8;
+  --warning-bg: #fff4e0;
+  --warning-fg: #8a4b00;
+  --warning-border: #f0d09a;
   --error-bg: #fdecec;
   --error-fg: #a3262b;
   --error-border: #f3c1c3;
@@ -34,6 +37,9 @@
   --success-bg: #12281c;
   --success-fg: #7fdba5;
   --success-border: #1f4a33;
+  --warning-bg: #2e2412;
+  --warning-fg: #ffc46b;
+  --warning-border: #5a4420;
   --error-bg: #301517;
   --error-fg: #ff9a9d;
   --error-border: #5a2428;
@@ -211,6 +217,7 @@ button.primary:active { transform: translateY(1px); }
   animation: pop 0.18s ease-out;
 }
 .banner.success { background: var(--success-bg); color: var(--success-fg); border-color: var(--success-border); }
+.banner.warning { background: var(--warning-bg); color: var(--warning-fg); border-color: var(--warning-border); }
 .banner.error { background: var(--error-bg); color: var(--error-fg); border-color: var(--error-border); }
 .banner > svg { flex: none; margin-top: 1px; }
 .banner-body { min-width: 0; flex: 1; font-weight: 500; }

@@ -203,11 +203,22 @@ describe('Conformance', function() {
         expect(await verifier.check(SignEncoding.Hex)).toBe(true);
     })
 
+    // the identity point as public key and as R, S = 0: accepted by ZIP215 for ANY message, rejected by RFC 8032
+    const identity = '01' + '00'.repeat(31);
+    const trivialSignature = identity + '00'.repeat(32);
+
     it('should verify strictly: a small-order key with a trivial signature is not valid for an arbitrary message', async () => {
-        // the identity point as public key and as R, S = 0: accepted by ZIP215 for ANY message, rejected by RFC 8032
-        const identity = '01' + '00'.repeat(31);
-        const trivialSignature = identity + '00'.repeat(32);
         const verifier = new VerifyEd25519("anything", trivialSignature, identity, null);
         expect(await verifier.check(SignEncoding.Hex)).toBe(false);
+    })
+
+    it('should tell a signature that only the permissive ZIP215 rules accept from a wrong one', async () => {
+        const trivial = new VerifyEd25519("anything", trivialSignature, identity, null);
+        expect(await trivial.verdict(SignEncoding.Hex)).toBe('permissive-only');
+
+        const pair = await generateKeyPair(SignEncoding.Hex);
+        const signed = await new VerifyEd25519("hello", null, null, pair.privateKey).sign(SignEncoding.Hex);
+        expect(await new VerifyEd25519("hello", signed, pair.publicKey, null).verdict(SignEncoding.Hex)).toBe('valid');
+        expect(await new VerifyEd25519("hullo", signed, pair.publicKey, null).verdict(SignEncoding.Hex)).toBe('invalid');
     })
 })
