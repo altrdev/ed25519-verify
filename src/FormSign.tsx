@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import Banner from './Banner';
-import { CODECS } from './codecs';
 import CopyButton from './CopyButton';
 import Field from './Field';
-import FormatMenu, { readingHint, readingLabel } from './FormatMenu';
+import FormatMenu, { readingFormat, readingHint, readingLabel } from './FormatMenu';
+import { encodePrivateKey, encodePublicKey, isKeyFile, labelOf } from './keyfiles';
 import { Icon } from './icons';
 import MessageFormatSelector from './MessageFormatSelector';
 import VerifyEd25519, { encodeBytes, generateKeyPair, inspectField, InputError, type FieldErrors } from './signature';
 import { formatPreference } from './store';
-import { MessageFormat, type RawFormat } from './enum';
+import { MessageFormat, type FieldFormat, type RawFormat } from './enum';
+import { CODECS } from './codecs';
 
 interface Props {
     message?: string;
@@ -29,7 +30,7 @@ export default function FormSign(props: Props) {
     const [signatureBytes, setSignatureBytes] = useState<Uint8Array | null>(null);
     const [publicKeyBytes, setPublicKeyBytes] = useState<Uint8Array | null>(null);
     const signature = signatureBytes ? encodeBytes(signatureBytes, formatPreference.signature.value) : '';
-    const publicKey = publicKeyBytes ? encodeBytes(publicKeyBytes, formatPreference.publicKey.value) : '';
+    const publicKey = publicKeyBytes ? encodePublicKey(publicKeyBytes, formatPreference.publicKey.value) : '';
 
     const privateKeyReading = inspectField('privateKey', privateKey, keyFormat);
 
@@ -37,11 +38,19 @@ export default function FormSign(props: Props) {
      * The private key is typed, so its menu converts the text; when there is nothing to convert (empty or not valid yet) it
      * only picks the format the key is written in when it is generated.
      */
-    const pickPrivateKeyFormat = (format: RawFormat) => {
+    const pickPrivateKeyFormat = async (format: FieldFormat) => {
         formatPreference.privateKey.value = format;
         if (!privateKeyReading) return;
-        setPrivateKey(encodeBytes(privateKeyReading.bytes, format));
-        setKeyFormat(format);          // the new text is read as picked, never asked about
+        const seed = privateKeyReading.bytes.slice(0, 32);
+        let text: string;
+        if (isKeyFile(format)) {
+            const publicKey = await new VerifyEd25519('', null, null, privateKey, MessageFormat.Text, { privateKey: keyFormat }).getPublicKeyBytes();
+            text = encodePrivateKey(seed, publicKey, format);
+        } else {
+            text = encodeBytes(privateKeyReading.bytes, format);
+        }
+        setPrivateKey(text);
+        setKeyFormat(isKeyFile(format) ? undefined : format);   // the new text is read as picked, never asked about
         setKeyChoices(undefined);
         setSignatureBytes(null);
         setErrors((current) => ({ ...current, privateKey: undefined }));
@@ -98,10 +107,11 @@ export default function FormSign(props: Props) {
     const generate = async () => {
         const format = formatPreference.privateKey.value;
         const pair = await generateKeyPair(format);
+        const override = isKeyFile(format) ? undefined : format;
         setPrivateKey(pair.privateKey);
         setKeyChoices(undefined);
-        setKeyFormat(format);          // written in this format, so read as such (a 43-character base58 key is also valid base64)
-        derive(pair.privateKey, format);
+        setKeyFormat(override);        // written in this format, so read as such (a 43-character base58 key is also valid base64)
+        derive(pair.privateKey, override);
         setRevealed(true);
         setSignatureBytes(null);
         setErrors({});
@@ -151,8 +161,9 @@ export default function FormSign(props: Props) {
                 formatControl={
                     <FormatMenu
                         name="Private key format"
-                        label={privateKeyReading ? readingLabel(privateKeyReading) : CODECS[formatPreference.privateKey.value].label}
-                        current={privateKeyReading ? privateKeyReading.format : formatPreference.privateKey.value}
+                        kind="private"
+                        label={privateKeyReading ? readingLabel(privateKeyReading) : labelOf(formatPreference.privateKey.value)}
+                        current={privateKeyReading ? readingFormat(privateKeyReading) : formatPreference.privateKey.value}
                         onSelect={pickPrivateKeyFormat}
                     />
                 }
@@ -173,7 +184,8 @@ export default function FormSign(props: Props) {
                 formatControl={
                     <FormatMenu
                         name="Public key format"
-                        label={CODECS[formatPreference.publicKey.value].label}
+                        kind="public"
+                        label={labelOf(formatPreference.publicKey.value)}
                         current={formatPreference.publicKey.value}
                         onSelect={(format) => (formatPreference.publicKey.value = format)}
                     />
@@ -200,9 +212,10 @@ export default function FormSign(props: Props) {
                         <div class="field-actions">
                             <FormatMenu
                                 name="Signature format"
+                                kind="signature"
                                 label={CODECS[formatPreference.signature.value].label}
                                 current={formatPreference.signature.value}
-                                onSelect={(format) => (formatPreference.signature.value = format)}
+                                onSelect={(format) => !isKeyFile(format) && (formatPreference.signature.value = format)}
                             />
                             <CopyButton text={signature} label="Copy signature" />
                         </div>

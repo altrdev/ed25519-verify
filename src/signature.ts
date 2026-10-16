@@ -1,8 +1,9 @@
 import * as ed from '@noble/ed25519';
 import { parseBase64, parseHex } from './bytes';
 import { CODECS, encodeAs, readings } from './codecs';
-import { MessageFormat, type RawFormat } from './enum';
+import { type FieldFormat, MessageFormat, type RawFormat } from './enum';
 import { isStructuredKey, KeyFormatError, parseStructuredKey } from './keyformats';
+import { encodePrivateKey, encodePublicKey } from './keyfiles';
 
 export type Field = 'publicKey' | 'privateKey' | 'signature' | 'message';
 export type FieldErrors = Partial<Record<Field, string>>;
@@ -160,11 +161,11 @@ function decodeMessage(raw: string | null | undefined, format: MessageFormat): U
 const seedOf = (key: Uint8Array): Uint8Array => key.slice(0, 32);
 
 export async function generateKeyPair(
-    privateFormat: RawFormat,
-    publicFormat: RawFormat = privateFormat,
+    privateFormat: FieldFormat,
+    publicFormat: FieldFormat = privateFormat,
 ): Promise<{ privateKey: string; publicKey: string }> {
     const { secretKey, publicKey } = await ed.keygenAsync();
-    return { privateKey: encodeBytes(secretKey, privateFormat), publicKey: encodeBytes(publicKey, publicFormat) };
+    return { privateKey: encodePrivateKey(secretKey, publicKey, privateFormat), publicKey: encodePublicKey(publicKey, publicFormat) };
 }
 
 class VerifyEd25519 {

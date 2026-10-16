@@ -5,7 +5,7 @@ const setup = (props: Partial<Parameters<typeof FormatMenu>[0]> = {}) => {
     const onSelect = vi.fn();
     render(
         <div>
-            <FormatMenu name="Public key format" label="Base58" current="base58" onSelect={onSelect} {...props} />
+            <FormatMenu name="Public key format" kind="signature" label="Base58" current="base58" onSelect={onSelect} {...props} />
             <button>elsewhere</button>
         </div>
     );
@@ -77,7 +77,7 @@ describe('FormatMenu', () => {
     });
 
     it('closes by itself when it becomes disabled while open', () => {
-        const props = { name: 'Public key format', label: 'Base58', current: 'base58' as const, onSelect: vi.fn() };
+        const props = { name: 'Public key format', kind: 'signature' as const, label: 'Base58', current: 'base58' as const, onSelect: vi.fn() };
         const { rerender } = render(<FormatMenu {...props} />);
         fireEvent.click(screen.getByRole('button', { name: 'Public key format: Base58' }));
         expect(screen.getByRole('menu')).toBeInTheDocument();
