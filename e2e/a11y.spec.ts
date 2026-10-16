@@ -139,6 +139,24 @@ for (const theme of ['light', 'dark'] as const) {
             await check(page);
         });
 
+        test('signed formats, a COSE message verified, hints and created', async ({ page }) => {
+            await page.getByRole('tab', { name: 'Signed formats' }).click();
+            await panel(page).getByRole('button', { name: 'COSE', exact: true }).click();
+            await signed(page).getByRole('button', { name: 'Load example' }).click();
+            await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+            await check(page);
+            await signed(page).getByRole('button', { name: 'Load example' }).click();
+            await signed(page).getByLabel('Payload', { exact: true }).fill('hello world\n');
+            await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(signed(page).getByRole('region', { name: 'Why it may be wrong' })).toBeVisible();
+            await check(page);
+            await panel(page).getByRole('button', { name: 'Create a signature' }).click();
+            await signed(page).getByRole('button', { name: 'Load example' }).click();
+            await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
+            await expect(signed(page).getByText('Identical to the message of the example.')).toBeVisible();
+            await check(page);
+        });
+
         test('signed formats, a token with an error, and creating one', async ({ page }) => {
             await page.getByRole('tab', { name: 'Signed formats' }).click();
             await signed(page).getByLabel('Token', { exact: true }).fill('a.b');

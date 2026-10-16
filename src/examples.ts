@@ -200,3 +200,52 @@ export const MINISIGN_EXAMPLES: MinisignExample[] = [
         source: 'https://jedisct1.github.io/minisign/#signature-format',
     },
 ];
+
+export interface CoseExample extends ExampleInfo {
+    /** the COSE_Sign1, as hex */
+    message: string;
+    publicKey: string;
+    /** the payload typed, when the message has none */
+    payload: string;
+    externalData: string;
+    /** for the Create tab: what makes the message above when signing */
+    privateKey: string;
+    kid: string;
+    contentType: string;
+    detached: boolean;
+}
+
+// the key of RFC 8032 test 1, as in the examples of the COSE working group
+const COSE_EXAMPLE_KEY = {
+    publicKey: 'd75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a',
+    privateKey: '9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60',
+};
+
+export const COSE_EXAMPLES: CoseExample[] = [
+    {
+        title: 'EdDSA-01 of the COSE working group',
+        note: 'The example "EdDSA-01" of the COSE working group: the text "This is the content." signed with the key of RFC 8032 test 1, a key id and a content type. The signature is the published one.',
+        ...COSE_EXAMPLE_KEY,
+        message:
+            'd28445a201270300a10442313154546869732069732074686520636f6e74656e742e58407142fd2ff96d56db85bee905a76ba1d0b7321a95c8c4d3607c5781932b7afb8711497dfa751bf40b58b3bcc32300b1487f3db34085eef013bf08f4a44d6fef0d',
+        payload: 'This is the content.',
+        externalData: '',
+        kid: '11',
+        contentType: '0',
+        detached: false,
+        source: 'https://github.com/cose-wg/Examples/blob/master/eddsa-examples/eddsa-sig-01.json',
+    },
+    {
+        title: 'A payload that travels apart',
+        note: 'The payload is nil in the message and is given in the Payload field; the signature also covers the external data "context", which the message does not carry. Without either the signature is wrong. Made with pycose.',
+        ...COSE_EXAMPLE_KEY,
+        message:
+            'd28443a10127a0f658407d2d0085f5d876bd11ad188ce6de2b96ab5b84a40d2ef0c6bdc5a228d126eda0ca6c319dd868081cb6d5b2b76520a5a923aa5dc2fbf1d2b1e2c6ff5afb39e603',
+        payload: 'hello world',
+        externalData: 'context',
+        kid: '',
+        contentType: '',
+        detached: true,
+        source: 'https://www.rfc-editor.org/rfc/rfc9052#name-signing-and-verification-pro',
+    },
+];

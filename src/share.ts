@@ -130,3 +130,37 @@ export function parseMinisignShare(fragment: string): Partial<SharedMinisign> | 
         messageFormat: format !== null && MESSAGE_FORMATS.includes(format) ? (format as MessageFormat) : MessageFormat.Text,
     };
 }
+
+export interface SharedCose {
+    message: string;
+    publicKey: string;
+    payload: string;
+    payloadFormat: MessageFormat;
+    externalData: string;
+}
+
+/** The fragment of a link to a COSE verification, or '' when there is nothing to share (a payload from a file cannot be in a link). */
+export function coseShareFragment({ message, publicKey, payload, payloadFormat, externalData }: SharedCose): string {
+    if (!message.trim() && !publicKey.trim() && !payload) return '';
+    const params = new URLSearchParams({ fmt: 'cose' });
+    if (message.trim()) params.set('m', message.trim());
+    if (publicKey.trim()) params.set('key', publicKey.trim());
+    if (payload) params.set('msg', payload);
+    if (payload && payloadFormat !== MessageFormat.Text) params.set('mf', payloadFormat);
+    if (externalData) params.set('aad', externalData);
+    return `#${params}`;
+}
+
+export function parseCoseShare(fragment: string): Partial<SharedCose> | null {
+    const params = new URLSearchParams(fragment.replace(/^#/, ''));
+    if (params.get('fmt') !== 'cose') return null;
+    const get = (key: string) => params.get(key);
+    const format = get('mf');
+    return {
+        ...(get('m') !== null && { message: get('m') as string }),
+        ...(get('key') !== null && { publicKey: get('key') as string }),
+        ...(get('msg') !== null && { payload: get('msg') as string }),
+        ...(get('aad') !== null && { externalData: get('aad') as string }),
+        payloadFormat: format !== null && MESSAGE_FORMATS.includes(format) ? (format as MessageFormat) : MessageFormat.Text,
+    };
+}
