@@ -10,6 +10,8 @@
  * (wrong key type, encrypted, ...) rather than fail with a generic message. This module knows nothing about the UI.
  */
 import { parseBase64 } from './bytes';
+import { looksLikeDidDocument, parseDidDocument } from './did';
+import { JwksError } from './jwks';
 import { detectEcosystem, ECOSYSTEM_LABELS, EcosystemError, parseEcosystemKey } from './ecosystems';
 
 export interface ParsedKey {
@@ -45,6 +47,7 @@ export function isStructuredKey(text: string): boolean {
 /** Name of the format a pasted text appears to be in, or null for plain hex / base64. It does not validate the key. */
 export function detectKeyFormat(text: string): string | null {
     const t = text.trim();
+    if (looksLikeDidDocument(t)) return 'DID document';
     if (looksLikeJwk(t)) return 'JWK';
     const ecosystem = detectEcosystem(t);
     if (ecosystem) return ECOSYSTEM_LABELS[ecosystem];
@@ -72,6 +75,7 @@ export const keyFormatHint = (text: string): string | undefined => {
 export function parseStructuredKey(text: string): ParsedKey {
     const t = text.trim();
     if (t.startsWith('-----BEGIN')) return parsePem(t);
+    if (looksLikeDidDocument(t)) return parseDidKey(t);
     if (looksLikeJwk(t)) return parseJwk(t);
     if (detectEcosystem(t)) {
         try {
@@ -291,6 +295,23 @@ function parseOpenSshPrivate(der: Uint8Array): ParsedKey {
 }
 
 /* ---------------------------------------------------------------------- JWK */
+
+/** A DID document holding one Ed25519 key is that key. With several, the JWS tab picks by kid: elsewhere there is nothing to pick with. */
+function parseDidKey(text: string): ParsedKey {
+    let set: ReturnType<typeof parseDidDocument>;
+    try {
+        set = parseDidDocument(text);
+    } catch (error) {
+        if (error instanceof JwksError) throw new KeyFormatError(error.message);
+        throw error;
+    }
+    if (set.keys.length === 1) return { format: 'DID document', publicKey: set.keys[0].publicKey };
+    if (set.keys.length === 0) throw new KeyFormatError('this DID document has no Ed25519 key.');
+    const names = set.keys.map((key) => key.kid ?? `number ${key.position}`).join(', ');
+    throw new KeyFormatError(
+        `this DID document has ${set.keys.length} Ed25519 keys (${names}): paste the one to use (its publicKeyMultibase or publicKeyJwk), or use the JWS / JWT format, which picks the key by the kid of the token.`,
+    );
+}
 
 function parseJwk(text: string): ParsedKey {
     let parsed: unknown;

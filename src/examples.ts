@@ -129,6 +129,18 @@ export const JWS_EXAMPLES: JwsExample[] = [
         verdict: 'valid',
         source: 'https://www.rfc-editor.org/rfc/rfc7517#section-5',
     },
+    {
+        title: 'A token and the DID document of its issuer',
+        note: 'The public key is a DID document (a did:web) with two keys, one as a JWK and one as multibase. The token names "did:web:example.com#key-2" in its header (kid), so that method is picked. Made for this page.',
+        privateKey: '6b775269140d487bed9fd684816ef7d86543b14fbb9a56d033ef0cddc604d3b7',
+        publicKey:
+            '{"@context":["https://www.w3.org/ns/did/v1"],"id":"did:web:example.com","verificationMethod":[{"id":"did:web:example.com#key-1","type":"JsonWebKey2020","controller":"did:web:example.com","publicKeyJwk":{"kty":"OKP","crv":"Ed25519","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"}},{"id":"did:web:example.com#key-2","type":"Ed25519VerificationKey2020","controller":"did:web:example.com","publicKeyMultibase":"z6MkgRCQb6ewzYqj5vesziPXpEaTM9q12rxwM4NyVMcErVv3"}]}',
+        token: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImRpZDp3ZWI6ZXhhbXBsZS5jb20ja2V5LTIifQ.eyJpc3MiOiJkaWQ6d2ViOmV4YW1wbGUuY29tIiwic3ViIjoiYWRhIiwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjQxMDI0NDQ4MDB9.IUqs5C4nVWvpl_R2-ek1fJzylb8HxFf2FDhYbMIhvi6fiReSMl5r-hkiaHbl5R9t0OC4WrF-l0pcSVeMIj_RDQ',
+        header: '{"alg":"EdDSA","typ":"JWT","kid":"did:web:example.com#key-2"}',
+        payload: '{"iss":"did:web:example.com","sub":"ada","iat":1700000000,"exp":4102444800}',
+        verdict: 'valid',
+        source: 'https://www.w3.org/TR/did-core/#verification-methods',
+    },
 ];
 
 export interface SshsigExample extends ExampleInfo {
