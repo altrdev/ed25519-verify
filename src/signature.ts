@@ -1,3 +1,4 @@
+import { diagnose, type Hints } from './diagnose';
 import * as ed from '@noble/ed25519';
 import { parseBase64, parseHex } from './bytes';
 import { CODECS, encodeAs, readings } from './codecs';
@@ -257,6 +258,20 @@ class VerifyEd25519 {
 
         if (await verifies(false)) return 'valid';
         return (await verifies(true)) ? 'permissive-only' : 'invalid';
+    }
+
+    /** What could explain a signature that does not verify (see diagnose.ts); for a verdict of "invalid". */
+    async hints(): Promise<Hints> {
+        const message = decodeMessage(this.message, this.messageFormat);
+        return diagnose(
+            {
+                publicKey: decodeField('publicKey', this.publicKey, this.formats.publicKey),
+                signature: decodeField('signature', this.signature, this.formats.signature),
+                message: this.message,
+                messageFormat: this.messageFormat,
+            },
+            message,
+        );
     }
 
     /** The signature as raw bytes; sign() writes it in the encoding of your choice. */
