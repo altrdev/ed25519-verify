@@ -101,3 +101,49 @@ describe('FormVerify component', () => {
         expect(screen.queryByText('Signature is valid')).not.toBeInTheDocument();
     });
 });
+
+describe('FormVerify with keys in other formats', () => {
+    // the key of the key format fixtures, and its signature of "000000001"
+    const SPKI_PEM = '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAX4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0=\n-----END PUBLIC KEY-----\n';
+    const SIGNATURE_HEX = 'f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09';
+
+    beforeEach(() => {
+        encodingDefault.value = SignEncoding.Hex;
+    });
+
+    it('verifies with a PEM public key and shows the detected format', async () => {
+        render(<FormVerify publicKey={SPKI_PEM} signature={SIGNATURE_HEX} message="000000001" />);
+        expect(screen.getByText('Detected format: PEM (SPKI)')).toBeInTheDocument();
+        fireEvent.click(screen.getByText('Verify'));
+        expect((await screen.findByRole('alert')).textContent?.trim()).toBe('Signature is valid');
+    });
+
+    it('verifies with an OpenSSH or JWK public key, whatever the selected encoding', async () => {
+        const jwk = '{"kty":"OKP","crv":"Ed25519","x":"X4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0"}';
+        for (const key of [jwk, 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF+C1Upo0jl56XVoZra5DOJ37zTh1drsOHHFQJ1WNRqN me@host']) {
+            const { unmount } = render(<FormVerify publicKey={key} signature={SIGNATURE_HEX} message="000000001" />);
+            fireEvent.click(screen.getByText('Verify'));
+            expect((await screen.findByRole('alert')).textContent?.trim()).toBe('Signature is valid');
+            unmount();
+        }
+    });
+
+    it('explains a key of another type instead of calling the signature wrong', async () => {
+        const rsa = '-----BEGIN RSA PUBLIC KEY-----\nAAAA\n-----END RSA PUBLIC KEY-----';
+        render(<FormVerify publicKey={rsa} signature={SIGNATURE_HEX} message="000000001" />);
+        fireEvent.click(screen.getByText('Verify'));
+        expect(await screen.findByText('Public key: this is an RSA key, only Ed25519 is supported.')).toBeInTheDocument();
+        expect(screen.queryByText('Signature is wrong')).not.toBeInTheDocument();
+        // the "Detected" note gives way to the error
+        expect(screen.queryByText(/^Detected format/)).not.toBeInTheDocument();
+    });
+
+    it('shows a multi-line key in full instead of its last two lines', () => {
+        const { unmount } = render(<FormVerify publicKey={SPKI_PEM} />);
+        // BEGIN line, key line, END line: three rows instead of the default two
+        expect(screen.getByLabelText('Public key')).toHaveAttribute('rows', '3');
+        unmount();
+        render(<FormVerify publicKey={'x\n'.repeat(30)} />);
+        expect(screen.getByLabelText('Public key')).toHaveAttribute('rows', '8');   // capped
+    });
+});

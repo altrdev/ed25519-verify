@@ -4,6 +4,7 @@ import CopyButton from './CopyButton';
 import Field from './Field';
 import { Icon } from './icons';
 import MessageFormatSelector from './MessageFormatSelector';
+import { keyFormatHint } from './keyformats';
 import SelectorEncoding from './SelectorEncoding';
 import VerifyEd25519, { generateKeyPair, InputError, type FieldErrors } from './signature';
 import { encodingDefault } from './store';
@@ -108,8 +109,11 @@ export default function FormSign(props: Props) {
             <Field
                 label="Private key"
                 rows={2}
+                growWithContent
                 value={privateKey}
                 error={errors.privateKey}
+                hint={keyFormatHint(privateKey)}
+                placeholder="Hex, base64, PEM, OpenSSH or JWK"
                 secret
                 revealed={revealed}
                 onRevealedChange={setRevealed}

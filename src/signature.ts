@@ -1,5 +1,7 @@
 import * as ed from '@noble/ed25519';
+import { bytesToBase64, bytesToHex, parseBase64, parseHex } from './bytes';
 import { MessageFormat, SignEncoding } from './enum';
+import { isStructuredKey, KeyFormatError, parseStructuredKey } from './keyformats';
 
 export type Field = 'publicKey' | 'privateKey' | 'signature' | 'message';
 export type FieldErrors = Partial<Record<Field, string>>;
@@ -41,46 +43,42 @@ const EXPECTED: Record<Exclude<Field, 'message'>, string> = {
     privateKey: '32 bytes (or 64 in NaCl format)',
 };
 
-const bytesToHex = (bytes: Uint8Array): string =>
-    Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-
-const hexToBytes = (hex: string): Uint8Array => {
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
-    return bytes;
-};
-
-function parseHex(value: string): Uint8Array | null {
-    return /^[0-9a-f]+$/i.test(value) && value.length % 2 === 0 ? hexToBytes(value) : null;
-}
-
-function parseBase64(value: string): Uint8Array | null {
-    // accept the URL-safe alphabet and missing padding as well
-    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) return null;
-    const body = normalized.replace(/=+$/, '');
-    if (body.length % 4 === 1) return null;
-    try {
-        return Uint8Array.from(atob(body.padEnd(Math.ceil(body.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
-    } catch {
-        return null;
-    }
-}
-
 const parse = (value: string, encoding: SignEncoding) =>
     encoding === SignEncoding.Hex ? parseHex(value) : parseBase64(value);
 
 const encode = (bytes: Uint8Array, encoding: SignEncoding): string =>
-    encoding === SignEncoding.Hex ? bytesToHex(bytes) : btoa(String.fromCharCode(...bytes));
+    encoding === SignEncoding.Hex ? bytesToHex(bytes) : bytesToBase64(bytes);
 
 const encodingName = (encoding: SignEncoding) => (encoding === SignEncoding.Hex ? 'hex' : 'base64');
+
+/** A key pasted as PEM, OpenSSH or JWK: whichever encoding is selected, it carries its own format. */
+function decodeStructuredKey(field: 'publicKey' | 'privateKey', text: string): Uint8Array {
+    const label = LABELS[field];
+    let key;
+    try {
+        key = parseStructuredKey(text);
+    } catch (error) {
+        if (error instanceof KeyFormatError) throw new InputError(field, `${label}: ${error.message}`);
+        throw error;
+    }
+    if (field === 'privateKey') {
+        if (!key.privateKey) throw new InputError(field, `${label}: this is a public key (${key.format}), the private key goes here.`);
+        return key.privateKey;
+    }
+    if (!key.publicKey) {
+        throw new InputError(field, `${label}: this is a private key (${key.format}) that does not include its public part: paste the public key instead, or use the Sign tab.`);
+    }
+    return key.publicKey;
+}
 
 /** Decodes a key or signature, throwing an InputError that says what is wrong with it. */
 function decodeField(field: Exclude<Field, 'message'>, raw: string | null | undefined, encoding: SignEncoding): Uint8Array {
     const label = LABELS[field];
+    if (!(raw ?? '').trim()) throw new InputError(field, `${label} is required.`);
+    if (field !== 'signature' && isStructuredKey(raw!)) return decodeStructuredKey(field, raw!);
+
     // tolerate line breaks and spaces coming from a paste
     const value = (raw ?? '').replace(/\s+/g, '');
-    if (!value) throw new InputError(field, `${label} is required.`);
 
     const bytes = parse(value, encoding);
     if (!bytes) throw new InputError(field, `${label} is not valid ${encodingName(encoding)}.`);

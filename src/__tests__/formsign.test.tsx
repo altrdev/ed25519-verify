@@ -150,3 +150,39 @@ describe('FormSign component', () => {
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 });
+
+describe('FormSign with keys in other formats', () => {
+    const PKCS8_PEM = '-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIALvqa+xME6qTRBjjJM97OUZw57pzp4Q2Ak9IY7nmSF6\n-----END PRIVATE KEY-----\n';
+    const JWK = '{"kty":"OKP","crv":"Ed25519","d":"Au-pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo","x":"X4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0"}';
+
+    beforeEach(() => {
+        encodingDefault.value = SignEncoding.Base64;
+    });
+
+    it('signs with a PKCS#8 PEM key, deduces the public key and shows the detected format', async () => {
+        render(<FormSign privateKey={PKCS8_PEM} message="000000001" />);
+        expect(screen.getByText('Detected format: PEM (PKCS#8)')).toBeInTheDocument();
+        expect(await screen.findByDisplayValue('X4LVSmjSOXnpdWhmtrkM4nfvNOHV2uw4ccVAnVY1Go0=')).toBeInTheDocument();
+        fireEvent.click(screen.getByText('Sign'));
+        expect((await screen.findByRole('alert')).textContent).toContain(expectedSignature);
+    });
+
+    it('signs with a JWK exactly like with the same key as plain base64', async () => {
+        render(<FormSign privateKey={JWK} message="000000001" />);
+        fireEvent.click(screen.getByText('Sign'));
+        expect((await screen.findByRole('alert')).textContent).toContain(expectedSignature);
+    });
+
+    it('says why an encrypted or foreign private key cannot be used', async () => {
+        const encrypted = '-----BEGIN ENCRYPTED PRIVATE KEY-----\nAAAA\n-----END ENCRYPTED PRIVATE KEY-----';
+        render(<FormSign privateKey={encrypted} message="x" />);
+        fireEvent.click(screen.getByText('Sign'));
+        expect(await screen.findByText(/Private key: the key is encrypted with a passphrase/)).toBeInTheDocument();
+        expect(screen.queryByText('Signature:')).not.toBeInTheDocument();
+    });
+
+    it('does not announce a format for plain hex or base64', () => {
+        render(<FormSign privateKey={privateKey} />);
+        expect(screen.queryByText(/^Detected format/)).not.toBeInTheDocument();
+    });
+});

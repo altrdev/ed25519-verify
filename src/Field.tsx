@@ -7,10 +7,14 @@ interface FieldProps {
     label: string;
     value: string;
     rows?: number;
+    /** grow with the number of lines (up to 8), so a pasted multi-line value such as a PEM is visible */
+    growWithContent?: boolean;
     disabled?: boolean;
     placeholder?: string;
     /** validation message, shown under the field */
     error?: string;
+    /** neutral note under the field (hidden while there is an error) */
+    hint?: string;
     /** extra buttons on the label row */
     actions?: ComponentChildren;
     /** copy button on the label row */
@@ -25,7 +29,7 @@ interface FieldProps {
 }
 
 export default function Field({
-    label, value, rows = 3, disabled, placeholder, error, actions, copyable, secret,
+    label, value, rows = 3, growWithContent, disabled, placeholder, error, hint, actions, copyable, secret,
     revealed: revealedProp, onRevealedChange, onInput, onChange,
 }: FieldProps) {
     const id = useId();
@@ -33,6 +37,8 @@ export default function Field({
     const [revealedState, setRevealedState] = useState(false);
     const revealed = revealedProp ?? revealedState;
     const masked = secret && !revealed;
+    const lineCount = value.replace(/\n+$/, '').split('\n').length;
+    const visibleRows = growWithContent ? Math.min(Math.max(rows, lineCount), 8) : rows;
 
     const toggleReveal = () => {
         setRevealedState(!revealed);
@@ -63,7 +69,7 @@ export default function Field({
             <textarea
                 id={id}
                 class={masked ? 'masked' : ''}
-                rows={rows}
+                rows={visibleRows}
                 value={value}
                 disabled={disabled}
                 placeholder={placeholder}
@@ -76,6 +82,7 @@ export default function Field({
                 onChange={(e) => onChange?.(e.currentTarget.value)}
             />
             {error && <p class="field-error" id={errorId} role="alert">{error}</p>}
+            {hint && !error && <p class="field-hint">{hint}</p>}
         </div>
     );
 }
