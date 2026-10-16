@@ -31,6 +31,10 @@ interface FieldProps {
     /** controlled visibility of a secret field; uncontrolled when omitted */
     revealed?: boolean;
     onRevealedChange?: (revealed: boolean) => void;
+    /** shown instead of the text area (e.g. a file chosen as the value) */
+    content?: ComponentChildren;
+    /** something is being dragged over the field */
+    dragging?: boolean;
     onInput?: (value: string) => void;
     onChange?: (value: string) => void;
 }
@@ -52,6 +56,8 @@ export default function Field({
     secret,
     revealed: revealedProp,
     onRevealedChange,
+    content,
+    dragging,
     onInput,
     onChange,
 }: FieldProps) {
@@ -69,7 +75,7 @@ export default function Field({
     };
 
     return (
-        <div class={`field${error ? ' invalid' : ''}`}>
+        <div class={`field${error ? ' invalid' : ''}${dragging ? ' dragging' : ''}`}>
             <div class="field-head">
                 <label for={id}>{label}</label>
                 <div class="field-actions">
@@ -90,21 +96,23 @@ export default function Field({
                     {copyable && <CopyButton text={value} label={`Copy ${label.toLowerCase()}`} />}
                 </div>
             </div>
-            <textarea
-                id={id}
-                class={masked ? 'masked' : ''}
-                rows={visibleRows}
-                value={value}
-                disabled={disabled}
-                placeholder={placeholder}
-                spellcheck={false}
-                autocomplete="off"
-                autocapitalize="off"
-                aria-invalid={error ? true : undefined}
-                aria-describedby={error ? errorId : undefined}
-                onInput={(e) => onInput?.(e.currentTarget.value)}
-                onChange={(e) => onChange?.(e.currentTarget.value)}
-            />
+            {content ?? (
+                <textarea
+                    id={id}
+                    class={masked ? 'masked' : ''}
+                    rows={visibleRows}
+                    value={value}
+                    disabled={disabled}
+                    placeholder={placeholder}
+                    spellcheck={false}
+                    autocomplete="off"
+                    autocapitalize="off"
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? errorId : undefined}
+                    onInput={(e) => onInput?.(e.currentTarget.value)}
+                    onChange={(e) => onChange?.(e.currentTarget.value)}
+                />
+            )}
             {error && (
                 <p class="field-error" id={errorId} role="alert">
                     {error}
