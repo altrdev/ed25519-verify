@@ -3,8 +3,9 @@ import { CONTENT_SECURITY_POLICY, DIRECTIVES } from '../csp';
 describe('Content-Security-Policy', () => {
     const sourcesOf = (directive: string) => DIRECTIVES[directive] ?? [];
 
-    it('forbids every network request from the page', () => {
-        expect(sourcesOf('connect-src')).toEqual(["'none'"]);
+    it('only lets the page talk to its own origin', () => {
+        // 'self' (not 'none') because Chrome downloads the manifest icons under connect-src
+        expect(sourcesOf('connect-src')).toEqual(["'self'"]);
         expect(sourcesOf('default-src')).toEqual(["'none'"]);
         expect(sourcesOf('form-action')).toEqual(["'none'"]);
     });
@@ -27,7 +28,7 @@ describe('Content-Security-Policy', () => {
 
     it('serialises to a valid header value', () => {
         expect(CONTENT_SECURITY_POLICY).toMatch(/^default-src 'none'; script-src 'self'/);
-        expect(CONTENT_SECURITY_POLICY).toContain("connect-src 'none'");
+        expect(CONTENT_SECURITY_POLICY).toContain("connect-src 'self'");
         expect(CONTENT_SECURITY_POLICY).not.toContain('"');
     });
 });
