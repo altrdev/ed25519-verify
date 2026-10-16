@@ -1,16 +1,37 @@
-import { writable } from "svelte/store";
-import { mdiWeatherNight, mdiWeatherSunny } from '@mdi/js';
+import { signal, effect } from '@preact/signals';
+import { SignEncoding } from './enum';
 
-const storedTheme = localStorage.getItem("theme") ?? 'light';
-const storedEncoding = localStorage.getItem("encoding") ?? 'base64';
-export const theme = writable(storedTheme);
-export const themeIcon = storedTheme === 'dark' ? mdiWeatherSunny : mdiWeatherNight;
-export const encodingDefault = writable(storedEncoding);
+export type Theme = 'light' | 'dark';
 
-theme.subscribe(value => {
-    localStorage.setItem("theme", value === 'dark' ? 'dark' : 'light');
+function read(key: string): string | null {
+    try {
+        return localStorage.getItem(key);
+    } catch {
+        return null;
+    }
+}
+
+function write(key: string, value: string) {
+    try {
+        localStorage.setItem(key, value);
+    } catch {
+        // storage unavailable (private mode, blocked): the preference is just not persisted
+    }
+}
+
+const storedTheme = read('theme');
+const prefersDark = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
+
+export const theme = signal<Theme>(storedTheme === 'dark' || (storedTheme === null && prefersDark) ? 'dark' : 'light');
+export const encodingDefault = signal<SignEncoding>(
+    read('encoding') === SignEncoding.Hex ? SignEncoding.Hex : SignEncoding.Base64
+);
+
+effect(() => {
+    write('theme', theme.value);
+    document.documentElement.dataset.theme = theme.value;
 });
 
-encodingDefault.subscribe(value => {
-    localStorage.setItem("encoding", value === 'hex' ? 'hex' : 'base64');
+effect(() => {
+    write('encoding', encodingDefault.value);
 });

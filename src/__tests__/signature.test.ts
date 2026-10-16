@@ -49,10 +49,11 @@ describe('Sign message', function() {
         expect(result).toBe("f5ab3aa888c6b0ab792fe9b9bdc26132b374d3ba18300424e3252d6417954372d15d66bdf51da24adad7343f545aa9127827e2281e7968ef9a5188cc23a5ef09");
     })
 
+    // 64-byte (seed || public key) secret keys: the derived key must match the embedded public half
     it('should return public key', async () => {
         const sign = new VerifyEd25519("12345", null, null, "3WrwK5pNuYUbYeWeid1jr8+YJ5BIJ9bE5AoU7TpEXwERZ6w1rApJuqlpLg3Kjd7bYKonCPHScUS4Ufjrp8dRTg==");
         let result = await sign.getPublicKey(SignEncoding.Base64);
-        expect(result).toBe("i78XoaMcWEnHUycO/hnRzsbqK5iGxFojkSYqw3GBFO8=");
+        expect(result).toBe("EWesNawKSbqpaS4Nyo3e22CqJwjx0nFEuFH466fHUU4=");
     })
 
     it('should return null public key', async () => {
