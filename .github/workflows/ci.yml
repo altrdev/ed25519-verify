@@ -1,11 +1,14 @@
 name: CI
 
-# Runs the same checks as the deploy pipeline on every pull request, so a broken change is caught before it is merged.
+# The checks of the project: on every pull request, and as the first step of the deploy and of the release (workflow_call),
+# so a broken change is caught before it is merged and a push that skipped the pull request is still checked before it ships.
 on:
   pull_request:
     branches:
       - main
   workflow_dispatch:
+  # the deploy and the release run these same checks first, so there is one definition of "it works"
+  workflow_call:
 
 permissions:
   contents: read
