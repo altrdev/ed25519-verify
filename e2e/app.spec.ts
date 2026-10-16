@@ -322,6 +322,28 @@ test.describe('signed formats: JWS / JWT', () => {
         await expect(signed(elsewhere).getByText('Signature is valid')).toBeVisible();
     });
 
+    test('verifies with the method of a DID document that the token names, by its id or its fragment', async ({ page }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        for (let i = 0; i < 4; i++) await signed(page).getByRole('button', { name: 'Load example' }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await expect(
+            signed(page).getByText(/Using the key "did:web:example.com#key-2" of the DID document, as the token asks/),
+        ).toBeVisible();
+
+        const token = await signed(page).getByLabel('Token', { exact: true }).inputValue();
+        const [, payload, signature] = token.split('.');
+        const fragment = Buffer.from(JSON.stringify({ alg: 'EdDSA', typ: 'JWT', kid: 'did:web:example.com#key-2' })).toString('base64url');
+        const other = Buffer.from(JSON.stringify({ alg: 'EdDSA', typ: 'JWT', kid: 'did:web:example.com#key-9' })).toString('base64url');
+        await signed(page).getByLabel('Token', { exact: true }).fill(`${other}.${payload}.${signature}`);
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText(/The DID document has no key "did:web:example.com#key-9"/)).toBeVisible();
+        await expect(signed(page).getByText('Signature is wrong')).toHaveCount(0);
+        await signed(page).getByLabel('Token', { exact: true }).fill(`${fragment}.${payload}.${signature}`);
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+    });
+
     test('the Create tab reproduces the token of the RFC', async ({ page }) => {
         await page.goto('/');
         await page.getByRole('tab', { name: 'Tokens and files' }).click();
@@ -365,6 +387,34 @@ test.describe('signed formats: SSH signatures', () => {
         await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
         await expect(signed(page).getByText('Signature is wrong')).toBeVisible();
         await expect(signed(page).getByText('It is valid with a newline added at the end of the message.')).toBeVisible();
+    });
+
+    test('takes the allowed_signers file of ssh-keygen as the key, finding the entry by the key of the signature', async ({ page }) => {
+        test.skip(!hasSshKeygen, 'ssh-keygen is not installed');
+        const { dir, signature } = withSsh('git', 'a message\n');
+        const other = join(dir, 'other');
+        expect(spawnSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-C', 'other', '-f', other]).status).toBe(0);
+        const allowed = `other@example namespaces="file" ${readFileSync(`${other}.pub`, 'utf8').split(' ').slice(0, 2).join(' ')}\n${readFileSync(join(dir, 'allowed_signers'), 'utf8')}`;
+        // the reference agrees: the entry of e2e@example verifies it
+        writeFileSync(join(dir, 'both'), allowed);
+        const reference = spawnSync(
+            'ssh-keygen',
+            ['-Y', 'verify', '-f', join(dir, 'both'), '-I', 'e2e@example', '-n', 'git', '-s', join(dir, 'message.txt.sig')],
+            {
+                input: 'a message\n',
+            },
+        );
+        expect(reference.status).toBe(0);
+
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await panel(page).getByRole('button', { name: 'SSH signature' }).click();
+        await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
+        await signed(page).getByLabel('Message', { exact: true }).fill('a message\n');
+        await signed(page).getByLabel('Public key you trust', { exact: true }).fill(allowed);
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await expect(signed(page).getByText(/The key is e2e@example of the list/)).toBeVisible();
     });
 
     test('a signature made in the page is accepted by ssh-keygen -Y verify, in its namespace only', async ({ page }) => {

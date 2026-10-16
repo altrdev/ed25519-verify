@@ -59,6 +59,8 @@ src/
   share.ts          the share link: what the raw signature verification holds, in the URL fragment
   detect.ts         which container (JWT, SSH signature, minisign, signify, OpenPGP, COSE) a pasted signature is, and what it takes from the raw signature form
   jws.ts            JWS / JWT (EdDSA): parsing, what is refused and why, building a token; JwsPanel.tsx and FormSigned.tsx are its screen
+  did.ts            DID documents: their Ed25519 verification methods, read as a key set picked by the method id
+  sshkeys.ts        authorized_keys / allowed_signers texts: entries, their principals and options (namespaces)
   jwks.ts           JWK Sets: which key of the set a token names (by kid), and why not when it cannot be told
   sshsig.ts         SSH signatures (ssh-keygen -Y): parsing, the structure that is signed, signing; SshsigPanel.tsx is its screen
   minisign.ts       minisign: the public key and signature files, what is signed, signing; MinisignPanel.tsx is its screen

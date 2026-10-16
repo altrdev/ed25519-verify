@@ -166,6 +166,20 @@ for (const theme of ['light', 'dark'] as const) {
             await check(page);
         });
 
+        test('signed formats, a token with a DID document, and its choice of key', async ({ page }) => {
+            await page.getByRole('tab', { name: 'Tokens and files' }).click();
+            for (let i = 0; i < 4; i++) await signed(page).getByRole('button', { name: 'Load example' }).click();
+            await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+            await check(page);
+            const token = await signed(page).getByLabel('Token', { exact: true }).inputValue();
+            const [, payload, signature] = token.split('.');
+            const nameless = Buffer.from(JSON.stringify({ alg: 'EdDSA' })).toString('base64url');
+            await signed(page).getByLabel('Token', { exact: true }).fill(`${nameless}.${payload}.${signature}`);
+            await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(signed(page).getByText(/pick the one to verify with/)).toBeVisible();
+            await check(page);
+        });
+
         test('signed formats, a COSE message verified, hints and created', async ({ page }) => {
             await page.getByRole('tab', { name: 'Tokens and files' }).click();
             await panel(page).getByRole('button', { name: 'COSE', exact: true }).click();

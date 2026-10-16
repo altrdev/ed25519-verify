@@ -106,6 +106,60 @@ describe('SSH signature tab, verifying', () => {
     });
 });
 
+describe('SSH signature tab, with an allowed_signers file as the key', () => {
+    const BOB = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHutfARIAKac1UBklevRYkl5TpRap6tVZU4m28FXKepr bob-key';
+    const ALLOWED = `alice@example.com namespaces="git" ${SSH_PUBLIC}\nbob@example.com valid-before="20300101" ${BOB}\n`;
+
+    beforeEach(() => {
+        render(<FormSigned />);
+        useFormat();
+        type('Message', SSH_MESSAGE);
+    });
+
+    it('finds the entry that made the signature by its key, and applies its namespaces', async () => {
+        type('Signature', SSH_SIG_GIT_SHA256);
+        type('Public key you trust', ALLOWED);
+        click('Verify');
+        await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
+        expect(screen.getByText(/The key is alice@example.com of the list, which allows the namespace "git"\./)).toBeInTheDocument();
+    });
+
+    it('refuses a namespace the entry does not allow, naming both, and does not say wrong', async () => {
+        type('Signature', SSH_SIG_FILE_SHA256);
+        type('Public key you trust', ALLOWED);
+        click('Verify');
+        expect(
+            await screen.findByText(
+                /alice@example.com is the key of this signature, but its namespaces option allows only git, and the signature is for "file"/,
+            ),
+        ).toBeInTheDocument();
+        expect(screen.queryByText('Signature is wrong')).not.toBeInTheDocument();
+        expect(screen.queryByText('Signature is valid')).not.toBeInTheDocument();
+    });
+
+    it('says when none of the keys of the list made it, and lists them', async () => {
+        type('Signature', SSH_SIG_GIT_SHA256);
+        type('Public key you trust', `bob@example.com ${BOB}`);
+        click('Verify');
+        expect(await screen.findByText(/which is none of the 1 of the list \(bob@example.com\)/)).toBeInTheDocument();
+    });
+
+    it('reports the options it does not check', async () => {
+        type('Signature', SSH_SIG_FILE_SHA256);
+        type('Public key you trust', `alice@example.com valid-before="20300101" ${SSH_PUBLIC}`);
+        click('Verify');
+        await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
+        expect(screen.getByText(/Not checked here: valid-before/)).toBeInTheDocument();
+    });
+
+    it('says which line is not a key', async () => {
+        type('Signature', SSH_SIG_FILE_SHA256);
+        type('Public key you trust', `${SSH_PUBLIC}\nnot a key`);
+        click('Verify');
+        expect(await screen.findByText(/Line 2 is not a key/)).toBeInTheDocument();
+    });
+});
+
 describe('SSH signature tab, creating', () => {
     beforeEach(() => {
         render(<FormSigned />);
