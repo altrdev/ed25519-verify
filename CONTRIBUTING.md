@@ -30,6 +30,7 @@ npm run dev        # dev server with hot reload
 | `npm test` | Runs the tests once (Vitest + Testing Library) |
 | `npm run test:watch` | Runs the tests on every change |
 | `npm run typecheck` | TypeScript check without emitting files |
+| `npm run test:e2e` | End-to-end and accessibility tests ([Playwright](https://playwright.dev/) + axe) against the production build: run `npm run build` first, and `npx playwright install chromium` once |
 | `npm run lint` | Checks formatting and lint rules with [Biome](https://biomejs.dev/) (what CI runs) |
 | `npm run format` | Fixes formatting and the lint problems that have a safe fix |
 | `npm run build` | Type-check and production build in `dist/` |
@@ -69,6 +70,7 @@ src/
 
 ### Guidelines
 
+- **Tests in two layers.** `src/__tests__` (Vitest, jsdom) covers the logic and the components; `e2e/` (Playwright) drives the built site in Chromium: verify and sign with RFC 8032 vectors, format conversion, share links, offline reload, no request to another host, and an [axe](https://github.com/dequelabs/axe-core) accessibility check of both tabs in both themes. A new screen or state should be added to `e2e/a11y.spec.ts`. If a Chromium is already installed, point `PLAYWRIGHT_CHROMIUM_PATH` to it.
 - **Style is automatic.** Biome formats the code (4 spaces, single quotes, 140 columns) and lints it; `npm run format` fixes it. It replaces ESLint and Prettier on purpose: `typescript-eslint` does not support TypeScript 7 yet, and one tool is faster and simpler to keep. CSS is not covered.
 - **Keep it client-side and dependency-light.** The app must never send keys, messages or signatures anywhere, and the
   bundle is small on purpose. Think twice before adding a dependency, especially in `signature.ts`.

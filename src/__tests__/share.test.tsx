@@ -71,7 +71,7 @@ describe('share links in the app', () => {
         const writeText = vi.fn().mockResolvedValue(undefined);
         Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
         render(<FormVerify publicKey={PUBLIC_HEX} message="m&m" signature="abcd" />);
-        fireEvent.click(screen.getByRole('button', { name: 'Copy a link to this verification' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Copy link to this verification' }));
         await waitFor(() => expect(writeText).toHaveBeenCalled());
         const link = new URL(writeText.mock.calls[0][0]);
         expect(parseShareFragment(link.hash)).toEqual({ publicKey: PUBLIC_HEX, message: 'm&m', signature: 'abcd', messageFormat: 'text' });
@@ -80,6 +80,6 @@ describe('share links in the app', () => {
 
     it('has nothing to copy while the form is empty', () => {
         render(<FormVerify />);
-        expect(screen.getByRole('button', { name: 'Copy a link to this verification' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Copy link to this verification' })).toBeDisabled();
     });
 });
