@@ -3,7 +3,7 @@ import FormSigned from './FormSigned';
 import FormSign from './FormSign';
 import FormVerify from './FormVerify';
 import { Icon } from './icons';
-import { parseCoseShare, parseJwsShare, parseMinisignShare, parseShareFragment, parseSshsigShare } from './share';
+import { parseCoseShare, parseJwsShare, parseMinisignShare, parsePgpShare, parseShareFragment, parseSshsigShare } from './share';
 import { theme } from './store';
 
 const TABS = ['Verify signature', 'Sign message', 'Signed formats'];
@@ -27,7 +27,8 @@ export default function App() {
     const [sharedSshsig] = useState(() => parseSshsigShare(location.hash));
     const [sharedMinisign] = useState(() => parseMinisignShare(location.hash));
     const [sharedCose] = useState(() => parseCoseShare(location.hash));
-    const [tab, setTab] = useState(sharedToken || sharedSshsig || sharedMinisign || sharedCose ? 2 : 0);
+    const [sharedPgp] = useState(() => parsePgpShare(location.hash));
+    const [tab, setTab] = useState(sharedToken || sharedSshsig || sharedMinisign || sharedCose || sharedPgp ? 2 : 0);
     const dark = theme.value === 'dark';
 
     return (
@@ -93,6 +94,7 @@ export default function App() {
                         sharedSshsig={sharedSshsig}
                         sharedMinisign={sharedMinisign}
                         sharedCose={sharedCose}
+                        sharedPgp={sharedPgp}
                     />
                 </div>
             </main>

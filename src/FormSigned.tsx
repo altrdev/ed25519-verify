@@ -2,11 +2,12 @@ import { useState } from 'preact/hooks';
 import CosePanel from './CosePanel';
 import JwsPanel from './JwsPanel';
 import MinisignPanel from './MinisignPanel';
+import PgpPanel from './PgpPanel';
 import Segmented from './Segmented';
-import type { SharedCose, SharedMinisign, SharedSshsig, SharedToken } from './share';
+import type { SharedCose, SharedMinisign, SharedPgp, SharedSshsig, SharedToken } from './share';
 import SshsigPanel from './SshsigPanel';
 
-type SignedFormat = 'jws' | 'sshsig' | 'minisign' | 'cose';
+type SignedFormat = 'jws' | 'sshsig' | 'minisign' | 'cose' | 'pgp';
 type Mode = 'verify' | 'create';
 
 const FORMATS: { value: SignedFormat; label: string }[] = [
@@ -14,6 +15,7 @@ const FORMATS: { value: SignedFormat; label: string }[] = [
     { value: 'sshsig', label: 'SSH signature' },
     { value: 'minisign', label: 'minisign' },
     { value: 'cose', label: 'COSE' },
+    { value: 'pgp', label: 'OpenPGP' },
 ];
 const MODES: { value: Mode; label: string }[] = [
     { value: 'verify', label: 'Verify a signature' },
@@ -26,11 +28,14 @@ interface Props {
     sharedSshsig?: Partial<SharedSshsig> | null;
     sharedMinisign?: Partial<SharedMinisign> | null;
     sharedCose?: Partial<SharedCose> | null;
+    sharedPgp?: Partial<SharedPgp> | null;
 }
 
 /** Signatures in the containers other tools use (a JWT, an SSH signature...): the container is read, the signed bytes are worked out. */
-export default function FormSigned({ sharedJws, sharedSshsig, sharedMinisign, sharedCose }: Props) {
-    const [format, setFormat] = useState<SignedFormat>(sharedCose ? 'cose' : sharedMinisign ? 'minisign' : sharedSshsig ? 'sshsig' : 'jws');
+export default function FormSigned({ sharedJws, sharedSshsig, sharedMinisign, sharedCose, sharedPgp }: Props) {
+    const [format, setFormat] = useState<SignedFormat>(
+        sharedPgp ? 'pgp' : sharedCose ? 'cose' : sharedMinisign ? 'minisign' : sharedSshsig ? 'sshsig' : 'jws',
+    );
     const [mode, setMode] = useState<Mode>('verify');
 
     return (
@@ -51,6 +56,9 @@ export default function FormSigned({ sharedJws, sharedSshsig, sharedMinisign, sh
             </div>
             <div class="panel" hidden={format !== 'cose'}>
                 <CosePanel mode={mode} initial={sharedCose ?? undefined} autoVerify={!!sharedCose?.message} />
+            </div>
+            <div class="panel" hidden={format !== 'pgp'}>
+                <PgpPanel mode={mode} initial={sharedPgp ?? undefined} autoVerify={!!sharedPgp?.signature} />
             </div>
         </section>
     );

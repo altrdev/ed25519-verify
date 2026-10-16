@@ -249,3 +249,47 @@ export const COSE_EXAMPLES: CoseExample[] = [
         source: 'https://www.rfc-editor.org/rfc/rfc9052#name-signing-and-verification-pro',
     },
 ];
+
+export interface PgpExample extends ExampleInfo {
+    /** an armored signature, or a whole cleartext signed message */
+    signature: string;
+    publicKey: string;
+    /** empty for a cleartext signed message */
+    message: string;
+}
+
+// made with GnuPG 2.4 and Sequoia (see the tests) for keys created for these examples: they protect nothing
+const PGP_KEY =
+    '-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nmDMEatKITxYJKwYBBAHaRw8BAQdA13UAjhhk5pUFY9QeSlh17mRN8jek88HAoDed\nbsK0MkG0HUZpeHR1cmUgPGZpeHR1cmVAZXhhbXBsZS5jb20+iJMEExYKADsWIQQz\njfpOoyLPhzRj6POBCIU3IlJhUwUCatKITwIbAwULCQgHAgIiAgYVCgkICwIEFgID\nAQIeBwIXgAAKCRCBCIU3IlJhU1CZAQCZubRewnN0U/zWbizUweFsI0rhYj87Eet5\nG5Zo6e34lwD+O5ySz37OhiowiOtoVRL8IgcZpKB26w/kikLnmm3Uugy4MwRq0ohW\nFgkrBgEEAdpHDwEBB0CoRCWD4RNovRac/I5LpNLwgD5ph71I4l2JYcNYbSchq4jv\nBBgWCgAgFiEEM436TqMiz4c0Y+jzgQiFNyJSYVMFAmrSiFYCGwIAgQkQgQiFNyJS\nYVN2IAQZFgoAHRYhBL11FxbxR+Ec17JI66Ucvwx5p80JBQJq0ohWAAoJEKUcvwx5\np80Jf7YA/AzLXxkjrmjUVlV0ZsCGwxFsugO2QCOLMcMnqIIfNlJEAQC8uXQFW1T5\nDgFuWOJRSAAKx5eX14TGH26VBKRaJcBQDUWSAQCKubSj7fqrjcTFIhkD+3rpw+a+\nLvr6Yw6FqsrGhQI0xwEA6wBf/gXC2aha9ciRy7MJFvuB01InFXjh+7WI3APyaQI=\n=+uMq\n-----END PGP PUBLIC KEY BLOCK-----\n';
+const PGP_KEY_V6 =
+    '-----BEGIN PGP PUBLIC KEY BLOCK-----\nComment: 21C9 3D92 4F7E 0D74 127E 1B36 B8BB 7FE2  879C 4B25 F024 D6EA A5B2 4597 3439 798B\nComment: Fixture V6 <v6@example.com>\n\nxioGatKIkhsAAAAg7E7Gko0h89cb7yLHTvYSWwi2fsbfExl1+S3W7UmzxrnCpgYf\nGwoAAAA3BYJq0oiSAwsJBwMVCggCmwECHgkiIQYhyT2ST34NdBJ+Gza4u3/ih5xL\nJfAk1uqlskWXNDl5iwAAAABwXyC+DfMt71A/k/0eReHrQYQkrU6KXLBhhgTl4LEk\nl98O/UH4EtyA5aOWhZz0MwWt3PixnvfKT9mlaKotKK0+eIobbhFoPAcPUf4V2rz/\n9n2VuYECVACxH2RSVo9KnmrTeQDNG0ZpeHR1cmUgVjYgPHY2QGV4YW1wbGUuY29t\nPsKpBhMbCgAAADoFgmrSiJIDCwkHAxUKCAKZAQKbAQIeCSIhBiHJPZJPfg10En4b\nNri7f+KHnEsl8CTW6qWyRZc0OXmLAAAAAP3XIEddh4M5duQuvIY6Z0nZeJfUohb9\nRfRZkVOuO4JdAw3NkvWg36H/HeAPQ5EKzGFXjrn3QdOJpcCAQzSuTAhJoSE2eIE2\n7CUuZie5pzxWexO4piGf6zW2f7KMFi97LOmFD84qBmrSiJIbAAAAIFzVK8ldpiwZ\nyxs/+4byocTq69cqnW3lERZy5qo1QoqowsB1BhgbCgAAAMYFgmrSiJICmwKZoAYZ\nGwoAAAApBYJq0oiSIiEGRBkbAKDqdBIGooWDRiBXwykwXXT9oa7hUpleD3yvLYsA\nAAAAz7IgNXcBc70XRo5qodtjfxZzWY2yPi/tCF+je/AT2n/yv1rf/T9emcKXD/mZ\nBAbmOuZ3/HFDTT2rz9ovGwD6QfUOhcArqKKNpUrOexbcUJeZ+szMb0LrUp0l7xdA\nfWY3ZI0PIiEGIck9kk9+DXQSfhs2uLt/4oecSyXwJNbqpbJFlzQ5eYsAAAAAYnYg\nmlzjtvuN+HgvvrwtrQLXYph2KvhLq15gHIyEUvnoYmf77hmaRVcp4Nk47VU7q5TU\niaWBVqWZDGDIJvHpqJF26z9JXt5XSkcwdRGauj1moMvG4icPB2ST+6W2mCUgDZ0P\n-----END PGP PUBLIC KEY BLOCK-----\n';
+
+export const PGP_EXAMPLES: PgpExample[] = [
+    {
+        title: 'Made by gpg --detach-sign',
+        note: 'The detached signature of the text "hello world", made by the signing subkey of the key below: the signature names the subkey, and the page finds it in the key block. gpg --verify accepts it.',
+        publicKey: PGP_KEY,
+        message: 'hello world\n',
+        signature:
+            '-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQS9dRcW8UfhHNeySOulHL8MeafNCQUCatKIVgAKCRClHL8MeafN\nCdLIAQDR4c+QMqbejzJHcbzQefDNb/gwYKKddKU/xFoaIoI0EgD/aKSb9GaKdJMP\ng0s2Ee4rnwARePytQtdzZT/T6Lwc1wE=\n=xLFY\n-----END PGP SIGNATURE-----\n',
+        source: 'https://www.rfc-editor.org/rfc/rfc4880#section-5.2',
+    },
+    {
+        title: 'A cleartext signed message',
+        note: 'What gpg --clearsign writes: the text, readable as it is, followed by its signature. The line that starts with a dash is escaped as "- -" and the spaces at the end of a line are not signed; the page undoes both.',
+        publicKey: PGP_KEY,
+        message: '',
+        signature:
+            '-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA512\n\nline one  \nline two\n- - dashed line\n-----BEGIN PGP SIGNATURE-----\n\niHUEARYKAB0WIQS9dRcW8UfhHNeySOulHL8MeafNCQUCatKIVgAKCRClHL8MeafN\nCSYiAQCrdJ5kVpNUlHl+LW9QPONy+fUbA6ga6D8UNjI/hK7SxAEA2EsSUXRpsono\n2vSnfgAyhW9qmt4TInMyoxMSU23V0wk=\n=hJwj\n-----END PGP SIGNATURE-----\n',
+        source: 'https://www.rfc-editor.org/rfc/rfc4880#section-7',
+    },
+    {
+        title: 'A version 6 signature (RFC 9580)',
+        note: 'The new format of OpenPGP: an Ed25519 key of algorithm 27 with a version 6 fingerprint (SHA-256), and a signature with a salt. Made with Sequoia.',
+        publicKey: PGP_KEY_V6,
+        message: 'hello world\n',
+        signature:
+            '-----BEGIN PGP SIGNATURE-----\n\nwpgGABsKAAAAKQWCatKIziIhBiHJPZJPfg10En4bNri7f+KHnEsl8CTW6qWyRZc0\nOXmLAAAAAM7fICgM4deCytgkRsFmTjWUst73gCTxg/6cLqiIcHwjtpz2EkjyAA99\nnALjuBB5C/uHxjYyDNn8G7kE2FL3QmaspUBe1rLNfVDm1k4Fz1IxtTixF+/UReGO\nG0/OfgkHu8sFDQ==\n-----END PGP SIGNATURE-----\n',
+        source: 'https://www.rfc-editor.org/rfc/rfc9580',
+    },
+];

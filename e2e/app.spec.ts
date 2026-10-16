@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createPublicKey, verify as nodeVerify } from 'node:crypto';
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -534,5 +534,61 @@ test.describe('signed formats: COSE', () => {
         await other.goto(link);
         await expect(signed(other).getByText('Signature is valid')).toBeVisible();
         await expect(panel(other).getByRole('button', { name: 'COSE', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    });
+});
+
+test.describe('signed formats: OpenPGP', () => {
+    const hasGpg = spawnSync('gpg', ['--version']).error === undefined;
+
+    /** A key made by gpg and a detached signature of a message. */
+    function withGpg(message: string) {
+        const dir = mkdtempSync(join(tmpdir(), 'e2e-gpg-'));
+        const home = join(dir, 'home');
+        mkdirSync(home, { mode: 0o700 });
+        const gpg = (...args: string[]) =>
+            spawnSync('gpg', ['--homedir', home, '--batch', '--pinentry-mode', 'loopback', '--passphrase', '', ...args], {
+                encoding: 'utf8',
+            });
+        const made = gpg('--quick-gen-key', 'E2E <e2e@example.com>', 'ed25519', 'sign', 'never');
+        expect(made.status, made.stderr).toBe(0);
+        writeFileSync(join(dir, 'message.txt'), message);
+        const signed = gpg('--armor', '--detach-sign', '-o', join(dir, 'message.txt.asc'), join(dir, 'message.txt'));
+        expect(signed.status, signed.stderr).toBe(0);
+        const exported = gpg('--armor', '--export');
+        return { publicKey: exported.stdout, signature: readFileSync(join(dir, 'message.txt.asc'), 'utf8') };
+    }
+
+    test('verifies a signature that gpg made with the key it exported, and says wrong for another message', async ({ page }) => {
+        test.skip(!hasGpg, 'gpg is not installed');
+        const { publicKey, signature } = withGpg('a message\nof two lines\n');
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'OpenPGP', exact: true }).click();
+        await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
+        await signed(page).getByLabel('Message', { exact: true }).fill('a message\nof two lines\n');
+        await signed(page).getByLabel('Public key you trust', { exact: true }).fill(publicKey);
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await expect(signed(page).getByRole('region', { name: 'Signature details' })).toContainText('E2E <e2e@example.com>');
+
+        await signed(page).getByLabel('Message', { exact: true }).fill('a message\nof two lines');
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is wrong')).toBeVisible();
+        await expect(signed(page).getByText('It is valid with a newline added at the end of the message.')).toBeVisible();
+    });
+
+    test('loads the examples, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'OpenPGP', exact: true }).click();
+        await signed(page).getByRole('button', { name: 'Load example' }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
+        const link = await page.evaluate(() => navigator.clipboard.readText());
+        expect(link).toContain('fmt=pgp');
+        const other = await context.newPage();
+        await other.goto(link);
+        await expect(signed(other).getByText('Signature is valid')).toBeVisible();
+        await expect(panel(other).getByRole('button', { name: 'OpenPGP', exact: true })).toHaveAttribute('aria-pressed', 'true');
     });
 });
