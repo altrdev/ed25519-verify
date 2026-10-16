@@ -82,7 +82,7 @@ describe('a container pasted in the Verify tab', () => {
         type('Signature', JWS_EXAMPLES[0].token);
         type('Public key', JWS_EXAMPLES[0].publicKey);
         open();
-        fireEvent.click(tab('Verify signature'));
+        fireEvent.click(tab('Raw signature'));
         type('Signature', JWS_EXAMPLES[1].token);
         open();
         await waitFor(() => expect(field('Token').value).toBe(JWS_EXAMPLES[1].token));

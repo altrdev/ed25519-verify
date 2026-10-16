@@ -56,8 +56,8 @@ src/
   keyformats.ts     parsers for keys pasted as PEM (PKCS#8 / SPKI), OpenSSH or JWK (no UI, no dependencies)
   ecosystems.ts     did:key, Stellar, Tor onion, NEAR and Solana keys, read and written (checked against an independent implementation)
   sha3.ts           SHA3-256, only for the onion checksum
-  share.ts          the share link: what the Verify tab holds, in the URL fragment
-  detect.ts         which container (JWT, SSH signature, minisign, OpenPGP, COSE) a pasted signature is, and what it takes from the Verify tab
+  share.ts          the share link: what the raw signature verification holds, in the URL fragment
+  detect.ts         which container (JWT, SSH signature, minisign, OpenPGP, COSE) a pasted signature is, and what it takes from the raw signature form
   jws.ts            JWS / JWT (EdDSA): parsing, what is refused and why, building a token; JwsPanel.tsx and FormSigned.tsx are its screen
   jwks.ts           JWK Sets: which key of the set a token names (by kid), and why not when it cannot be told
   sshsig.ts         SSH signatures (ssh-keygen -Y): parsing, the structure that is signed, signing; SshsigPanel.tsx is its screen
@@ -74,8 +74,9 @@ src/
   bytes.ts          hex and base64 helpers
   store.ts          theme and encoding preferences (signals, persisted in localStorage)
   App.tsx           page shell, tabs, theme toggle
-  FormVerify.tsx    verify tab
-  FormSign.tsx      sign tab
+  FormRaw.tsx       the raw signature tab: the switch between verifying and creating
+  FormVerify.tsx    verify a raw signature
+  FormSign.tsx      create a raw signature
   Field.tsx, Banner.tsx, Segmented.tsx, ...   small UI building blocks
   __tests__/        tests
 ```

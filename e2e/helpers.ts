@@ -25,6 +25,9 @@ export async function pickFormat(page: Page, name: string, format: string) {
     await page.getByRole('menu', { name }).locator(`[data-format="${format}"]`).click();
 }
 
+/** The raw signature tab: the form that is showing (verify or create), the other one stays mounted, hidden. */
+export const raw = (page: Page) => page.getByRole('tabpanel').locator('.panel:not([hidden])');
+
 /** The tab that is showing (both forms stay mounted, the other one is hidden). */
 export const panel = (page: Page) => page.getByRole('tabpanel');
 
