@@ -58,6 +58,7 @@ src/
   sha3.ts           SHA3-256, only for the onion checksum
   share.ts          the share link: what the Verify tab holds, in the URL fragment
   jws.ts            JWS / JWT (EdDSA): parsing, what is refused and why, building a token; JwsPanel.tsx and FormSigned.tsx are its screen
+  jwks.ts           JWK Sets: which key of the set a token names (by kid), and why not when it cannot be told
   sshsig.ts         SSH signatures (ssh-keygen -Y): parsing, the structure that is signed, signing; SshsigPanel.tsx is its screen
   minisign.ts       minisign: the public key and signature files, what is signed, signing; MinisignPanel.tsx is its screen
   blake2b.ts        BLAKE2b-512, for minisign (checked against OpenSSL)

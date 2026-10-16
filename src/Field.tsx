@@ -22,6 +22,8 @@ interface FieldProps {
     /** formats the pasted text can be read in, when it is ambiguous: shown as buttons under the error */
     choices?: RawFormat[];
     onChoose?: (format: RawFormat) => void;
+    /** other buttons under the error: each one settles the question it asks (which key of a set to use) */
+    picks?: { label: string; onPick: () => void }[];
     /** extra buttons on the label row */
     actions?: ComponentChildren;
     /** the format menu, placed before the copy button */
@@ -56,6 +58,7 @@ export default function Field({
     hint,
     choices,
     onChoose,
+    picks,
     actions,
     formatControl,
     copyable,
@@ -209,6 +212,15 @@ export default function Field({
                     {choices.map((format) => (
                         <button type="button" class="chip" key={format} onClick={() => onChoose?.(format)}>
                             Read as {CODECS[format].label.toLowerCase()}
+                        </button>
+                    ))}
+                </div>
+            )}
+            {error && picks && picks.length > 0 && (
+                <div class="field-choices">
+                    {picks.map((pick) => (
+                        <button type="button" class="chip" key={pick.label} onClick={pick.onPick}>
+                            {pick.label}
                         </button>
                     ))}
                 </div>

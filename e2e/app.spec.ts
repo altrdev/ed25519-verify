@@ -297,6 +297,31 @@ test.describe('signed formats: JWS / JWT', () => {
         await expect(signed(other).getByText('Signature is valid')).toBeVisible();
     });
 
+    test('verifies with the key of a JWK Set that the token names, and a link opens it elsewhere', async ({ page, context }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        for (let i = 0; i < 3; i++) await signed(page).getByRole('button', { name: 'Load example' }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await expect(signed(page).getByText(/Using the key "key-2" of the set, as the token asks/)).toBeVisible();
+
+        // a token that names a key the set does not have is explained, not called wrong
+        const token = await signed(page).getByLabel('Token', { exact: true }).inputValue();
+        const [header, payload, signature] = token.split('.');
+        const other = Buffer.from(JSON.stringify({ alg: 'EdDSA', typ: 'JWT', kid: 'key-9' })).toString('base64url');
+        await signed(page).getByLabel('Token', { exact: true }).fill(`${other}.${payload}.${signature}`);
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText(/The set has no key "key-9"/)).toBeVisible();
+        await expect(signed(page).getByText('Signature is wrong')).toHaveCount(0);
+
+        await signed(page).getByLabel('Token', { exact: true }).fill(`${header}.${payload}.${signature}`);
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
+        const link = await page.evaluate(() => navigator.clipboard.readText());
+        const elsewhere = await context.newPage();
+        await elsewhere.goto(link);
+        await expect(signed(elsewhere).getByText('Signature is valid')).toBeVisible();
+    });
+
     test('the Create tab reproduces the token of the RFC', async ({ page }) => {
         await page.goto('/');
         await page.getByRole('tab', { name: 'Signed formats' }).click();
