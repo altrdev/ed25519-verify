@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
-import { JWS, panel, pickFormat, RFC } from './helpers';
+import { JWS, panel, pickFormat, RFC, signed } from './helpers';
 
 // WCAG 2.1 A and AA plus axe's best practices, in both themes, with each kind of content on screen.
 const check = async (page: Page) => {
@@ -82,10 +82,10 @@ for (const theme of ['light', 'dark'] as const) {
 
         test('signed formats, a token verified', async ({ page }) => {
             await page.getByRole('tab', { name: 'Signed formats' }).click();
-            await panel(page).getByLabel('Token', { exact: true }).fill(JWS.token);
-            await panel(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
-            await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
-            await expect(panel(page).getByRole('region', { name: 'Token contents' })).toBeVisible();
+            await signed(page).getByLabel('Token', { exact: true }).fill(JWS.token);
+            await signed(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
+            await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(signed(page).getByRole('region', { name: 'Token contents' })).toBeVisible();
             await check(page);
         });
 
@@ -94,28 +94,45 @@ for (const theme of ['light', 'dark'] as const) {
             const [header, payload, signature] = JWS.token.split('.');
             const bytes = Buffer.from(signature, 'base64url');
             const swapped = `${header}.${payload}.${Buffer.concat([bytes.subarray(32), bytes.subarray(0, 32)]).toString('base64url')}`;
-            await panel(page).getByLabel('Token', { exact: true }).fill(swapped);
-            await panel(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
-            await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
-            await expect(panel(page).getByRole('region', { name: 'Why it may be wrong' })).toBeVisible();
+            await signed(page).getByLabel('Token', { exact: true }).fill(swapped);
+            await signed(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
+            await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(signed(page).getByRole('region', { name: 'Why it may be wrong' })).toBeVisible();
             await check(page);
-            await panel(page).getByRole('button', { name: 'Load example' }).click();
-            await panel(page).getByRole('button', { name: 'Load example' }).click();
-            await expect(panel(page).getByText(/^Expired: it expired on/)).toBeVisible();
+            await signed(page).getByRole('button', { name: 'Load example' }).click();
+            await signed(page).getByRole('button', { name: 'Load example' }).click();
+            await expect(signed(page).getByText(/^Expired: it expired on/)).toBeVisible();
+            await check(page);
+        });
+
+        test('signed formats, an SSH signature verified, hints and created', async ({ page }) => {
+            await page.getByRole('tab', { name: 'Signed formats' }).click();
+            await panel(page).getByRole('button', { name: 'SSH signature' }).click();
+            await signed(page).getByRole('button', { name: 'Load example' }).click();
+            await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+            await check(page);
+            await signed(page).getByLabel('Message', { exact: true }).fill('hello world');
+            await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(signed(page).getByRole('region', { name: 'Why it may be wrong' })).toBeVisible();
+            await check(page);
+            await panel(page).getByRole('button', { name: 'Create a signature' }).click();
+            await signed(page).getByRole('button', { name: 'Load example' }).click();
+            await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
+            await expect(signed(page).getByText('Identical to the signature made by ssh-keygen.')).toBeVisible();
             await check(page);
         });
 
         test('signed formats, a token with an error, and creating one', async ({ page }) => {
             await page.getByRole('tab', { name: 'Signed formats' }).click();
-            await panel(page).getByLabel('Token', { exact: true }).fill('a.b');
-            await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
-            await expect(panel(page).getByText(/three parts/)).toBeVisible();
+            await signed(page).getByLabel('Token', { exact: true }).fill('a.b');
+            await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(signed(page).getByText(/three parts/)).toBeVisible();
             await check(page);
-            await panel(page).getByRole('button', { name: 'Create a token' }).click();
-            await panel(page).getByLabel('Private key', { exact: true }).fill(JWS.privateKeyHex);
-            await panel(page).getByLabel('Payload', { exact: true }).fill('{"sub":"ada"}');
-            await panel(page).getByRole('button', { name: 'Sign', exact: true }).click();
-            await expect(panel(page).locator('.result')).not.toBeEmpty();
+            await panel(page).getByRole('button', { name: 'Create a signature' }).click();
+            await signed(page).getByLabel('Private key', { exact: true }).fill(JWS.privateKeyHex);
+            await signed(page).getByLabel('Payload', { exact: true }).fill('{"sub":"ada"}');
+            await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
+            await expect(signed(page).locator('.result')).not.toBeEmpty();
             await check(page);
         });
 

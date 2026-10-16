@@ -118,3 +118,45 @@ export const JWS_EXAMPLES: JwsExample[] = [
         source: 'https://www.rfc-editor.org/rfc/rfc7519#section-4.1.4',
     },
 ];
+
+export interface SshsigExample extends ExampleInfo {
+    signature: string;
+    /** the key to trust, as an authorized_keys line */
+    publicKey: string;
+    namespace: string;
+    message: string;
+    hashAlgorithm: 'sha256' | 'sha512';
+    /** for the Create tab: what makes the signature above when signing */
+    privateKey: string;
+}
+
+// made with `ssh-keygen -Y sign` (OpenSSH 9.6) for a key created for these examples: it protects nothing
+const SSH_EXAMPLE_KEY = {
+    publicKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAyj+hwReHmoTLUCU/tIuzHePLxf/02FWL/L7jy/874Z fixture@example',
+    privateKey:
+        '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACAMo/ocEXh5qEy1AlP7SLsx3jy8X/9NhVi/y+48v/O+GQAAAJg7rttQO67b\nUAAAAAtzc2gtZWQyNTUxOQAAACAMo/ocEXh5qEy1AlP7SLsx3jy8X/9NhVi/y+48v/O+GQ\nAAAEDUDBx3weWroYuhBDFhHHT5Nm00pYoVbU193SycVVdCMAyj+hwReHmoTLUCU/tIuzHe\nPLxf/02FWL/L7jy/874ZAAAAD2ZpeHR1cmVAZXhhbXBsZQECAwQFBg==\n-----END OPENSSH PRIVATE KEY-----\n',
+    message: 'hello world\n',
+};
+
+export const SSHSIG_EXAMPLES: SshsigExample[] = [
+    {
+        title: 'Made by ssh-keygen -Y sign',
+        note: 'The signature of the file with the text "hello world", namespace "file" (the default of ssh-keygen), hashed with SHA-512. ssh-keygen -Y verify accepts it.',
+        ...SSH_EXAMPLE_KEY,
+        namespace: 'file',
+        hashAlgorithm: 'sha512',
+        signature:
+            '-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgDKP6HBF4eahMtQJT+0i7Md48vF\n//TYVYv8vuPL/zvhkAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtzc2gtZWQyNTUx\nOQAAAEB1GLc04h4r/PhOYexUxb7AescsAGKkxCdXxWldoo1MnAvS46tPjWUmf3YbvdLTT1\n/OT17qRdQ8DL9EAWgGYroK\n-----END SSH SIGNATURE-----\n',
+        source: 'https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.sshsig',
+    },
+    {
+        title: 'A signature for git',
+        note: 'The same text signed in the namespace "git" with SHA-256, as git does with gpg.format=ssh. Verified under the namespace "file" it would be refused: the namespace is part of what is signed.',
+        ...SSH_EXAMPLE_KEY,
+        namespace: 'git',
+        hashAlgorithm: 'sha256',
+        signature:
+            '-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgDKP6HBF4eahMtQJT+0i7Md48vF\n//TYVYv8vuPL/zvhkAAAADZ2l0AAAAAAAAAAZzaGEyNTYAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQDkezKznm2Z9+yt9gnFpN+glRzkoeEBTebya3MNFxHg+dfnkQENZBbh+935cj+0DaZ\nammTAYOg5wH1a3QRrpBgg=\n-----END SSH SIGNATURE-----\n',
+        source: 'https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.sshsig',
+    },
+];

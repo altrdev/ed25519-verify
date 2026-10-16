@@ -58,6 +58,7 @@ src/
   sha3.ts           SHA3-256, only for the onion checksum
   share.ts          the share link: what the Verify tab holds, in the URL fragment
   jws.ts            JWS / JWT (EdDSA): parsing, what is refused and why, building a token; JwsPanel.tsx and FormSigned.tsx are its screen
+  sshsig.ts         SSH signatures (ssh-keygen -Y): parsing, the structure that is signed, signing; SshsigPanel.tsx is its screen
   files.ts          reading a key / signature file into a field, and saving one (names, binary keys, size limit)
   examples.ts      the RFC 8032 vectors (and a ZIP215 case) behind "Load example", checked against the library by the tests
   diagnose.ts      hints for a wrong signature: certain facts, and retries that make it valid

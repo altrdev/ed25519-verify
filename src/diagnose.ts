@@ -23,6 +23,8 @@ export interface DiagnoseInput {
     messageFormat: MessageFormat;
     /** the signed bytes are not a message somebody hashed (the signing input of a token): do not try the hashes */
     skipHashes?: boolean;
+    /** the bytes that are really signed, from the message (a format that wraps it before signing: SSHSIG); the message itself by default */
+    frame?: (message: Uint8Array) => Promise<Uint8Array>;
 }
 
 // the order of the prime subgroup: an S at or above it is a non-canonical signature
@@ -149,7 +151,11 @@ export async function diagnose(input: DiagnoseInput, original: Uint8Array): Prom
     const results = await Promise.all(
         (await attempts(input, original)).map(async (attempt) => ({
             attempt,
-            valid: await verifies(attempt.signature ?? input.signature, attempt.message ?? original, attempt.publicKey ?? input.publicKey),
+            valid: await verifies(
+                attempt.signature ?? input.signature,
+                await (input.frame ?? (async (message: Uint8Array) => message))(attempt.message ?? original),
+                attempt.publicKey ?? input.publicKey,
+            ),
         })),
     );
     const fixes: string[] = [];

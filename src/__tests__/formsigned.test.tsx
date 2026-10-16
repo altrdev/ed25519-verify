@@ -10,7 +10,9 @@ const JWK_PUBLIC = JSON.stringify({ kty: 'OKP', crv: 'Ed25519', x: X });
 const TOKEN =
     'eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc.hgyY0il_MGCjP0JzlnLWG1PPOt7-09PGcvMg3AIbQR6dWbhijcNR4ki4iylGjg5BhVsPt9g7sVvpAr_MuM0KAg';
 
-const field = (name: string) => screen.getByLabelText(name, { selector: 'textarea' }) as HTMLTextAreaElement;
+// the fields of the format and the action that are showing (the others stay mounted, hidden)
+const field = (name: string) =>
+    screen.getAllByLabelText(name, { selector: 'textarea' }).find((element) => !element.closest('[hidden]')) as HTMLTextAreaElement;
 const type = (name: string, value: string) => fireEvent.input(field(name), { target: { value } });
 const click = (name: string) => fireEvent.click(screen.getByRole('button', { name, exact: true }));
 
@@ -38,7 +40,7 @@ describe('JWS / JWT tab, verifying', () => {
 
     it('creates a token, which the other mode verifies, with the times of the JWT noted', async () => {
         render(<FormSigned />);
-        fireEvent.click(screen.getByRole('button', { name: 'Create a token' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Create a signature' }));
         type('Private key', Buffer.from(D, 'base64url').toString('hex'));
         type('Payload', '{"sub":"ada","exp":1000000000}');
         click('Sign');
@@ -46,7 +48,7 @@ describe('JWS / JWT tab, verifying', () => {
         // the public key it gives is the one of the vector, as a JWK
         expect(JSON.parse(field('Public key to verify it, as a JWK').value)).toMatchObject({ kty: 'OKP', crv: 'Ed25519', x: X });
 
-        fireEvent.click(screen.getByRole('button', { name: 'Verify a token' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Verify a signature' }));
         type('Token', token);
         type('Public key', JWK_PUBLIC);
         click('Verify');
@@ -117,7 +119,7 @@ describe('JWS tab: the same help as the other tabs', () => {
 
     it('goes through the examples, and the Create tab reproduces the token of the example', async () => {
         render(<FormSigned />);
-        fireEvent.click(within(screen.getByRole('group', { name: 'Action' })).getByRole('button', { name: 'Verify a token' }));
+        fireEvent.click(within(screen.getByRole('group', { name: 'Action' })).getByRole('button', { name: 'Verify a signature' }));
         const load = () => fireEvent.click(screen.getAllByRole('button', { name: 'Load example' })[0]);
         load();
         await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
@@ -126,7 +128,7 @@ describe('JWS tab: the same help as the other tabs', () => {
         await waitFor(() => expect(screen.getByText('A JWT that has expired.')).toBeInTheDocument());
         await screen.findByText(/^Expired: it expired on/);
 
-        fireEvent.click(screen.getByRole('button', { name: 'Create a token' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Create a signature' }));
         fireEvent.click(screen.getAllByRole('button', { name: 'Load example' })[0]); // the visible panel's
         click('Sign');
         expect(await screen.findByText('Identical to the token of the example.')).toBeInTheDocument();
