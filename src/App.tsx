@@ -4,7 +4,15 @@ import FormRaw from './FormRaw';
 import { type Container, type Handoff, handoffFor } from './detect';
 import { Icon } from './icons';
 import type { MessageFile } from './messagefile';
-import { parseCoseShare, parseJwsShare, parseMinisignShare, parsePgpShare, parseShareFragment, parseSshsigShare } from './share';
+import {
+    parseCoseShare,
+    parseJwsShare,
+    parseMinisignShare,
+    parsePgpShare,
+    parseShareFragment,
+    parseSignifyShare,
+    parseSshsigShare,
+} from './share';
 import { theme } from './store';
 
 const TABS = ['Raw signature', 'Tokens and files'];
@@ -27,9 +35,10 @@ export default function App() {
     const [sharedToken] = useState(() => parseJwsShare(location.hash));
     const [sharedSshsig] = useState(() => parseSshsigShare(location.hash));
     const [sharedMinisign] = useState(() => parseMinisignShare(location.hash));
+    const [sharedSignify] = useState(() => parseSignifyShare(location.hash));
     const [sharedCose] = useState(() => parseCoseShare(location.hash));
     const [sharedPgp] = useState(() => parsePgpShare(location.hash));
-    const [tab, setTab] = useState(sharedToken || sharedSshsig || sharedMinisign || sharedCose || sharedPgp ? 1 : 0);
+    const [tab, setTab] = useState(sharedToken || sharedSshsig || sharedMinisign || sharedSignify || sharedCose || sharedPgp ? 1 : 0);
     // a signature pasted in the Verify tab that is a container (a JWT, an SSH signature...) opens in the tab that reads it, with the rest
     const [handoff, setHandoff] = useState<{ id: number; data: Handoff; file: MessageFile | null } | null>(null);
     const openContainer = (format: Container, fields: Parameters<typeof handoffFor>[1], file: MessageFile | null) => {
@@ -104,6 +113,7 @@ export default function App() {
                         sharedJws={handed('jws', sharedToken)}
                         sharedSshsig={handed('sshsig', sharedSshsig)}
                         sharedMinisign={handed('minisign', sharedMinisign)}
+                        sharedSignify={handed('signify', sharedSignify)}
                         sharedCose={handed('cose', sharedCose)}
                         sharedPgp={handed('pgp', sharedPgp)}
                         initialFile={handoff?.file ?? null}

@@ -34,8 +34,8 @@ jobs:
       - name: Install 📦
         run: npm ci
 
-      - name: Install minisign, the reference tool of the minisign tests 🔏
-        run: sudo apt-get install -y minisign
+      - name: Install minisign and signify, the reference tools of their tests 🔏
+        run: sudo apt-get install -y minisign signify-openbsd
 
       - name: Lint and format 🧹
         run: npm run lint

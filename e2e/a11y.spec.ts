@@ -149,6 +149,23 @@ for (const theme of ['light', 'dark'] as const) {
             await check(page);
         });
 
+        test('signed formats, a signify signature verified, hints and created', async ({ page }) => {
+            await page.getByRole('tab', { name: 'Tokens and files' }).click();
+            await panel(page).getByRole('button', { name: 'signify' }).click();
+            await signed(page).getByRole('button', { name: 'Load example' }).click();
+            await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+            await check(page);
+            await signed(page).getByLabel('Message', { exact: true }).fill('hello world');
+            await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(signed(page).getByRole('region', { name: 'Why it may be wrong' })).toBeVisible();
+            await check(page);
+            await panel(page).getByRole('button', { name: 'Create a signature' }).click();
+            await signed(page).getByRole('button', { name: 'Load example' }).click();
+            await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
+            await expect(signed(page).getByText('Identical to the signature made by signify.')).toBeVisible();
+            await check(page);
+        });
+
         test('signed formats, a COSE message verified, hints and created', async ({ page }) => {
             await page.getByRole('tab', { name: 'Tokens and files' }).click();
             await panel(page).getByRole('button', { name: 'COSE', exact: true }).click();

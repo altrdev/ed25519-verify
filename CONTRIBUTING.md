@@ -57,11 +57,12 @@ src/
   ecosystems.ts     did:key, Stellar, Tor onion, NEAR and Solana keys, read and written (checked against an independent implementation)
   sha3.ts           SHA3-256, only for the onion checksum
   share.ts          the share link: what the raw signature verification holds, in the URL fragment
-  detect.ts         which container (JWT, SSH signature, minisign, OpenPGP, COSE) a pasted signature is, and what it takes from the raw signature form
+  detect.ts         which container (JWT, SSH signature, minisign, signify, OpenPGP, COSE) a pasted signature is, and what it takes from the raw signature form
   jws.ts            JWS / JWT (EdDSA): parsing, what is refused and why, building a token; JwsPanel.tsx and FormSigned.tsx are its screen
   jwks.ts           JWK Sets: which key of the set a token names (by kid), and why not when it cannot be told
   sshsig.ts         SSH signatures (ssh-keygen -Y): parsing, the structure that is signed, signing; SshsigPanel.tsx is its screen
   minisign.ts       minisign: the public key and signature files, what is signed, signing; MinisignPanel.tsx is its screen
+  signify.ts        signify (OpenBSD): the two-line public key and signature files, signing; SignifyPanel.tsx is its screen
   blake2b.ts        BLAKE2b-512, for minisign (checked against OpenSSL)
   cose.ts           COSE_Sign1: parsing, what is refused, the structure that is signed, COSE_Key, signing; CosePanel.tsx is its screen
   cbor.ts           a small CBOR reader / writer for COSE (refuses indefinite lengths and duplicate keys)

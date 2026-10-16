@@ -1,5 +1,5 @@
 /**
- * Which container a pasted signature is, when it is one of those of the "Tokens and files" tab: a JWT, an SSH signature, a minisign
+ * Which container a pasted signature is, when it is one of those of the "Tokens and files" tab: a JWT, an SSH signature, a minisign or signify
  * file, an OpenPGP signature, a COSE message. Only what is certain is recognised (a marker line, a header that decodes, bytes that
  * read as the CBOR of a COSE message): a text that could be a plain Ed25519 signature is never taken for a container.
  */
@@ -7,14 +7,16 @@ import { parseBase64, parseHex } from './bytes';
 import { decodeCbor, isBytes, Tagged } from './cbor';
 import type { MessageFormat } from './enum';
 import { decodeBase64Url } from './jws';
-import type { SharedCose, SharedMinisign, SharedPgp, SharedSshsig, SharedToken } from './share';
+import { looksLikeSignify } from './signify';
+import type { SharedCose, SharedMinisign, SharedPgp, SharedSignify, SharedSshsig, SharedToken } from './share';
 
-export type Container = 'jws' | 'sshsig' | 'minisign' | 'cose' | 'pgp';
+export type Container = 'jws' | 'sshsig' | 'minisign' | 'signify' | 'cose' | 'pgp';
 
 export const CONTAINER_NAMES: Record<Container, string> = {
     jws: 'a JWS / JWT token',
     sshsig: 'an SSH signature',
     minisign: 'a minisign signature',
+    signify: 'a signify signature',
     cose: 'a COSE message',
     pgp: 'an OpenPGP signature',
 };
@@ -64,6 +66,7 @@ export function detectContainer(text: string): Container | null {
     if (trimmed.includes('-----BEGIN SSH SIGNATURE-----')) return 'sshsig';
     if (trimmed.includes('-----BEGIN PGP SIGNATURE-----') || trimmed.includes('-----BEGIN PGP SIGNED MESSAGE-----')) return 'pgp';
     if (/^untrusted comment:/.test(trimmed) && /\r?\ntrusted comment:/.test(trimmed)) return 'minisign';
+    if (looksLikeSignify(trimmed)) return 'signify';
     if (isJws(trimmed)) return 'jws';
     if (isCose(trimmed)) return 'cose';
     return null;
@@ -80,6 +83,7 @@ export type Handoff =
     | { format: 'jws'; shared: Partial<SharedToken> }
     | { format: 'sshsig'; shared: Partial<SharedSshsig> }
     | { format: 'minisign'; shared: Partial<SharedMinisign> }
+    | { format: 'signify'; shared: Partial<SharedSignify> }
     | { format: 'cose'; shared: Partial<SharedCose> }
     | { format: 'pgp'; shared: Partial<SharedPgp> };
 
@@ -93,6 +97,7 @@ export function handoffFor(format: Container, { signature, publicKey, message, m
         case 'sshsig':
             return { format, shared: { signature: text, publicKey, namespace: '', message, messageFormat } };
         case 'minisign':
+        case 'signify':
             return { format, shared: { signature: text, publicKey, message, messageFormat } };
         case 'pgp':
             return { format, shared: { signature: text, publicKey, message, messageFormat } };
