@@ -98,6 +98,10 @@ as any other pull request: read the release notes of a major update before mergi
 
 ## Deployment and releases
 
+Every pull request runs the checks of [`ci.yml`](.github/workflows/ci.yml) (lint, type-check, unit tests, build, CSP guard, end-to-end and
+accessibility tests). The deploy and the release start by calling that same workflow, so there is one definition of "it works" and a
+push that skipped the pull request is still checked before it ships.
+
 Every push to `main` is tested, built and published to GitHub Pages by
 [`deploy-to-gh-pages.yml`](.github/workflows/deploy-to-gh-pages.yml).
 
