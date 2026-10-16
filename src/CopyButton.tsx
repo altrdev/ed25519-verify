@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { Icon } from './icons';
 
-export default function CopyButton({ text, label }: { text: string; label: string }) {
+export default function CopyButton({ text, label, caption = 'Copy' }: { text: string; label: string; caption?: string }) {
     const [copied, setCopied] = useState(false);
 
     useEffect(() => {
@@ -22,7 +22,7 @@ export default function CopyButton({ text, label }: { text: string; label: strin
     return (
         <button type="button" class="chip" disabled={!text} aria-label={label} onClick={copy}>
             <Icon name={copied ? 'check' : 'copy'} size={16} />
-            {copied ? 'Copied' : 'Copy'}
+            {copied ? 'Copied' : caption}
         </button>
     );
 }

@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import FormSign from './FormSign';
 import FormVerify from './FormVerify';
 import { Icon } from './icons';
+import { parseShareFragment } from './share';
 import { theme } from './store';
 
 const TABS = ['Verify signature', 'Sign message'];
@@ -9,6 +10,8 @@ const REPO_URL = 'https://github.com/altrdev/ed25519-verify';
 const VERSION = __APP_VERSION__;
 
 export default function App() {
+    // a link made by the Verify tab: its fields are filled in and checked at once
+    const [shared] = useState(() => parseShareFragment(location.hash));
     const [tab, setTab] = useState(0);
     const dark = theme.value === 'dark';
 
@@ -59,7 +62,7 @@ export default function App() {
                     ))}
                 </div>
                 {/* both forms stay mounted so switching tab does not lose what was typed */}
-                <div role="tabpanel" hidden={tab !== 0}><FormVerify /></div>
+                <div role="tabpanel" hidden={tab !== 0}><FormVerify {...shared} autoVerify={shared?.publicKey !== undefined && shared?.signature !== undefined} /></div>
                 <div role="tabpanel" hidden={tab !== 1}><FormSign /></div>
             </main>
             <footer class="footer">

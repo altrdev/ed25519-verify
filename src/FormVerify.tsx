@@ -1,16 +1,21 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import CopyButton from './CopyButton';
 import Banner from './Banner';
 import Field from './Field';
 import FormatMenu, { readingFormat, readingHint, readingLabel } from './FormatMenu';
 import { encodePublicKey, isKeyFile } from './keyfiles';
 import MessageFormatSelector from './MessageFormatSelector';
 import { MessageFormat, type FieldFormat, type RawFormat } from './enum';
+import { shareFragment } from './share';
 import VerifyEd25519, { encodeBytes, inspectField, type Field as FieldName, type FieldErrors, type FieldReading, type FormatOverrides, type Verdict } from './signature';
 
 interface Props {
     message?: string;
     signature?: string;
     publicKey?: string;
+    messageFormat?: MessageFormat;
+    /** open with everything filled in (a share link): verify at once */
+    autoVerify?: boolean;
 }
 
 export default function FormVerify(props: Props) {
@@ -18,7 +23,7 @@ export default function FormVerify(props: Props) {
     const [signature, setSignature] = useState(props.signature ?? '');
     const [publicKey, setPublicKey] = useState(props.publicKey ?? '');
     const [verify, setVerify] = useState<Verdict | undefined>(undefined);
-    const [messageFormat, setMessageFormat] = useState(MessageFormat.Text);
+    const [messageFormat, setMessageFormat] = useState(props.messageFormat ?? MessageFormat.Text);
     const [errors, setErrors] = useState<FieldErrors>({});
     // when a text can be read in several formats the user picks one; the pick is dropped as soon as the text changes
     const [choices, setChoices] = useState<Partial<Record<FieldName, RawFormat[]>>>({});
@@ -81,6 +86,14 @@ export default function FormVerify(props: Props) {
         setVerify(await ed25519.verdict());
     };
 
+    // a share link: the result is the first thing the reader sees
+    useEffect(() => {
+        if (props.autoVerify && publicKey && signature) performVerify();
+    }, []);
+
+    const link = () => `${location.origin}${location.pathname}${location.search}${shareFragment({ publicKey, message, messageFormat, signature })}`;
+    const shareable = shareFragment({ publicKey, message, messageFormat, signature }) !== '';
+
     const choose = (field: 'publicKey' | 'signature') => (format: RawFormat) => {
         const picked = { ...formats, [field]: format };
         setFormats(picked);
@@ -124,6 +137,7 @@ export default function FormVerify(props: Props) {
             />
             <div class="actions">
                 <button type="button" class="primary" onClick={() => performVerify()}>Verify</button>
+                <CopyButton text={shareable ? link() : ''} label="Copy a link to this verification" caption="Copy link" />
             </div>
 
             {verify === 'valid' && <Banner kind="success">Signature is valid</Banner>}

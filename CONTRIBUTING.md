@@ -53,6 +53,7 @@ src/
   keyformats.ts     parsers for keys pasted as PEM (PKCS#8 / SPKI), OpenSSH or JWK (no UI, no dependencies)
   ecosystems.ts     did:key, Stellar, Tor onion, NEAR and Solana keys, read and written (checked against an independent implementation)
   sha3.ts           SHA3-256, only for the onion checksum
+  share.ts          the share link: what the Verify tab holds, in the URL fragment
   keyfiles.ts       the opposite direction: writes keys as PEM, OpenSSH or JWK (checked byte for byte against OpenSSL / ssh-keygen)
   FormatMenu.tsx    the format menu of a key / signature field (converts the text, or picks how a result is written)
   bytes.ts          hex and base64 helpers
