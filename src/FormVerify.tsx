@@ -45,7 +45,7 @@ export default function FormVerify(props: Props) {
         <FormatMenu
             name={name}
             kind={field === 'publicKey' ? 'public' : 'signature'}
-            label={reading ? readingLabel(reading) : 'Auto'}
+            label={reading ? readingLabel(reading, field === 'publicKey' ? 'public' : 'signature') : 'Auto'}
             current={reading ? readingFormat(reading) : null}
             disabled={!reading}
             onSelect={(format) => convert(field, reading, format)}

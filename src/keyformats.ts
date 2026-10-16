@@ -10,6 +10,7 @@
  * (wrong key type, encrypted, ...) rather than fail with a generic message. This module knows nothing about the UI.
  */
 import { parseBase64 } from './bytes';
+import { detectEcosystem, ECOSYSTEM_LABELS, EcosystemError, parseEcosystemKey } from './ecosystems';
 
 export interface ParsedKey {
     /** human readable name of the format, e.g. "PEM (PKCS#8)" */
@@ -38,13 +39,15 @@ const looksLikeJwk = (text: string) => /^\{\s*("|\})/.test(text);
 /** True when the text looks like PEM, an OpenSSH public key or JSON (a JWK), rather than plain hex or base64. */
 export function isStructuredKey(text: string): boolean {
     const t = text.trim();
-    return t.startsWith('-----BEGIN') || looksLikeJwk(t) || /^(ssh|ecdsa|sk)-[\w@.-]+\s/.test(t);
+    return t.startsWith('-----BEGIN') || looksLikeJwk(t) || detectEcosystem(t) !== null || /^(ssh|ecdsa|sk)-[\w@.-]+\s/.test(t);
 }
 
 /** Name of the format a pasted text appears to be in, or null for plain hex / base64. It does not validate the key. */
 export function detectKeyFormat(text: string): string | null {
     const t = text.trim();
     if (looksLikeJwk(t)) return 'JWK';
+    const ecosystem = detectEcosystem(t);
+    if (ecosystem) return ECOSYSTEM_LABELS[ecosystem];
     if (/^(ssh|ecdsa|sk)-[\w@.-]+\s/.test(t)) return 'OpenSSH public key';
     const pem = /^-----BEGIN ([A-Z0-9 ]+)-----/.exec(t);
     if (!pem) return null;
@@ -66,6 +69,15 @@ export function parseStructuredKey(text: string): ParsedKey {
     const t = text.trim();
     if (t.startsWith('-----BEGIN')) return parsePem(t);
     if (looksLikeJwk(t)) return parseJwk(t);
+    if (detectEcosystem(t)) {
+        try {
+            const key = parseEcosystemKey(t);
+            return { format: ECOSYSTEM_LABELS[key.format], publicKey: key.publicKey, privateKey: key.privateKey };
+        } catch (error) {
+            if (error instanceof EcosystemError) throw new KeyFormatError(error.message);
+            throw error;
+        }
+    }
     return parseOpenSshPublic(t);
 }
 
