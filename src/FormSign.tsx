@@ -4,11 +4,14 @@ import CopyButton from './CopyButton';
 import Field from './Field';
 import FormatMenu, { readingFormat, readingHint, readingLabel } from './FormatMenu';
 import { encodePrivateKey, encodePublicKey, isKeyFile, labelOf } from './keyfiles';
+import { ExampleButton, ExampleNote, nextIndex } from './ExampleButton';
+import { type Example, SIGNABLE_EXAMPLES } from './examples';
 import { Icon } from './icons';
 import MessageFormatSelector from './MessageFormatSelector';
 import VerifyEd25519, { encodeBytes, generateKeyPair, inspectField, InputError, type FieldErrors } from './signature';
 import { formatPreference } from './store';
 import { MessageFormat, type FieldFormat, type RawFormat } from './enum';
+import { hexToBytes } from './bytes';
 import { CODECS } from './codecs';
 
 interface Props {
@@ -31,6 +34,15 @@ export default function FormSign(props: Props) {
     const [publicKeyBytes, setPublicKeyBytes] = useState<Uint8Array | null>(null);
     const signature = signatureBytes ? encodeBytes(signatureBytes, formatPreference.signature.value) : '';
     const publicKey = publicKeyBytes ? encodePublicKey(publicKeyBytes, formatPreference.publicKey.value) : '';
+
+    // an example loaded from the list: the signature it must give is the one published
+    const [exampleIndex, setExampleIndex] = useState<number | null>(null);
+    const [published, setPublished] = useState<Uint8Array | null>(null);
+    const matchesPublished =
+        !!signatureBytes &&
+        !!published &&
+        signatureBytes.length === published.length &&
+        signatureBytes.every((byte, i) => byte === published[i]);
 
     const privateKeyReading = inspectField('privateKey', privateKey, keyFormat);
 
@@ -119,6 +131,26 @@ export default function FormSign(props: Props) {
         setErrors({});
     };
 
+    const loadExample = (example: Example) => {
+        const key = example.privateKey ?? '';
+        setPrivateKey(key);
+        setMessage(example.message);
+        setMessageFormat(example.messageFormat);
+        setKeyChoices(undefined);
+        setKeyFormat(undefined);
+        derive(key);
+        setRevealed(true);
+        setSignatureBytes(null);
+        setErrors({});
+        setPublished(hexToBytes(example.signature));
+    };
+
+    const loadNextExample = () => {
+        const index = nextIndex(exampleIndex, SIGNABLE_EXAMPLES.length);
+        setExampleIndex(index);
+        loadExample(SIGNABLE_EXAMPLES[index]);
+    };
+
     const performSign = async (format: RawFormat | undefined = keyFormat) => {
         const ed25519 = new VerifyEd25519(message, null, null, privateKey, messageFormat, { privateKey: format });
         const found = ed25519.validate(['privateKey', 'message']);
@@ -205,7 +237,9 @@ export default function FormSign(props: Props) {
                 <button type="button" class="primary" onClick={() => performSign()}>
                     Sign
                 </button>
+                <ExampleButton onClick={loadNextExample} />
             </div>
+            <ExampleNote example={exampleIndex === null ? null : SIGNABLE_EXAMPLES[exampleIndex]} />
 
             {signature && (
                 <Banner kind="success">
@@ -225,6 +259,7 @@ export default function FormSign(props: Props) {
                         </div>
                     </div>
                     <div class="result">{signature}</div>
+                    {matchesPublished && <p>Identical to the signature published in RFC 8032.</p>}
                 </Banner>
             )}
         </section>

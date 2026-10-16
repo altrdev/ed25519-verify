@@ -54,6 +54,24 @@ for (const theme of ['light', 'dark'] as const) {
             await check(page);
         });
 
+        test('examples, valid and ZIP215', async ({ page }) => {
+            const load = panel(page).getByRole('button', { name: 'Load example' });
+            await load.click();
+            await expect(panel(page).getByText('Signature is valid')).toBeVisible();
+            await check(page);
+            for (let i = 0; i < 3; i++) await load.click();
+            await expect(panel(page).getByText('Only valid under ZIP215.')).toBeVisible();
+            await check(page);
+        });
+
+        test('sign tab, example with the published signature', async ({ page }) => {
+            await page.getByRole('tab', { name: 'Sign message' }).click();
+            await panel(page).getByRole('button', { name: 'Load example' }).click();
+            await panel(page).getByRole('button', { name: 'Sign', exact: true }).click();
+            await expect(panel(page).getByText('Identical to the signature published in RFC 8032.')).toBeVisible();
+            await check(page);
+        });
+
         test('format menu open', async ({ page }) => {
             await panel(page).getByLabel('Public key', { exact: true }).fill(RFC.publicKey);
             await page.getByRole('button', { name: /^Public key format:/ }).click();
