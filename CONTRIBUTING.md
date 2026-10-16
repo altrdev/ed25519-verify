@@ -57,6 +57,7 @@ src/
   ecosystems.ts     did:key, Stellar, Tor onion, NEAR and Solana keys, read and written (checked against an independent implementation)
   sha3.ts           SHA3-256, only for the onion checksum
   share.ts          the share link: what the Verify tab holds, in the URL fragment
+  files.ts          reading a key / signature file into a field, and saving one (names, binary keys, size limit)
   examples.ts      the RFC 8032 vectors (and a ZIP215 case) behind "Load example", checked against the library by the tests
   diagnose.ts      hints for a wrong signature: certain facts, and retries that make it valid
   keyfiles.ts       the opposite direction: writes keys as PEM, OpenSSH or JWK (checked byte for byte against OpenSSL / ssh-keygen)

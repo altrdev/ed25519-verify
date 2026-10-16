@@ -152,9 +152,9 @@ a.icon:hover, button.icon:hover { color: var(--text); background: var(--surface-
 
 
 .field { display: flex; flex-direction: column; gap: 6px; }
-.field-head { display: flex; align-items: center; justify-content: space-between; min-height: 28px; }
+.field-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; min-height: 28px; }
 .field-head label { font-size: 0.875rem; font-weight: 600; }
-.field-actions { display: flex; gap: 6px; }
+.field-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 
 .field textarea {
   width: 100%;
@@ -288,3 +288,5 @@ button.primary:active { transform: translateY(1px); }
 
 .example-note { margin: 12px 0 0; color: var(--muted); font-size: 0.9rem; }
 .example-note a { color: inherit; }
+
+.field textarea.dragging { border-color: var(--primary); border-style: dashed; background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }

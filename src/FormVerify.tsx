@@ -10,6 +10,7 @@ import { ExampleButton, ExampleNote, nextIndex } from './ExampleButton';
 import { EXAMPLES, type Example } from './examples';
 import HintList from './HintList';
 import { MessageFormat, type FieldFormat, type RawFormat } from './enum';
+import { fileNameFor } from './files';
 import { shareFragment } from './share';
 import VerifyEd25519, {
     encodeBytes,
@@ -150,6 +151,8 @@ export default function FormVerify(props: Props) {
                 hint={readingHint(publicKeyReading)}
                 copyable
                 formatControl={formatMenu('publicKey', publicKeyReading, 'Public key format')}
+                fileKind="key"
+                download={{ filename: fileNameFor('public', publicKeyReading ? readingFormat(publicKeyReading, 'public') : null) }}
                 placeholder="Hex, base64, PEM, OpenSSH or JWK"
                 onInput={edit(setPublicKey, 'publicKey')}
             />
@@ -170,6 +173,8 @@ export default function FormVerify(props: Props) {
                 hint={readingHint(signatureReading)}
                 copyable
                 formatControl={formatMenu('signature', signatureReading, 'Signature format')}
+                fileKind="signature"
+                download={{ filename: fileNameFor('signature', null) }}
                 onInput={edit(setSignature, 'signature')}
             />
             <div class="actions">

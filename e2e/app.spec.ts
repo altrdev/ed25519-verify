@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process';
+import { chmodSync, readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { collectProblems, panel, pickFormat, RFC } from './helpers';
 
@@ -159,5 +161,58 @@ test.describe('offline and security', () => {
         const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
         expect(policy).toContain("default-src 'none'");
         expect(policy).not.toMatch(/unsafe-(inline|eval)/);
+    });
+});
+
+test.describe('key files', () => {
+    const hasSshKeygen = spawnSync('ssh-keygen', ['-?']).error === undefined;
+
+    test('saves a public key as id_ed25519.pub and opens it again', async ({ page }) => {
+        const problems = collectProblems(page);
+        await page.goto('/');
+        const field = panel(page).getByLabel('Public key', { exact: true });
+        await field.fill(RFC.publicKey);
+        await pickFormat(page, 'Public key format', 'openssh');
+        const text = await field.inputValue();
+
+        const download = page.waitForEvent('download');
+        await panel(page).getByRole('button', { name: 'Download public key' }).click();
+        const saved = await download;
+        expect(saved.suggestedFilename()).toBe('id_ed25519.pub');
+        const content = readFileSync((await saved.path()) as string, 'utf8');
+        expect(content).toBe(`${text}\n`);
+
+        // the saved file opens in the field and is read as the same key
+        await field.fill('');
+        await panel(page)
+            .getByLabel('File for public key', { exact: true })
+            .setInputFiles((await saved.path()) as string);
+        await expect(field).toHaveValue(`${text}\n`);
+        await expect(panel(page).getByText('Detected format: OpenSSH public key')).toBeVisible();
+        expect(problems).toEqual([]); // the download is not blocked by the Content-Security-Policy
+    });
+
+    test('a private key saved as id_ed25519 is accepted by ssh-keygen', async ({ page }) => {
+        test.skip(!hasSshKeygen, 'ssh-keygen is not installed');
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Sign message' }).click();
+        await panel(page).getByLabel('Private key', { exact: true }).fill(RFC.privateKey);
+        await pickFormat(page, 'Private key format', 'openssh');
+        await expect(panel(page).getByLabel('Private key', { exact: true })).toHaveValue(/BEGIN OPENSSH PRIVATE KEY/);
+
+        const download = page.waitForEvent('download');
+        await panel(page).getByRole('button', { name: 'Download private key' }).click();
+        const saved = await download;
+        expect(saved.suggestedFilename()).toBe('id_ed25519');
+        await expect(panel(page).getByRole('status')).toContainText('not encrypted');
+
+        const path = (await saved.path()) as string;
+        chmodSync(path, 0o600);
+        const derived = spawnSync('ssh-keygen', ['-y', '-f', path], { encoding: 'utf8' });
+        expect(derived.status, derived.stderr).toBe(0);
+        // the public key ssh-keygen derives is the one of the vector
+        await pickFormat(page, 'Public key format', 'openssh');
+        const shown = await panel(page).getByRole('textbox', { name: 'Deduced Public key' }).inputValue();
+        expect(derived.stdout.trim().split(' ').slice(0, 2).join(' ')).toBe(shown.trim());
     });
 });

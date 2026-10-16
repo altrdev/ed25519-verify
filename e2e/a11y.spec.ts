@@ -72,6 +72,14 @@ for (const theme of ['light', 'dark'] as const) {
             await check(page);
         });
 
+        test('key fields with Download and Open file, and the saved-file reminder', async ({ page }) => {
+            await page.getByRole('tab', { name: 'Sign message' }).click();
+            await panel(page).getByRole('button', { name: 'Load example' }).click();
+            await panel(page).getByRole('button', { name: 'Download private key' }).click();
+            await expect(panel(page).getByRole('status')).toBeVisible();
+            await check(page);
+        });
+
         test('format menu open', async ({ page }) => {
             await panel(page).getByLabel('Public key', { exact: true }).fill(RFC.publicKey);
             await page.getByRole('button', { name: /^Public key format:/ }).click();

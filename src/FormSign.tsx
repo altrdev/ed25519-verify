@@ -12,6 +12,8 @@ import VerifyEd25519, { encodeBytes, generateKeyPair, inspectField, InputError, 
 import { formatPreference } from './store';
 import { MessageFormat, type FieldFormat, type RawFormat } from './enum';
 import { hexToBytes } from './bytes';
+import DownloadButton from './DownloadButton';
+import { fileNameFor } from './files';
 import { CODECS } from './codecs';
 
 interface Props {
@@ -190,6 +192,14 @@ export default function FormSign(props: Props) {
                 revealed={revealed}
                 onRevealedChange={setRevealed}
                 copyable
+                fileKind="key"
+                download={{
+                    filename: fileNameFor(
+                        'private',
+                        privateKeyReading ? readingFormat(privateKeyReading, 'private') : formatPreference.privateKey.value,
+                    ),
+                    secret: true,
+                }}
                 formatControl={
                     <FormatMenu
                         name="Private key format"
@@ -213,6 +223,7 @@ export default function FormSign(props: Props) {
                 rows={2}
                 value={publicKey}
                 copyable
+                download={{ filename: fileNameFor('public', formatPreference.publicKey.value) }}
                 formatControl={
                     <FormatMenu
                         name="Public key format"
@@ -256,6 +267,7 @@ export default function FormSign(props: Props) {
                                 }}
                             />
                             <CopyButton text={signature} label="Copy signature" />
+                            <DownloadButton filename={fileNameFor('signature', null)} text={signature} label="Download signature" />
                         </div>
                     </div>
                     <div class="result">{signature}</div>
