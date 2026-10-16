@@ -5,6 +5,7 @@ import MessageFormatSelector from './MessageFormatSelector';
 import SelectorEncoding from './SelectorEncoding';
 import { MessageFormat } from './enum';
 import VerifyEd25519, { type Field as FieldName, type FieldErrors, type Verdict } from './signature';
+import { keyFormatHint } from './keyformats';
 import { encodingDefault } from './store';
 
 interface Props {
@@ -53,7 +54,16 @@ export default function FormVerify(props: Props) {
     return (
         <section class="card">
             <SelectorEncoding reset={reset} />
-            <Field label="Public key" rows={2} value={publicKey} error={errors.publicKey} onInput={edit(setPublicKey, 'publicKey')} />
+            <Field
+                label="Public key"
+                rows={2}
+                growWithContent
+                value={publicKey}
+                error={errors.publicKey}
+                hint={keyFormatHint(publicKey)}
+                placeholder="Hex, base64, PEM, OpenSSH or JWK"
+                onInput={edit(setPublicKey, 'publicKey')}
+            />
             <Field
                 label="Message"
                 rows={2}

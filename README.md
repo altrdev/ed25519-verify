@@ -22,7 +22,8 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 - **Clear input errors**: a malformed key or signature is explained next to the field ("expected 32 bytes, got 31",
   "not valid base64", "it looks like hex: switch the encoding") instead of being reported as a wrong signature.
 - Messages as **text, hex or base64**, so binary payloads can be signed and verified as well.
-- Keys and signatures in **hex or base64** (your choice is remembered). Base64 may be URL-safe, unpadded or wrapped over several lines.
+- Keys in **PEM, OpenSSH or JWK** pasted as they are (detected automatically), or as plain hex / base64.
+- Signatures in **hex or base64** (your choice is remembered). Base64 may be URL-safe, unpadded or wrapped over several lines.
 - Private key hidden by default, one-click **copy** for private and public keys and for signatures.
 - Light and dark theme, responsive layout, installable as a **PWA** (assets are precached by a service worker).
 
@@ -31,9 +32,15 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 | Field | Format |
 | --- | --- |
 | Message | Plain text (signed as UTF-8 bytes), or raw bytes written in hex or base64. Empty messages are allowed |
-| Public key | 32 bytes, hex or base64 |
-| Private key | 32-byte seed, hex or base64. The 64-byte NaCl/libsodium form (seed followed by public key) is accepted too: the seed is used |
+| Public key | 32 bytes in hex or base64, or a key pasted as it is in a standard format: PEM (`BEGIN PUBLIC KEY`), OpenSSH (`ssh-ed25519 AAAA…`) or JWK |
+| Private key | 32-byte seed in hex or base64 (the 64-byte NaCl/libsodium form, seed followed by public key, is accepted too: the seed is used), or PEM PKCS#8 (`BEGIN PRIVATE KEY`), an unencrypted OpenSSH private key (`BEGIN OPENSSH PRIVATE KEY`) or a JWK |
 | Signature | 64 bytes, hex or base64 |
+
+**Keys in other formats are recognised by themselves**, whatever encoding is selected: paste the content of the file and a
+"Detected format" note appears under the field. A public key field also accepts a private JWK or OpenSSH private key (it
+contains the public part). Keys of another type (RSA, EC, X25519, Ed448...) and keys protected by a passphrase are refused with
+a message that says so; to use an encrypted key, remove the passphrase first (`ssh-keygen -p -f key`, or
+`openssl pkey -in key.pem -out plain.pem`).
 
 Signatures are checked with the strict rules of RFC 8032 / FIPS 186-5 (not the more permissive ZIP215 rules), so
 "valid" means that a standards-compliant verifier agrees. In the rare case of a signature that fails the strict check

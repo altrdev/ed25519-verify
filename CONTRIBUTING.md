@@ -49,6 +49,8 @@ use the body for the reasoning when it is not obvious.
 ```
 src/
   signature.ts      all the cryptography, input parsing and validation (no UI)
+  keyformats.ts     parsers for keys pasted as PEM (PKCS#8 / SPKI), OpenSSH or JWK (no UI, no dependencies)
+  bytes.ts          hex and base64 helpers
   store.ts          theme and encoding preferences (signals, persisted in localStorage)
   App.tsx           page shell, tabs, theme toggle
   FormVerify.tsx    verify tab
