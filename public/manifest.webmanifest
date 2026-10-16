@@ -510,5 +510,5 @@
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#fffefe",
-  "theme_color": "#6200EE"
+  "theme_color": "#5B4BDB"
 }

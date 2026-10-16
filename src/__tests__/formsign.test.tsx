@@ -36,4 +36,32 @@ describe('FormSign component', () => {
         fireEvent.change(input);
         expect(await screen.findByDisplayValue('EWesNawKSbqpaS4Nyo3e22CqJwjx0nFEuFH466fHUU4=')).toBeInTheDocument();
     });
+
+    it('masks the private key until it is revealed', () => {
+        render(<FormSign privateKey="secret" />);
+        const input = screen.getByLabelText('Private key');
+        expect(input).toHaveClass('masked');
+        fireEvent.click(screen.getByRole('button', { name: 'Show private key' }));
+        expect(input).not.toHaveClass('masked');
+        fireEvent.click(screen.getByRole('button', { name: 'Hide private key' }));
+        expect(input).toHaveClass('masked');
+    });
+
+    it('copies the signature to the clipboard', async () => {
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+        render(
+            <FormSign
+                message="000000001"
+                privateKey="Au+pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo="
+            />
+        );
+        fireEvent.click(screen.getByText('Sign'));
+        await screen.findByRole('alert');
+        fireEvent.click(screen.getByRole('button', { name: 'Copy signature' }));
+        expect(writeText).toHaveBeenCalledWith(
+            '9as6qIjGsKt5L+m5vcJhMrN007oYMAQk4yUtZBeVQ3LRXWa99R2iStrXND9UWqkSeCfiKB55aO+aUYjMI6XvCQ=='
+        );
+        expect(await screen.findByText('Copied')).toBeInTheDocument();
+    });
 });
