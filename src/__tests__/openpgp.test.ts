@@ -4,16 +4,43 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as ed from '@noble/ed25519';
 import { hexToBytes } from '../bytes';
-import { candidateKeys, crc24, PgpError, parseCertificate, parsePgpSignature, readPackets, readPgp, signedHash, spaced } from '../openpgp';
+import {
+    candidateKeys,
+    crc24,
+    type KeyReview,
+    PgpError,
+    type Packet,
+    parseCertificate,
+    parsePgpSignature,
+    readPackets,
+    readPgp,
+    reviewCertificate,
+    signedHash,
+    spaced,
+    standingOf,
+} from '../openpgp';
 import {
     PGP_BINARY_SIG_HEX,
+    PGP_CERTIFIED_PUBLIC,
     PGP_CLEARSIGNED,
     PGP_DETACHED_PRIMARY,
     PGP_DETACHED_SUB,
     PGP_DETACHED_TEXT,
+    PGP_EXPIRED_PRIMARY_FINGERPRINT,
+    PGP_EXPIRED_PUBLIC,
+    PGP_EXPIRED_SIG,
+    PGP_EXPIRED_SUBKEY_FINGERPRINT,
     PGP_MESSAGE,
+    PGP_PARTS_PRIMARY_FINGERPRINT,
+    PGP_PARTS_REVOKED_PUBLIC,
+    PGP_PARTS_REVOKED_SIG,
+    PGP_PARTS_SUBKEY_FINGERPRINT,
     PGP_PRIMARY_FINGERPRINT,
     PGP_PUBLIC,
+    PGP_REVOKED_PRIMARY_FINGERPRINT,
+    PGP_REVOKED_PUBLIC,
+    PGP_REVOKED_SIG,
+    PGP_REVOKED_SUBKEY_FINGERPRINT,
     PGP_SUBKEY_FINGERPRINT,
     PGP_TEXT,
     PGP_V6_FINGERPRINT,
@@ -228,6 +255,234 @@ describe('what is refused, and why', () => {
     });
 });
 
+// ---- what the key block says about a key -------------------------------------------------------------------------------------
+
+/** The packets written back as new-format packets, to build a block that was altered. */
+const assemble = (packets: Packet[]) => {
+    const parts = packets.map(({ tag, body }) => {
+        const header =
+            body.length < 192
+                ? [0xc0 | tag, body.length]
+                : [0xc0 | tag, 0xff, body.length >>> 24, (body.length >> 16) & 255, (body.length >> 8) & 255, body.length & 255];
+        return Uint8Array.of(...header, ...body);
+    });
+    return Uint8Array.from(parts.flatMap((part) => Array.from(part)));
+};
+const packetsOf = (armor: string) => readPackets(armoredBytes(armor));
+const review = (armor: string) => reviewCertificate(armoredBytes(armor));
+const keyOf = (r: Awaited<ReturnType<typeof review>>, fingerprint: string) =>
+    r.keys.find((k) => k.key.fingerprint === fingerprint) as KeyReview;
+const jan2020 = 1577880000;
+const YEAR = 365 * 86400;
+const at = (iso: string) => Date.parse(iso) / 1000;
+
+describe('the self-signatures of a key block', () => {
+    it('a key made by GnuPG: the primary key, the user ID and the subkey are bound by signatures that verify', async () => {
+        const result = await review(PGP_PUBLIC);
+        expect(result.keys.map((k) => [k.key.fingerprint, k.binding, k.expires, k.revocations.length])).toEqual([
+            [PGP_PRIMARY_FINGERPRINT, 'checked', null, 0],
+            [PGP_SUBKEY_FINGERPRINT, 'checked', null, 0],
+        ]);
+        expect(result.userIds).toMatchObject([{ userId: 'Fixture <fixture@example.com>', certification: 'checked', revocations: [] }]);
+        expect(result.othersCertifications).toBe(0);
+    });
+
+    it('a version 6 key made by Sequoia (the user ID signature and the direct key signature hash a 0x9B key)', async () => {
+        const result = await review(PGP_V6_PUBLIC);
+        expect(result.keys.map((k) => [k.key.version, k.binding])).toEqual([
+            [6, 'checked'],
+            [6, 'checked'],
+        ]);
+        expect(result.userIds[0].certification).toBe('checked');
+    });
+
+    it('a user ID that was changed is no longer bound to the key: the signature over it does not verify', async () => {
+        const packets = packetsOf(PGP_PUBLIC);
+        const uid = packets.findIndex((p) => p.tag === 13);
+        packets[uid] = { tag: 13, body: text('Mallory <fixture@example.com>') };
+        const result = await reviewCertificate(assemble(packets));
+        expect(result.userIds[0]).toMatchObject({ userId: 'Mallory <fixture@example.com>', certification: 'wrong' });
+        expect(result.keys[0].binding).toBe('wrong'); // the key has no other signature over itself
+        expect(result.keys[1].binding).toBe('checked'); // the subkey does not depend on the user ID
+    });
+
+    it('a user ID with no signature of the key is only claimed by the block', async () => {
+        const packets = packetsOf(PGP_PUBLIC);
+        const uid = packets.findIndex((p) => p.tag === 13);
+        packets.splice(uid + 1, 1); // the signature that follows it
+        const result = await reviewCertificate(assemble(packets));
+        expect(result.userIds[0].certification).toBe('missing');
+        expect(result.keys[0].binding).toBe('missing');
+    });
+
+    it('a subkey that was swapped is not bound to the primary key', async () => {
+        const packets = packetsOf(PGP_PUBLIC);
+        const sub = packets.findIndex((p) => p.tag === 14);
+        const body = packets[sub].body.slice();
+        body[4] ^= 1; // the creation time of the subkey
+        packets[sub] = { tag: 14, body };
+        const result = await reviewCertificate(assemble(packets));
+        expect(result.keys[1].binding).toBe('wrong');
+        expect(result.keys[0].binding).toBe('checked');
+    });
+
+    it('a subkey with no binding signature at all', async () => {
+        const packets = packetsOf(PGP_PUBLIC);
+        packets.pop(); // the binding of the subkey is the last packet
+        expect((await reviewCertificate(assemble(packets))).keys[1].binding).toBe('missing');
+    });
+
+    it('counts the certifications of other keys without looking at them (the web of trust)', async () => {
+        const result = await review(PGP_CERTIFIED_PUBLIC);
+        expect(result.othersCertifications).toBe(1);
+        expect(result.userIds[0].certification).toBe('checked'); // its own, not the other key's
+    });
+});
+
+describe('the expiry of a key', () => {
+    it('is the creation time plus the key expiration time of the newest signature that verifies', async () => {
+        const result = await review(PGP_EXPIRED_PUBLIC);
+        expect(keyOf(result, PGP_EXPIRED_PRIMARY_FINGERPRINT).expires).toBe(jan2020 + YEAR); // 1y at creation, 2020-12-31
+        expect(keyOf(result, PGP_EXPIRED_SUBKEY_FINGERPRINT).expires).toBe(jan2020 + 180 * 86400); // 6m, 2020-06-29
+    });
+
+    it('a signature that does not verify says nothing: the expiry is not known', async () => {
+        const packets = packetsOf(PGP_EXPIRED_PUBLIC);
+        const uid = packets.findIndex((p) => p.tag === 13);
+        packets[uid] = { tag: 13, body: text('Mallory') };
+        const result = await reviewCertificate(assemble(packets));
+        expect(result.keys[0].expires).toBeUndefined();
+        expect(result.keys[1].expires).toBe(jan2020 + 180 * 86400);
+    });
+});
+
+describe('revocations in the block', () => {
+    it('a key revoked with gpg --gen-revoke: the reason and the date, checked', async () => {
+        const result = await review(PGP_REVOKED_PUBLIC);
+        expect(keyOf(result, PGP_REVOKED_PRIMARY_FINGERPRINT).revocations).toEqual([
+            { created: at('2020-06-01T12:00:00Z'), code: 2, text: 'fixture compromised', check: 'checked' },
+        ]);
+        expect(keyOf(result, PGP_REVOKED_SUBKEY_FINGERPRINT).revocations).toEqual([]);
+    });
+
+    it('a user ID and a subkey revoked, the rest of the key not', async () => {
+        const result = await review(PGP_PARTS_REVOKED_PUBLIC);
+        expect(keyOf(result, PGP_PARTS_PRIMARY_FINGERPRINT).revocations).toEqual([]);
+        expect(keyOf(result, PGP_PARTS_SUBKEY_FINGERPRINT).revocations).toMatchObject([
+            { code: 3, text: 'this subkey is replaced', check: 'checked' },
+        ]);
+        expect(result.userIds.map((u) => [u.userId, u.revocations.map((r) => [r.code, r.check])])).toEqual([
+            ['Kept Fixture <kept@example.com>', []],
+            ['Dropped Fixture <dropped@example.com>', [[32, 'checked']]],
+        ]);
+        expect(result.userIds.every((u) => u.certification === 'checked')).toBe(true);
+    });
+
+    it('a revocation whose signature does not verify is kept apart and does not count', async () => {
+        const packets = packetsOf(PGP_REVOKED_PUBLIC);
+        const revocation = packets.findIndex((p) => p.tag === 2 && p.body[1] === 0x20);
+        const body = packets[revocation].body.slice();
+        body[body.length - 1] ^= 1; // the last byte of the signature
+        packets[revocation] = { tag: 2, body };
+        const result = await reviewCertificate(assemble(packets));
+        expect(keyOf(result, PGP_REVOKED_PRIMARY_FINGERPRINT).revocations).toMatchObject([{ code: 2, check: 'wrong' }]);
+        const now = at('2026-10-17T00:00:00Z');
+        const standing = standingOf(
+            result,
+            keyOf(result, PGP_REVOKED_SUBKEY_FINGERPRINT).key,
+            parsePgpSignature(armoredBytes(PGP_REVOKED_SIG)),
+            now,
+        );
+        expect(standing.issues).toEqual([]);
+        expect(standing.facts.join(' ')).toMatch(/revocation signature that does not verify; it is ignored/);
+    });
+});
+
+describe('what is said about a signature', () => {
+    const now = at('2026-10-17T00:00:00Z');
+    const stand = async (
+        publicArmor: string,
+        signatureArmor: string,
+        change: Partial<ReturnType<typeof parsePgpSignature>> = {},
+        when = now,
+    ) => {
+        const signature = { ...parsePgpSignature(armoredBytes(signatureArmor)), ...change };
+        const certificate = await parseCertificate(armoredBytes(publicArmor));
+        const key = candidateKeys(signature, certificate.keys)[0];
+        return standingOf(await review(publicArmor), key, signature, when);
+    };
+
+    it('a key that has expired: the signature was made before it did, or after', async () => {
+        const before = await stand(PGP_EXPIRED_PUBLIC, PGP_EXPIRED_SIG);
+        expect(before.issues).toEqual([
+            'The subkey expired on 2020-06-29. The signature was made before that, on 2020-03-01.',
+            'The primary key expired on 2020-12-31. The signature was made before that, on 2020-03-01.',
+        ]);
+        const after = await stand(PGP_EXPIRED_PUBLIC, PGP_EXPIRED_SIG, { created: at('2020-08-01T00:00:00Z') });
+        expect(after.issues[0]).toBe('The subkey expired on 2020-06-29. The signature was made AFTER that, on 2020-08-01.');
+        expect(after.issues[1]).toMatch(/primary key expired on 2020-12-31. The signature was made before that/);
+        const none = await stand(PGP_EXPIRED_PUBLIC, PGP_EXPIRED_SIG, { created: undefined });
+        expect(none.issues[0]).toMatch(/carries no time/);
+    });
+
+    it('a key that has not expired yet says when it will', async () => {
+        const standing = await stand(PGP_EXPIRED_PUBLIC, PGP_EXPIRED_SIG, {}, at('2020-04-01T00:00:00Z'));
+        expect(standing.issues).toEqual([]);
+        expect(standing.facts).toContain('The subkey expires on 2020-06-29.');
+        expect(standing.facts).toContain('The primary key expires on 2020-12-31.');
+    });
+
+    it('a key revoked as compromised voids its signatures whatever their date', async () => {
+        const standing = await stand(PGP_REVOKED_PUBLIC, PGP_REVOKED_SIG);
+        expect(standing.issues).toEqual([
+            'The primary key was revoked on 2020-06-01 (the key was compromised: "fixture compromised"): its signatures are not to be relied on, whatever their date.',
+        ]);
+    });
+
+    it('a subkey revoked as retired only matters for the signatures made after it', async () => {
+        const before = await stand(PGP_PARTS_REVOKED_PUBLIC, PGP_PARTS_REVOKED_SIG);
+        expect(before.issues).toEqual([
+            'The subkey was revoked on 2020-06-01 (the key is retired and no longer used: "this subkey is replaced"). The signature was made before the revocation.',
+        ]);
+        const after = await stand(PGP_PARTS_REVOKED_PUBLIC, PGP_PARTS_REVOKED_SIG, { created: at('2020-09-01T00:00:00Z') });
+        expect(after.issues[0]).toMatch(/The signature was made AFTER the revocation\.$/);
+    });
+
+    it('a signature that has expired itself', async () => {
+        const standing = await stand(PGP_PUBLIC, PGP_DETACHED_SUB, { created: at('2020-03-01T00:00:00Z'), expires: 86400 });
+        expect(standing.issues).toEqual(['The signature itself expired on 2020-03-02.']);
+    });
+
+    it('nothing is wrong with a key that does not expire and has no revocation, and "not in this block" is not "not revoked"', async () => {
+        const standing = await stand(PGP_PUBLIC, PGP_DETACHED_SUB);
+        expect(standing.issues).toEqual([]);
+        expect(standing.facts).toContain('No revocation of the subkey is in this block (it may exist elsewhere, e.g. on a keyserver).');
+    });
+
+    it('a subkey with no binding to the primary key is an issue, a user ID that is not signed is a fact of the block', async () => {
+        const packets = packetsOf(PGP_PUBLIC);
+        packets.pop();
+        const altered = assemble(packets);
+        const signature = parsePgpSignature(armoredBytes(PGP_DETACHED_SUB));
+        const certificate = await parseCertificate(altered);
+        const key = candidateKeys(signature, certificate.keys)[0];
+        const standing = standingOf(await reviewCertificate(altered), key, signature, now);
+        expect(standing.issues[0]).toMatch(/the block has no binding signature for this subkey/);
+    });
+
+    it('never says a key is trusted or valid: it says what was found in the block', async () => {
+        for (const [pub, sig] of [
+            [PGP_PUBLIC, PGP_DETACHED_SUB],
+            [PGP_EXPIRED_PUBLIC, PGP_EXPIRED_SIG],
+            [PGP_REVOKED_PUBLIC, PGP_REVOKED_SIG],
+            [PGP_PARTS_REVOKED_PUBLIC, PGP_PARTS_REVOKED_SIG],
+        ]) {
+            const standing = await stand(pub, sig);
+            expect([...standing.issues, ...standing.facts].join('\n')).not.toMatch(/\b(trust|trusted|valid)\b/i);
+        }
+    });
+});
+
 const gpg = spawnSync('gpg', ['--version']).error ? null : 'gpg';
 describe.skipIf(!gpg)('with the real GnuPG', () => {
     it('the fixtures are accepted by gpg --verify with the key', () => {
@@ -247,5 +502,71 @@ describe.skipIf(!gpg)('with the real GnuPG', () => {
         expect(run(['--verify', join(dir, 'sig.asc'), join(dir, 'other')]).status).not.toBe(0);
         expect(run(['--verify', join(dir, 'clear.asc')]).status).toBe(0);
         expect(PGP_PRIMARY_FINGERPRINT).toHaveLength(40);
+    });
+});
+
+describe.skipIf(!gpg)('the key block read against the real GnuPG', () => {
+    const run = (home: string, args: string[], input?: Buffer | string) =>
+        spawnSync('gpg', ['--homedir', home, '--batch', '--with-colons', '--fixed-list-mode', ...args], { encoding: 'utf8', input });
+    const home = () => {
+        const dir = mkdtempSync(join(tmpdir(), 'pgp-review-'));
+        const path = join(dir, 'home');
+        spawnSync('mkdir', ['-m', '700', path]);
+        return { dir, path };
+    };
+    type Line = string[];
+    const listing = (path: string): Line[] =>
+        run(path, ['--list-keys'])
+            .stdout.split('\n')
+            .filter(Boolean)
+            .map((line) => line.split(':'));
+
+    it('agrees on the expiry and the revocation of each key and user ID, and finds the self-signatures good', async () => {
+        const now = Date.now() / 1000;
+        for (const armor of [PGP_PUBLIC, PGP_EXPIRED_PUBLIC, PGP_REVOKED_PUBLIC, PGP_PARTS_REVOKED_PUBLIC, PGP_CERTIFIED_PUBLIC]) {
+            const { dir, path } = home();
+            writeFileSync(join(dir, 'pub.asc'), armor);
+            expect(run(path, ['--import', join(dir, 'pub.asc')]).status).toBe(0);
+            const mine = await review(armor);
+            const gpgKeys = listing(path).filter((line) => line[0] === 'pub' || line[0] === 'sub');
+            expect(gpgKeys).toHaveLength(mine.keys.length);
+            mine.keys.forEach((k, i) => {
+                const [, validity, , , , , expires] = gpgKeys[i];
+                // the expiry date is the one gpg prints; expired keys are listed as "e" and revoked ones as "r"
+                expect(expires ? Number(expires) : null, `expiry of ${k.key.fingerprint}`).toBe(k.expires ?? null);
+                const revoked = k.revocations.some((r) => r.check === 'checked');
+                // gpg lists the subkeys of a revoked primary key as revoked too
+                const primaryRevoked = mine.keys[0].revocations.some((r) => r.check === 'checked');
+                expect(validity === 'r', `revoked ${k.key.fingerprint}`).toBe(revoked || primaryRevoked);
+                if (!revoked)
+                    expect(validity === 'e', `expired ${k.key.fingerprint}`).toBe(typeof k.expires === 'number' && k.expires <= now);
+            });
+            const users = listing(path).filter((line) => line[0] === 'uid');
+            mine.userIds.forEach((u, i) => {
+                const line = users.find((candidate) => candidate[9] === u.userId);
+                expect(line, u.userId).toBeDefined();
+                const primaryRevoked = mine.keys[0].revocations.some((r) => r.check === 'checked');
+                expect((line as Line)[1] === 'r', `user ID revoked ${u.userId}`).toBe(
+                    primaryRevoked || u.revocations.some((r) => r.check === 'checked'),
+                );
+                expect(u.certification, `${i}`).toBe('checked');
+            });
+            // every self-signature gpg checks is good, none bad
+            const all = run(path, ['--check-sigs']).stdout;
+            // "?" is the certification by another key, which is not in this keyring: gpg cannot check it either
+            expect(all).not.toMatch(/^(sig|rev):[-%]/m);
+            expect(all).toMatch(/^sig:!/m);
+        }
+    });
+
+    it('also refuses a user ID that was changed (the other direction): no valid user ID is left, and the review says wrong', async () => {
+        const packets = packetsOf(PGP_PUBLIC);
+        packets[packets.findIndex((p) => p.tag === 13)] = { tag: 13, body: text('Mallory <fixture@example.com>') };
+        const altered = assemble(packets);
+        const { path } = home();
+        const result = run(path, ['--import'], Buffer.from(altered));
+        expect(result.stderr + result.stdout).toMatch(/bad signature|no user ID|w\/o user IDs|no valid user IDs/);
+        expect(listing(path).filter((line) => line[0] === 'pub')).toHaveLength(0);
+        expect((await reviewCertificate(altered)).userIds[0].certification).toBe('wrong');
     });
 });
