@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Check the tag matches package.json 🏷️
         run: |
@@ -26,7 +26,7 @@ jobs:
           fi
 
       - name: Setup Node ⚙️
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
