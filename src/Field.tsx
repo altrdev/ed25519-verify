@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useId, useState } from 'preact/hooks';
 import CopyButton from './CopyButton';
 import { Icon } from './icons';
@@ -8,33 +9,49 @@ interface FieldProps {
     rows?: number;
     disabled?: boolean;
     placeholder?: string;
+    /** validation message, shown under the field */
+    error?: string;
+    /** extra buttons on the label row */
+    actions?: ComponentChildren;
     /** copy button on the label row */
     copyable?: boolean;
     /** hide the content (like a password) with a show/hide toggle */
     secret?: boolean;
+    /** controlled visibility of a secret field; uncontrolled when omitted */
+    revealed?: boolean;
+    onRevealedChange?: (revealed: boolean) => void;
     onInput?: (value: string) => void;
     onChange?: (value: string) => void;
 }
 
 export default function Field({
-    label, value, rows = 3, disabled, placeholder, copyable, secret, onInput, onChange,
+    label, value, rows = 3, disabled, placeholder, error, actions, copyable, secret,
+    revealed: revealedProp, onRevealedChange, onInput, onChange,
 }: FieldProps) {
     const id = useId();
-    const [revealed, setRevealed] = useState(false);
+    const errorId = `${id}-error`;
+    const [revealedState, setRevealedState] = useState(false);
+    const revealed = revealedProp ?? revealedState;
     const masked = secret && !revealed;
 
+    const toggleReveal = () => {
+        setRevealedState(!revealed);
+        onRevealedChange?.(!revealed);
+    };
+
     return (
-        <div class="field">
+        <div class={`field${error ? ' invalid' : ''}`}>
             <div class="field-head">
                 <label for={id}>{label}</label>
                 <div class="field-actions">
+                    {actions}
                     {secret && (
                         <button
                             type="button"
                             class="chip"
                             aria-label={`${revealed ? 'Hide' : 'Show'} ${label.toLowerCase()}`}
                             aria-pressed={revealed}
-                            onClick={() => setRevealed(!revealed)}
+                            onClick={toggleReveal}
                         >
                             <Icon name={revealed ? 'eyeOff' : 'eye'} size={16} />
                             {revealed ? 'Hide' : 'Show'}
@@ -53,9 +70,12 @@ export default function Field({
                 spellcheck={false}
                 autocomplete="off"
                 autocapitalize="off"
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? errorId : undefined}
                 onInput={(e) => onInput?.(e.currentTarget.value)}
                 onChange={(e) => onChange?.(e.currentTarget.value)}
             />
+            {error && <p class="field-error" id={errorId} role="alert">{error}</p>}
         </div>
     );
 }

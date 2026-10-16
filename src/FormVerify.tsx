@@ -1,8 +1,10 @@
 import { useState } from 'preact/hooks';
 import Banner from './Banner';
 import Field from './Field';
+import MessageFormatSelector from './MessageFormatSelector';
 import SelectorEncoding from './SelectorEncoding';
-import VerifyEd25519 from './signature';
+import { MessageFormat } from './enum';
+import VerifyEd25519, { type Field as FieldName, type FieldErrors } from './signature';
 import { encodingDefault } from './store';
 
 interface Props {
@@ -16,24 +18,51 @@ export default function FormVerify(props: Props) {
     const [signature, setSignature] = useState(props.signature ?? '');
     const [publicKey, setPublicKey] = useState(props.publicKey ?? '');
     const [verify, setVerify] = useState<boolean | undefined>(undefined);
+    const [messageFormat, setMessageFormat] = useState(MessageFormat.Text);
+    const [errors, setErrors] = useState<FieldErrors>({});
 
-    const resetVerify = () => setVerify(undefined);
-    const edit = (set: (v: string) => void) => (value: string) => {
+    const reset = () => {
+        setVerify(undefined);
+        setErrors({});
+    };
+
+    const edit = (set: (v: string) => void, field?: FieldName) => (value: string) => {
         set(value);
-        resetVerify();
+        setVerify(undefined);
+        if (field) setErrors((current) => ({ ...current, [field]: undefined }));
+    };
+
+    const changeMessageFormat = (format: MessageFormat) => {
+        setMessageFormat(format);
+        setVerify(undefined);
+        setErrors((current) => ({ ...current, message: undefined }));
     };
 
     const performVerify = async () => {
-        const ed25519 = new VerifyEd25519(message, signature, publicKey, null);
-        setVerify(await ed25519.check(encodingDefault.value));
+        const encoding = encodingDefault.value;
+        const ed25519 = new VerifyEd25519(message, signature, publicKey, null, messageFormat);
+        const found = ed25519.validate(encoding, ['publicKey', 'message', 'signature']);
+        setErrors(found);
+        if (Object.keys(found).length > 0) {
+            setVerify(undefined);
+            return;
+        }
+        setVerify(await ed25519.check(encoding));
     };
 
     return (
         <section class="card">
-            <SelectorEncoding reset={resetVerify} />
-            <Field label="Public key" rows={2} value={publicKey} onInput={edit(setPublicKey)} />
-            <Field label="Message" rows={2} value={message} onInput={edit(setMessage)} />
-            <Field label="Signature" value={signature} onInput={edit(setSignature)} />
+            <SelectorEncoding reset={reset} />
+            <Field label="Public key" rows={2} value={publicKey} error={errors.publicKey} onInput={edit(setPublicKey, 'publicKey')} />
+            <Field
+                label="Message"
+                rows={2}
+                value={message}
+                error={errors.message}
+                actions={<MessageFormatSelector value={messageFormat} onChange={changeMessageFormat} />}
+                onInput={edit(setMessage, 'message')}
+            />
+            <Field label="Signature" value={signature} error={errors.signature} onInput={edit(setSignature, 'signature')} />
             <div class="actions">
                 <button type="button" class="primary" onClick={performVerify}>Verify</button>
             </div>
