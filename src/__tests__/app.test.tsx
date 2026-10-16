@@ -23,6 +23,13 @@ describe('App', () => {
         expect(localStorage.getItem('theme')).toBe('dark');
     });
 
+    it('shows the version, linked to its release notes', () => {
+        render(<App />);
+        const link = screen.getByRole('link', { name: /^v\d+\.\d+\.\d+/ });
+        expect(link).toHaveAttribute('href', expect.stringMatching(/\/releases\/tag\/v\d+\.\d+\.\d+$/));
+        expect(link.textContent).toBe(`v${__APP_VERSION__}`);
+    });
+
     it('links to the public GitHub repository', () => {
         render(<App />);
         const link = screen.getByRole('link', { name: 'View source on GitHub' });

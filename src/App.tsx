@@ -6,6 +6,7 @@ import { theme } from './store';
 
 const TABS = ['Verify signature', 'Sign message'];
 const REPO_URL = 'https://github.com/altrdev/ed25519-verify';
+const VERSION = __APP_VERSION__;
 
 export default function App() {
     const [tab, setTab] = useState(0);
@@ -65,6 +66,8 @@ export default function App() {
                 <a href={REPO_URL} target="_blank" rel="noopener noreferrer">Open source on GitHub</a>
                 <span aria-hidden="true">·</span>
                 <span>MIT License</span>
+                <span aria-hidden="true">·</span>
+                <a href={`${REPO_URL}/releases/tag/v${VERSION}`} target="_blank" rel="noopener noreferrer" title="Release notes">v{VERSION}</a>
             </footer>
         </>
     );
