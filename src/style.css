@@ -219,7 +219,7 @@ a.icon:hover, button.icon:hover { color: var(--text); background: var(--surface-
 .menu hr { border: 0; border-top: 1px solid var(--border); margin: 6px 4px; }
 .menu small { color: var(--muted); font-weight: 400; font-size: 0.75rem; }
 
-.actions { display: flex; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 button.primary {
   padding: 10px 28px;
   border: 0;
