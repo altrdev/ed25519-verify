@@ -305,3 +305,28 @@ export const PGP_EXAMPLES: PgpExample[] = [
         source: 'https://www.rfc-editor.org/rfc/rfc9580',
     },
 ];
+
+export interface SignifyExample extends ExampleInfo {
+    signature: string;
+    /** the key to trust: the content of a signify `.pub` file */
+    publicKey: string;
+    message: string;
+    /** for the Create tab: the key and its number, which make the signature above when signing */
+    privateKey: string;
+    keyNumber: string;
+}
+
+// made with signify-openbsd 31 (`signify -G -n`, `signify -S`) for a key created for these examples: it protects nothing
+export const SIGNIFY_EXAMPLES: SignifyExample[] = [
+    {
+        title: 'Made by signify',
+        note: 'The signature of the text "hello world" by signify -S. signify -V accepts it. It signs the message itself, with no hash and no trusted comment.',
+        publicKey: 'untrusted comment: signify public key\nRWQTemq2TPt0a+/jP3Y42Uixzf97IOd9EjffZMmR8KZxvoS1aUs5wq4W\n',
+        privateKey: '86c0e16b3117c4e190cbd4f737d3adba5d4e68deaa844c56185cafc41ea7d6db',
+        keyNumber: '137a6ab64cfb746b',
+        message: 'hello world\n',
+        signature:
+            'untrusted comment: verify with signify.pub\nRWQTemq2TPt0a3bf6iAKmWYLvhMHDNUavjdAkukeeAfIvFJ3YxZjH2j9mlC7zBq32uHx7ZGFcKrV2cSL2+qQBOgvgSvW2NiNqAA=\n',
+        source: 'https://man.openbsd.org/signify',
+    },
+];

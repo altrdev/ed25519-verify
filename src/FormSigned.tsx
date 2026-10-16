@@ -5,16 +5,18 @@ import MinisignPanel from './MinisignPanel';
 import type { MessageFile } from './messagefile';
 import PgpPanel from './PgpPanel';
 import Segmented from './Segmented';
-import type { SharedCose, SharedMinisign, SharedPgp, SharedSshsig, SharedToken } from './share';
+import type { SharedCose, SharedMinisign, SharedPgp, SharedSignify, SharedSshsig, SharedToken } from './share';
+import SignifyPanel from './SignifyPanel';
 import SshsigPanel from './SshsigPanel';
 
-type SignedFormat = 'jws' | 'sshsig' | 'minisign' | 'cose' | 'pgp';
+type SignedFormat = 'jws' | 'sshsig' | 'minisign' | 'signify' | 'cose' | 'pgp';
 type Mode = 'verify' | 'create';
 
 const FORMATS: { value: SignedFormat; label: string }[] = [
     { value: 'jws', label: 'JWS / JWT' },
     { value: 'sshsig', label: 'SSH signature' },
     { value: 'minisign', label: 'minisign' },
+    { value: 'signify', label: 'signify' },
     { value: 'cose', label: 'COSE' },
     { value: 'pgp', label: 'OpenPGP' },
 ];
@@ -28,6 +30,7 @@ interface Props {
     sharedJws?: Partial<SharedToken> | null;
     sharedSshsig?: Partial<SharedSshsig> | null;
     sharedMinisign?: Partial<SharedMinisign> | null;
+    sharedSignify?: Partial<SharedSignify> | null;
     sharedCose?: Partial<SharedCose> | null;
     sharedPgp?: Partial<SharedPgp> | null;
     /** a file chosen as the message in the Verify tab, carried over with the rest */
@@ -35,9 +38,9 @@ interface Props {
 }
 
 /** Signatures in the containers other tools use (a JWT, an SSH signature...): the container is read, the signed bytes are worked out. */
-export default function FormSigned({ sharedJws, sharedSshsig, sharedMinisign, sharedCose, sharedPgp, initialFile }: Props) {
+export default function FormSigned({ sharedJws, sharedSshsig, sharedMinisign, sharedSignify, sharedCose, sharedPgp, initialFile }: Props) {
     const [format, setFormat] = useState<SignedFormat>(
-        sharedPgp ? 'pgp' : sharedCose ? 'cose' : sharedMinisign ? 'minisign' : sharedSshsig ? 'sshsig' : 'jws',
+        sharedPgp ? 'pgp' : sharedCose ? 'cose' : sharedSignify ? 'signify' : sharedMinisign ? 'minisign' : sharedSshsig ? 'sshsig' : 'jws',
     );
     const [mode, setMode] = useState<Mode>('verify');
 
@@ -65,6 +68,14 @@ export default function FormSigned({ sharedJws, sharedSshsig, sharedMinisign, sh
                     initialFile={initialFile}
                     initial={sharedMinisign ?? undefined}
                     autoVerify={!!sharedMinisign?.signature}
+                />
+            </div>
+            <div class="panel" hidden={format !== 'signify'}>
+                <SignifyPanel
+                    mode={mode}
+                    initialFile={initialFile}
+                    initial={sharedSignify ?? undefined}
+                    autoVerify={!!sharedSignify?.signature}
                 />
             </div>
             <div class="panel" hidden={format !== 'cose'}>

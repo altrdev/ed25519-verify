@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import App from '../App';
 import { COSE_DETACHED, COSE_PUBLIC } from './fixtures/cose';
-import { JWS_EXAMPLES, MINISIGN_EXAMPLES, PGP_EXAMPLES, SSHSIG_EXAMPLES } from '../examples';
+import { JWS_EXAMPLES, MINISIGN_EXAMPLES, PGP_EXAMPLES, SIGNIFY_EXAMPLES, SSHSIG_EXAMPLES } from '../examples';
 
 // the Verify tab is showing: its fields (the others stay mounted, hidden)
 const field = (name: string) =>
@@ -28,6 +28,7 @@ describe('a container pasted in the Verify tab', () => {
     it.each([
         ['an SSH signature', SSHSIG_EXAMPLES[0].signature, SSHSIG_EXAMPLES[0].publicKey, SSHSIG_EXAMPLES[0].message, 'SSH signature'],
         ['a minisign signature', MINISIGN_EXAMPLES[0].signature, MINISIGN_EXAMPLES[0].publicKey, MINISIGN_EXAMPLES[0].message, 'minisign'],
+        ['a signify signature', SIGNIFY_EXAMPLES[0].signature, SIGNIFY_EXAMPLES[0].publicKey, SIGNIFY_EXAMPLES[0].message, 'signify'],
         ['an OpenPGP signature', PGP_EXAMPLES[0].signature, PGP_EXAMPLES[0].publicKey, PGP_EXAMPLES[0].message, 'OpenPGP'],
     ])('%s: the signature, the key and the message go to its fields and it is verified', async (name, signature, key, message, button) => {
         render(<App />);

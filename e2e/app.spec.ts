@@ -497,6 +497,84 @@ test.describe('signed formats: minisign', () => {
     });
 });
 
+test.describe('signed formats: signify', () => {
+    const hasSignify = spawnSync('signify-openbsd', ['-V']).error === undefined;
+
+    test('verifies a signature that signify made, and says wrong for another message', async ({ page }) => {
+        test.skip(!hasSignify, 'signify is not installed');
+        const dir = mkdtempSync(join(tmpdir(), 'e2e-signify-'));
+        const message = 'a message\nof two lines\n';
+        writeFileSync(join(dir, 'message.txt'), message);
+        expect(spawnSync('signify-openbsd', ['-G', '-n', '-p', join(dir, 'k.pub'), '-s', join(dir, 'k.sec')]).status).toBe(0);
+        const signing = spawnSync('signify-openbsd', [
+            '-S',
+            '-s',
+            join(dir, 'k.sec'),
+            '-m',
+            join(dir, 'message.txt'),
+            '-x',
+            join(dir, 'm.sig'),
+        ]);
+        expect(signing.status, signing.stderr.toString()).toBe(0);
+        const signature = readFileSync(join(dir, 'm.sig'), 'utf8');
+
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await panel(page).getByRole('button', { name: 'signify' }).click();
+        await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
+        await signed(page).getByLabel('Message', { exact: true }).fill(message);
+        await signed(page)
+            .getByLabel('Public key you trust', { exact: true })
+            .fill(readFileSync(join(dir, 'k.pub'), 'utf8'));
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+
+        await signed(page).getByLabel('Message', { exact: true }).fill('a message\nof two lines');
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is wrong')).toBeVisible();
+    });
+
+    test('a signature made in the page, with the public key file it shows, is accepted by signify -V', async ({ page }) => {
+        test.skip(!hasSignify, 'signify is not installed');
+        const dir = mkdtempSync(join(tmpdir(), 'e2e-signify-'));
+        const message = 'signed in the page, with an accent: è\n';
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await panel(page).getByRole('button', { name: 'signify' }).click();
+        await panel(page).getByRole('button', { name: 'Create a signature' }).click();
+        await signed(page).getByLabel('Private key', { exact: true }).fill(RFC.privateKey);
+        await signed(page).getByLabel('Message', { exact: true }).fill(message);
+        await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
+        const armored = await signed(page).locator('pre.armor').innerText();
+        const publicFile = await signed(page).getByLabel('Public key to verify it', { exact: true }).inputValue();
+
+        writeFileSync(join(dir, 'message.txt'), message);
+        writeFileSync(join(dir, 'message.sig'), `${armored.trim()}\n`);
+        writeFileSync(join(dir, 'page.pub'), publicFile);
+        const check = spawnSync(
+            'signify-openbsd',
+            ['-V', '-p', join(dir, 'page.pub'), '-m', join(dir, 'message.txt'), '-x', join(dir, 'message.sig')],
+            { encoding: 'utf8' },
+        );
+        expect(check.status, check.stderr + check.stdout).toBe(0);
+    });
+
+    test('loads the example, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await panel(page).getByRole('button', { name: 'signify' }).click();
+        await signed(page).getByRole('button', { name: 'Load example' }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
+        const link = await page.evaluate(() => navigator.clipboard.readText());
+        expect(link).toContain('fmt=signify');
+        const other = await context.newPage();
+        await other.goto(link);
+        await expect(signed(other).getByText('Signature is valid')).toBeVisible();
+        await expect(panel(other).getByRole('button', { name: 'signify' })).toHaveAttribute('aria-pressed', 'true');
+    });
+});
+
 test.describe('signed formats: COSE', () => {
     // the example "EdDSA-01" of the COSE working group (github.com/cose-wg/Examples), with the key of RFC 8032 test 1
     const ATTACHED =
