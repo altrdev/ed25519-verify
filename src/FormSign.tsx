@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import Banner from './Banner';
 import CopyButton from './CopyButton';
@@ -18,6 +19,8 @@ import { fileNameFor } from './files';
 import { CODECS } from './codecs';
 
 interface Props {
+    /** shown at the top of the card (the switch between verifying and creating, in the tab that holds both) */
+    header?: ComponentChildren;
     message?: string;
     privateKey?: string;
 }
@@ -187,6 +190,7 @@ export default function FormSign(props: Props) {
 
     return (
         <section class="card">
+            {props.header}
             <Field
                 label="Private key"
                 rows={2}

@@ -2,18 +2,38 @@ import { fireEvent, render, screen, within } from '@testing-library/preact';
 import App, { VersionLabel } from '../App';
 
 describe('App', () => {
-    it('switches between tabs without unmounting the forms', () => {
+    it('switches between tabs and between verifying and creating without unmounting the forms', () => {
         render(<App />);
-        // both forms are mounted: the first message field belongs to the verify tab
-        const messageField = () => screen.getAllByLabelText('Message', { selector: 'textarea' })[0] as HTMLTextAreaElement;
-        const verifyInput = messageField();
-        fireEvent.input(verifyInput, { target: { value: 'keep me' } });
+        const messageField = () =>
+            screen.getAllByLabelText('Message', { selector: 'textarea' }).find((e) => !e.closest('[hidden]')) as HTMLTextAreaElement;
+        fireEvent.input(messageField(), { target: { value: 'keep me' } });
 
-        fireEvent.click(screen.getByRole('tab', { name: 'Sign message' }));
+        // the raw signature tab creates as well: the form of the signature is still there
+        fireEvent.click(screen.getByRole('button', { name: 'Create a signature' }));
         expect(within(screen.getByRole('tabpanel')).getByLabelText('Private key')).toBeVisible();
-
-        fireEvent.click(screen.getByRole('tab', { name: 'Verify signature' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Verify a signature' }));
         expect(messageField().value).toBe('keep me');
+
+        fireEvent.click(screen.getByRole('tab', { name: 'Tokens and files' }));
+        expect(within(screen.getByRole('tabpanel')).getByLabelText('Token')).toBeVisible();
+        fireEvent.click(screen.getByRole('tab', { name: 'Raw signature' }));
+        expect(messageField().value).toBe('keep me');
+    });
+
+    it('has two tabs, each with the same switch between verifying and creating', () => {
+        render(<App />);
+        expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Raw signature', 'Tokens and files']);
+        expect(
+            within(screen.getByRole('group', { name: 'Action' }))
+                .getAllByRole('button')
+                .map((b) => b.textContent),
+        ).toEqual(['Verify a signature', 'Create a signature']);
+        fireEvent.click(screen.getByRole('tab', { name: 'Tokens and files' }));
+        expect(
+            within(screen.getByRole('group', { name: 'Action' }))
+                .getAllByRole('button')
+                .map((b) => b.textContent),
+        ).toEqual(['Verify a signature', 'Create a signature']);
     });
 
     it('toggles the theme and persists it', () => {

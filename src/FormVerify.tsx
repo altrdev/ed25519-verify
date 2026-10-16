@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import CopyButton from './CopyButton';
 import Banner from './Banner';
@@ -25,6 +26,8 @@ import VerifyEd25519, {
 } from './signature';
 
 interface Props {
+    /** shown at the top of the card (the switch between verifying and creating, in the tab that holds both) */
+    header?: ComponentChildren;
     message?: string;
     signature?: string;
     publicKey?: string;
@@ -161,6 +164,7 @@ export default function FormVerify(props: Props) {
 
     return (
         <section class="card">
+            {props.header}
             <Field
                 label="Public key"
                 rows={2}
