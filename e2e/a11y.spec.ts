@@ -1,0 +1,76 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, type Page, test } from '@playwright/test';
+import { panel, pickFormat, RFC } from './helpers';
+
+// WCAG 2.1 A and AA plus axe's best practices, in both themes, with each kind of content on screen.
+const check = async (page: Page) => {
+    const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice']).analyze();
+    const summary = violations.map(
+        (v) => `${v.id} (${v.impact}): ${v.help}\n${v.nodes.map((n) => `    ${n.target.join(' ')}\n    ${n.failureSummary}`).join('\n')}`,
+    );
+    expect(summary, summary.join('\n\n')).toEqual([]);
+};
+
+for (const theme of ['light', 'dark'] as const) {
+    test.describe(`${theme} theme`, () => {
+        test.beforeEach(async ({ page }) => {
+            await page.addInitScript((value) => localStorage.setItem('theme', value), theme);
+            await page.goto('/');
+            await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+        });
+
+        test('verify tab, empty', async ({ page }) => {
+            await check(page);
+        });
+
+        test('verify tab, with errors', async ({ page }) => {
+            await panel(page).getByLabel('Public key', { exact: true }).fill('abcd');
+            await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(panel(page).getByText(/expected 32 bytes/i)).toBeVisible();
+            await check(page);
+        });
+
+        test('verify tab, valid and wrong results', async ({ page }) => {
+            await panel(page).getByLabel('Public key', { exact: true }).fill(RFC.publicKey);
+            await panel(page).getByRole('group', { name: 'Message format' }).getByRole('button', { name: 'Hex' }).click();
+            await panel(page).getByLabel('Message', { exact: true }).fill(RFC.messageHex);
+            await panel(page).getByLabel('Signature', { exact: true }).fill(RFC.signature);
+            await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(panel(page).getByText('Signature is valid')).toBeVisible();
+            await check(page);
+            await panel(page).getByLabel('Message', { exact: true }).fill('73');
+            await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(panel(page).getByText('Signature is wrong')).toBeVisible();
+            await check(page);
+        });
+
+        test('format menu open', async ({ page }) => {
+            await panel(page).getByLabel('Public key', { exact: true }).fill(RFC.publicKey);
+            await page.getByRole('button', { name: /^Public key format:/ }).click();
+            await expect(page.getByRole('menu')).toBeVisible();
+            await check(page);
+        });
+
+        test('choice between two readings', async ({ page }) => {
+            // a 43-character base58 key that is also valid base64
+            await panel(page).getByLabel('Public key', { exact: true }).fill('MHMb3k7Hjcn1ZedZZy2CWMJjiRiJrVD9zNm96cPpHke');
+            await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(
+                panel(page)
+                    .getByRole('button', { name: /^Read as/ })
+                    .first(),
+            ).toBeVisible();
+            await check(page);
+        });
+
+        test('sign tab, with a result', async ({ page }) => {
+            await page.getByRole('tab', { name: 'Sign message' }).click();
+            await panel(page).getByRole('button', { name: 'Generate' }).click();
+            await panel(page).getByLabel('Message', { exact: true }).fill('accessibility');
+            await panel(page).getByRole('button', { name: 'Sign', exact: true }).click();
+            await expect(panel(page).locator('.result')).not.toBeEmpty();
+            await pickFormat(page, 'Signature format', 'hex');
+            await check(page);
+        });
+    });
+}

@@ -148,7 +148,7 @@ export default function FormVerify(props: Props) {
                 <button type="button" class="primary" onClick={() => performVerify()}>
                     Verify
                 </button>
-                <CopyButton text={shareable ? link() : ''} label="Copy a link to this verification" caption="Copy link" />
+                <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
             </div>
 
             {verify === 'valid' && <Banner kind="success">Signature is valid</Banner>}
