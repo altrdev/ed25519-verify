@@ -101,9 +101,10 @@ src/
 
 ### Deployment
 
-Every push to `main` is tested, built and published to GitHub Pages by
-[`.github/workflows/deploy-to-gh-pages.yml`](.github/workflows/deploy-to-gh-pages.yml).
-In the repository settings, **Pages → Source** must be set to **GitHub Actions**.
+The site is published on GitHub Pages **by each release**, not by each push to `main`: the footer shows the version and the
+release notes of what is online. Maintainers start a release from **Actions → Release → Run workflow**, see
+[CONTRIBUTING.md](CONTRIBUTING.md#deployment-and-releases). In the repository settings, **Pages → Source** must be set to
+**GitHub Actions**.
 
 ## Contributing
 

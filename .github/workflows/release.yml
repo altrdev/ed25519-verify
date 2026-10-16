@@ -1,33 +1,67 @@
 name: Release
 
-# Publishes a GitHub release when a version tag (v1.2.3, v1.2.3-rc.1, ...) is pushed.
-# The release notes are generated from the merged pull requests since the previous tag.
+# Publishes a release: Actions → Release → Run workflow, and choose how much the version grows.
+# It checks the code, creates the tag (vX.Y.Z) on the commit of main being released, publishes the GitHub release (notes generated from
+# the merged pull requests since the previous tag, the built site as a zip) and publishes that same version on GitHub Pages.
+# The version is the tag: nothing is committed, so it works with a protected main. It must be started from main.
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: How much the version grows
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: minor
 
 permissions:
-  contents: write
+  contents: read
+
+# two releases at the same time would compute the same version
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   checks:
+    if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/ci.yml
 
   release:
     needs: checks
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # the tags are needed to find the previous version
 
-      - name: Check the tag matches package.json 🏷️
+      - name: Work out the version 🏷️
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
         run: |
-          version="v$(jq -r .version package.json)"
-          if [ "$GITHUB_REF_NAME" != "$version" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match the version in package.json ($version)"
+          last="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)"
+          last="${last:-v0.0.0}"
+          IFS=. read -r major minor patch <<< "${last#v}"
+          case "$BUMP" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            *)     patch=$((patch + 1)) ;;
+          esac
+          version="$major.$minor.$patch"
+          if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
+            echo "::error::The tag v$version already exists"
             exit 1
           fi
+          echo "$last -> v$version ($BUMP)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node ⚙️
         uses: actions/setup-node@v7
@@ -39,19 +73,30 @@ jobs:
         run: npm ci
 
       - name: Build 🔧
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
         run: npm run build
 
       - name: Package 🗜️
         run: |
           cd dist
-          zip -r "../ed25519-verify-$GITHUB_REF_NAME.zip" .
+          zip -r "../ed25519-verify-v${{ steps.version.outputs.version }}.zip" .
 
       - name: Publish release 🚀
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          flags=""
-          # v1.2.3-rc.1 and similar are pre-releases
-          if [[ "$GITHUB_REF_NAME" == *-* ]]; then flags="--prerelease"; fi
-          gh release create "$GITHUB_REF_NAME" "ed25519-verify-$GITHUB_REF_NAME.zip" \
-            --title "$GITHUB_REF_NAME" --generate-notes --verify-tag $flags
+          # creates the tag v$VERSION on the commit that was checked and built
+          gh release create "v$VERSION" "ed25519-verify-v$VERSION.zip" \
+            --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
+
+  deploy:
+    needs: release
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy-to-gh-pages.yml
+    with:
+      version: ${{ needs.release.outputs.version }}

@@ -7,7 +7,16 @@ import { theme } from './store';
 
 const TABS = ['Verify signature', 'Sign message'];
 const REPO_URL = 'https://github.com/altrdev/ed25519-verify';
-const VERSION = __APP_VERSION__;
+
+/** `v2.6.0` linked to its release notes; a build that is not a release ("dev", "main-1a2b3c4") is shown as it is. */
+export function VersionLabel({ version }: { version: string }) {
+    if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) return <span title="Not a release">{version}</span>;
+    return (
+        <a href={`${REPO_URL}/releases/tag/v${version}`} target="_blank" rel="noopener noreferrer" title="Release notes">
+            v{version}
+        </a>
+    );
+}
 
 export default function App() {
     // a link made by the Verify tab: its fields are filled in and checked at once
@@ -80,9 +89,7 @@ export default function App() {
                 <span aria-hidden="true">·</span>
                 <span>MIT License</span>
                 <span aria-hidden="true">·</span>
-                <a href={`${REPO_URL}/releases/tag/v${VERSION}`} target="_blank" rel="noopener noreferrer" title="Release notes">
-                    v{VERSION}
-                </a>
+                <VersionLabel version={__APP_VERSION__} />
             </footer>
         </>
     );

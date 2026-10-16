@@ -102,20 +102,23 @@ Every pull request runs the checks of [`ci.yml`](.github/workflows/ci.yml) (lint
 accessibility tests). The deploy and the release start by calling that same workflow, so there is one definition of "it works" and a
 push that skipped the pull request is still checked before it ships.
 
-Every push to `main` is tested, built and published to GitHub Pages by
-[`deploy-to-gh-pages.yml`](.github/workflows/deploy-to-gh-pages.yml).
+**The website is what a release ships.** A push to `main` does not change it; merged work goes online with the next release.
+This way the version in the page footer is exactly the code of that release, and a release is a decision, not a side effect of a merge.
 
-Releases use [semantic versioning](https://semver.org/) and are published by
-[`release.yml`](.github/workflows/release.yml) when a tag is pushed. To cut one (maintainers):
+Releases use [semantic versioning](https://semver.org/) and are made by [`release.yml`](.github/workflows/release.yml), started by hand
+(maintainers): **Actions → Release → Run workflow** on `main`, choosing patch, minor or major. The workflow
 
-```bash
-git checkout main && git pull
-npm version minor          # or patch / major: bumps package.json and creates the tag vX.Y.Z
-git push --follow-tags
-```
+1. runs all the checks (`ci.yml`);
+2. works out the next version from the latest `vX.Y.Z` tag, and creates that tag on the commit it checked;
+3. publishes the GitHub release (notes generated from the merged pull requests, the built site attached as a zip);
+4. publishes the same version on GitHub Pages ([`deploy-to-gh-pages.yml`](.github/workflows/deploy-to-gh-pages.yml)).
 
-The workflow refuses a tag that does not match the version in `package.json`, runs the tests and the build, and creates the GitHub
-release with generated notes and the built site attached as a zip.
+The version is the tag: nothing is committed (so it works with a protected `main`) and there is no version in `package.json` to
+bump, it is set to `0.0.0` on purpose. The build gets the version from the `APP_VERSION` variable that the workflow sets; a local
+build says `dev`. Do not push `v*` tags by hand: they do nothing.
+
+To publish a branch without releasing (an emergency, or a test), run **Build and Deploy** by hand: the footer then shows
+`<branch>-<commit>` instead of a version. The `github-pages` environment only accepts `main`.
 
 ## License
 
