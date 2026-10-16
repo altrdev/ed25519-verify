@@ -55,7 +55,8 @@ const EXPECTED: Record<Exclude<Field, 'message'>, string> = {
 export const encodeBytes = (bytes: Uint8Array, format: RawFormat): string => encodeAs(bytes, format);
 
 const formatName = (format: RawFormat) => CODECS[format].label.toLowerCase();
-const listOf = (names: string[]) => names.length < 3 ? names.join(' or ') : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
+const listOf = (names: string[]) =>
+    names.length < 3 ? names.join(' or ') : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
 
 /** What the text of a key or signature turned out to be: its bytes and the notation they were written in. */
 export interface FieldReading {
@@ -69,7 +70,7 @@ export interface FieldReading {
 /** A key pasted as PEM, OpenSSH or JWK carries its own format. */
 function readStructuredKey(field: 'publicKey' | 'privateKey', text: string): FieldReading {
     const label = LABELS[field];
-    let key;
+    let key: ReturnType<typeof parseStructuredKey>;
     try {
         key = parseStructuredKey(text);
     } catch (error) {
@@ -81,7 +82,10 @@ function readStructuredKey(field: 'publicKey' | 'privateKey', text: string): Fie
         return { bytes: key.privateKey, format: null, structured: key.format };
     }
     if (!key.publicKey) {
-        throw new InputError(field, `${label}: this is a private key (${key.format}) that does not include its public part: paste the public key instead, or use the Sign tab.`);
+        throw new InputError(
+            field,
+            `${label}: this is a private key (${key.format}) that does not include its public part: paste the public key instead, or use the Sign tab.`,
+        );
     }
     return { bytes: key.publicKey, format: null, structured: key.format };
 }

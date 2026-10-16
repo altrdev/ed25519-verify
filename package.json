@@ -8,6 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "lint": "biome ci",
+    "format": "biome check --write",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -17,6 +19,7 @@
     "preact": "^11.0.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
     "@preact/preset-vite": "^2.10.6",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/preact": "^3.2.4",

@@ -19,12 +19,21 @@ const EXAMPLES: Record<RawFormat, string> = {
 
 const KEY_FILE_EXAMPLES: Record<'public' | 'private', Partial<Record<FieldFormat, string>>> = {
     public: {
-        pem: 'BEGIN PUBLIC KEY', openssh: 'ssh-ed25519 AAAA…', jwk: '{"kty":"OKP","x"…}',
-        didkey: 'did:key:z6Mk…', stellar: 'G…', onion: 'xxxx….onion', near: 'ed25519:…',
+        pem: 'BEGIN PUBLIC KEY',
+        openssh: 'ssh-ed25519 AAAA…',
+        jwk: '{"kty":"OKP","x"…}',
+        didkey: 'did:key:z6Mk…',
+        stellar: 'G…',
+        onion: 'xxxx….onion',
+        near: 'ed25519:…',
     },
     private: {
-        pem: 'BEGIN PRIVATE KEY', openssh: 'BEGIN OPENSSH PRIVATE KEY', jwk: '{"kty":"OKP","d"…}',
-        stellar: 'S…', near: 'ed25519:… (64 bytes)', solana: '[12, 34… 64 numbers]',
+        pem: 'BEGIN PRIVATE KEY',
+        openssh: 'BEGIN OPENSSH PRIVATE KEY',
+        jwk: '{"kty":"OKP","d"…}',
+        stellar: 'S…',
+        near: 'ed25519:… (64 bytes)',
+        solana: '[12, 34… 64 numbers]',
     },
 };
 
@@ -99,7 +108,9 @@ export default function FormatMenu({ label, current, kind, name, disabled, onSel
                 onSelect(format);
             }}
         >
-            <span>{text} <small>{example}</small></span>
+            <span>
+                {text} <small>{example}</small>
+            </span>
             {format === current && <Icon name="check" size={16} />}
         </button>
     );
@@ -142,13 +153,14 @@ export default function FormatMenu({ label, current, kind, name, disabled, onSel
                     {ORDER.map((format) => item(format, CODECS[format].label, EXAMPLES[format]))}
                     {kind !== 'signature' && (
                         <>
-                            <hr role="separator" />
+                            <hr />
                             <h4 role="presentation">Key files</h4>
                             {FILE_FORMATS.map((format) => item(format, KEY_FILE_LABELS[format], KEY_FILE_EXAMPLES[kind][format] ?? ''))}
-                            <hr role="separator" />
+                            <hr />
                             <h4 role="presentation">Ecosystems</h4>
                             {ECOSYSTEM_FORMATS.filter((format) => ECOSYSTEM_KINDS[format][kind]).map((format) =>
-                                item(format, KEY_FILE_LABELS[format], KEY_FILE_EXAMPLES[kind][format] ?? ''))}
+                                item(format, KEY_FILE_LABELS[format], KEY_FILE_EXAMPLES[kind][format] ?? ''),
+                            )}
                         </>
                     )}
                 </div>

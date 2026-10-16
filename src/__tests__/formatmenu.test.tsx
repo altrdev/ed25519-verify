@@ -6,8 +6,8 @@ const setup = (props: Partial<Parameters<typeof FormatMenu>[0]> = {}) => {
     render(
         <div>
             <FormatMenu name="Public key format" kind="signature" label="Base58" current="base58" onSelect={onSelect} {...props} />
-            <button>elsewhere</button>
-        </div>
+            <button type="button">elsewhere</button>
+        </div>,
     );
     return { onSelect, button: () => screen.getByRole('button', { name: 'Public key format: Base58' }) };
 };
@@ -25,9 +25,19 @@ describe('FormatMenu', () => {
         fireEvent.click(button());
         expect(button()).toHaveAttribute('aria-expanded', 'true');
         const items = within(screen.getByRole('menu', { name: 'Public key format' })).getAllByRole('menuitemradio');
-        expect(items.map((item) => item.getAttribute('data-format'))).toEqual(['hex', 'hex0x', 'base64', 'base64url', 'base58', 'base32', 'bytes']);
-        expect(items.filter((item) => item.getAttribute('aria-checked') === 'true').map((i) => i.getAttribute('data-format'))).toEqual(['base58']);
-        expect(document.activeElement).toBe(items[4]);                       // the focus starts on the current one
+        expect(items.map((item) => item.getAttribute('data-format'))).toEqual([
+            'hex',
+            'hex0x',
+            'base64',
+            'base64url',
+            'base58',
+            'base32',
+            'bytes',
+        ]);
+        expect(items.filter((item) => item.getAttribute('aria-checked') === 'true').map((i) => i.getAttribute('data-format'))).toEqual([
+            'base58',
+        ]);
+        expect(document.activeElement).toBe(items[4]); // the focus starts on the current one
     });
 
     it('reports the pick and closes', () => {
@@ -36,7 +46,7 @@ describe('FormatMenu', () => {
         fireEvent.click(screen.getByRole('menuitemradio', { name: /^Base64url/ }));
         expect(onSelect).toHaveBeenCalledExactlyOnceWith('base64url');
         expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-        expect(document.activeElement).toBe(button());                       // and the focus goes back to the button
+        expect(document.activeElement).toBe(button()); // and the focus goes back to the button
     });
 
     it('moves with the arrow keys, wrapping around, and closes with Escape', () => {
@@ -46,7 +56,7 @@ describe('FormatMenu', () => {
         const items = within(menu).getAllByRole('menuitemradio');
         expect(document.activeElement).toBe(items[0]);
         fireEvent.keyDown(menu, { key: 'ArrowUp' });
-        expect(document.activeElement).toBe(items[6]);                       // from the first to the last
+        expect(document.activeElement).toBe(items[6]); // from the first to the last
         fireEvent.keyDown(menu, { key: 'ArrowDown' });
         expect(document.activeElement).toBe(items[0]);
         fireEvent.keyDown(menu, { key: 'End' });
@@ -77,7 +87,13 @@ describe('FormatMenu', () => {
     });
 
     it('closes by itself when it becomes disabled while open', () => {
-        const props = { name: 'Public key format', kind: 'signature' as const, label: 'Base58', current: 'base58' as const, onSelect: vi.fn() };
+        const props = {
+            name: 'Public key format',
+            kind: 'signature' as const,
+            label: 'Base58',
+            current: 'base58' as const,
+            onSelect: vi.fn(),
+        };
         const { rerender } = render(<FormatMenu {...props} />);
         fireEvent.click(screen.getByRole('button', { name: 'Public key format: Base58' }));
         expect(screen.getByRole('menu')).toBeInTheDocument();

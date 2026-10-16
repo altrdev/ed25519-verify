@@ -30,6 +30,8 @@ npm run dev        # dev server with hot reload
 | `npm test` | Runs the tests once (Vitest + Testing Library) |
 | `npm run test:watch` | Runs the tests on every change |
 | `npm run typecheck` | TypeScript check without emitting files |
+| `npm run lint` | Checks formatting and lint rules with [Biome](https://biomejs.dev/) (what CI runs) |
+| `npm run format` | Fixes formatting and the lint problems that have a safe fix |
 | `npm run build` | Type-check and production build in `dist/` |
 | `npm run preview` | Serves the production build locally |
 
@@ -37,7 +39,7 @@ npm run dev        # dev server with hot reload
 
 1. Create a branch from `main`.
 2. Make the change, with tests (see below).
-3. Run `npm run typecheck`, `npm test` and `npm run build`: all three must pass.
+3. Run `npm run format`, `npm run typecheck`, `npm test` and `npm run build`: all must pass (`npm run lint` is the check CI makes).
 4. Open a pull request against `main` explaining what changed and why. The [CI](.github/workflows/ci.yml) workflow runs the
    same three commands on every pull request, so you will see a red check if something is broken.
 
@@ -67,6 +69,7 @@ src/
 
 ### Guidelines
 
+- **Style is automatic.** Biome formats the code (4 spaces, single quotes, 140 columns) and lints it; `npm run format` fixes it. It replaces ESLint and Prettier on purpose: `typescript-eslint` does not support TypeScript 7 yet, and one tool is faster and simpler to keep. CSS is not covered.
 - **Keep it client-side and dependency-light.** The app must never send keys, messages or signatures anywhere, and the
   bundle is small on purpose. Think twice before adding a dependency, especially in `signature.ts`.
 - **Do not loosen the Content-Security-Policy** in `src/csp.ts` (it is injected into `index.html` by the production build, not in

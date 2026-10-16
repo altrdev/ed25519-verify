@@ -68,20 +68,26 @@ export const encodeOpenSshPublic = (publicKey: Uint8Array): string => `ssh-ed255
 export function encodeOpenSshPrivate(seed: Uint8Array, publicKey: Uint8Array): string {
     const check = u32(((publicKey[0] << 24) | (publicKey[1] << 16) | (publicKey[2] << 8) | publicKey[3]) >>> 0);
     let section = concat(
-        check, check,
+        check,
+        check,
         sshString(ascii('ssh-ed25519')),
         sshString(publicKey),
-        sshString(concat(seed, publicKey)),    // OpenSSH keeps the seed followed by the public key
-        sshString(new Uint8Array(0)),          // comment
+        sshString(concat(seed, publicKey)), // OpenSSH keeps the seed followed by the public key
+        sshString(new Uint8Array(0)), // comment
     );
     // padded to the cipher block size (8 for "none") with 1, 2, 3...
     const padding = (8 - (section.length % 8)) % 8;
-    section = concat(section, Uint8Array.from({ length: padding }, (_, i) => i + 1));
+    section = concat(
+        section,
+        Uint8Array.from({ length: padding }, (_, i) => i + 1),
+    );
 
     const body = concat(
         ascii('openssh-key-v1\0'),
-        sshString(ascii('none')), sshString(ascii('none')), sshString(new Uint8Array(0)),    // cipher, kdf, kdf options
-        u32(1),                                                                              // one key
+        sshString(ascii('none')),
+        sshString(ascii('none')),
+        sshString(new Uint8Array(0)), // cipher, kdf, kdf options
+        u32(1), // one key
         sshString(sshPublicBlob(publicKey)),
         sshString(section),
     );
@@ -103,19 +109,27 @@ export function encodeJwk(publicKey: Uint8Array, seed?: Uint8Array): string {
 
 export function encodePublicKey(publicKey: Uint8Array, format: FieldFormat): string {
     switch (format) {
-        case 'pem': return pem('PUBLIC KEY', concat(SPKI_PREFIX, publicKey));
-        case 'openssh': return encodeOpenSshPublic(publicKey);
-        case 'jwk': return encodeJwk(publicKey);
-        default: return isEcosystem(format) ? encodeEcosystemPublic(publicKey, format) : encodeAs(publicKey, format as RawFormat);
+        case 'pem':
+            return pem('PUBLIC KEY', concat(SPKI_PREFIX, publicKey));
+        case 'openssh':
+            return encodeOpenSshPublic(publicKey);
+        case 'jwk':
+            return encodeJwk(publicKey);
+        default:
+            return isEcosystem(format) ? encodeEcosystemPublic(publicKey, format) : encodeAs(publicKey, format as RawFormat);
     }
 }
 
 /** `seed` is the 32-byte private key; the public key is needed by OpenSSH and JWK files. */
 export function encodePrivateKey(seed: Uint8Array, publicKey: Uint8Array, format: FieldFormat): string {
     switch (format) {
-        case 'pem': return pem('PRIVATE KEY', concat(PKCS8_PREFIX, seed));
-        case 'openssh': return encodeOpenSshPrivate(seed, publicKey);
-        case 'jwk': return encodeJwk(publicKey, seed);
-        default: return isEcosystem(format) ? encodeEcosystemPrivate(seed, publicKey, format) : encodeAs(seed, format as RawFormat);
+        case 'pem':
+            return pem('PRIVATE KEY', concat(PKCS8_PREFIX, seed));
+        case 'openssh':
+            return encodeOpenSshPrivate(seed, publicKey);
+        case 'jwk':
+            return encodeJwk(publicKey, seed);
+        default:
+            return isEcosystem(format) ? encodeEcosystemPrivate(seed, publicKey, format) : encodeAs(seed, format as RawFormat);
     }
 }

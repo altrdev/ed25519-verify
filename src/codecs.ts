@@ -36,7 +36,13 @@ export function encodeBase58(bytes: Uint8Array): string {
             carry = Math.floor(carry / 58);
         }
     }
-    return '1'.repeat(zeros) + digits.reverse().map((d) => BASE58[d]).join('');
+    return (
+        '1'.repeat(zeros) +
+        digits
+            .reverse()
+            .map((d) => BASE58[d])
+            .join('')
+    );
 }
 
 export function decodeBase58(text: string): Uint8Array | null {
