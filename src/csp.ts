@@ -1,9 +1,13 @@
 /**
  * Content-Security-Policy of the production page, injected into index.html at build time (see vite.config.ts).
  *
- * The app makes no network requests at all and has no inline scripts or styles, so the policy can be as strict as it gets.
- * `connect-src 'none'` is what turns "nothing is uploaded" from a promise into something the browser enforces:
- * even a compromised dependency could not send a key or a message anywhere.
+ * The app only ever loads its own files, never talks to another site and has no inline scripts or styles, so the policy can be
+ * as strict as it gets. Every directive is `'self'` or `'none'`: the browser itself refuses to send a key, a message or
+ * anything else to a third party, even if a dependency were compromised.
+ *
+ * `connect-src 'self'` rather than `'none'`: Chrome downloads the icons listed in the web app manifest (to decide whether the
+ * app is installable, and for the Application panel of the developer tools) under `connect-src`. With 'none' this floods the
+ * console with violations and can get in the way of the install prompt. The page itself never calls fetch(), XHR or WebSocket.
  *
  * A <meta> policy cannot carry `frame-ancestors` or a report endpoint; those would need HTTP headers.
  */
@@ -15,8 +19,8 @@ export const DIRECTIVES: Record<string, string[]> = {
     'manifest-src': ["'self'"],
     // the service worker (and the scripts it imports) are served from the same origin
     'worker-src': ["'self'"],
-    // the page never talks to the network
-    'connect-src': ["'none'"],
+    // same origin only (manifest icons, see above): nothing can be sent to another site
+    'connect-src': ["'self'"],
     'base-uri': ["'none'"],
     'form-action': ["'none'"],
 };
