@@ -11,7 +11,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: false, // public/manifest.webmanifest is used as is
-      includeAssets: ['favicon.png', 'manifest.webmanifest', 'images/icons/apple/apple-touch-icon-180-180.png'],
+      includeAssets: ['favicon.svg', 'favicon.png', 'favicon-32.png', 'manifest.webmanifest', 'images/icons/apple/apple-touch-icon-180-180.png'],
     }),
   ],
   test: {
