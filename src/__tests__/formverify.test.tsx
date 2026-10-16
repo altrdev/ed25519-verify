@@ -88,4 +88,16 @@ describe('FormVerify component', () => {
         fireEvent.click(messageFormat('Hex'));
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
+
+    it('says so when a signature is only accepted under the permissive ZIP215 rules', async () => {
+        encodingDefault.value = SignEncoding.Hex;
+        const identity = '01' + '00'.repeat(31);
+        render(<FormVerify publicKey={identity} signature={identity + '00'.repeat(32)} message="anything" />);
+        fireEvent.click(screen.getByText('Verify'));
+        const alert = await screen.findByRole('alert');
+        expect(alert.textContent).toContain('not valid under the strict RFC 8032 rules');
+        expect(alert.textContent).toContain('ZIP215');
+        expect(alert).toHaveClass('warning');
+        expect(screen.queryByText('Signature is valid')).not.toBeInTheDocument();
+    });
 });

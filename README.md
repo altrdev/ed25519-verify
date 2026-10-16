@@ -36,7 +36,8 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 | Signature | 64 bytes, hex or base64 |
 
 Signatures are checked with the strict rules of RFC 8032 / FIPS 186-5 (not the more permissive ZIP215 rules), so
-"valid" means that a standards-compliant verifier agrees.
+"valid" means that a standards-compliant verifier agrees. In the rare case of a signature that fails the strict check
+but would be accepted under ZIP215 (used by some consensus systems, e.g. Zcash), the result says so instead of just "wrong".
 
 The Hex / Base64 selector at the top of each tab applies to keys and signatures. The message has its own
 Text / Hex / Base64 selector, so you can sign and verify binary data (hashes, already encoded payloads) too.

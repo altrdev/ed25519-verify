@@ -4,7 +4,7 @@ import Field from './Field';
 import MessageFormatSelector from './MessageFormatSelector';
 import SelectorEncoding from './SelectorEncoding';
 import { MessageFormat } from './enum';
-import VerifyEd25519, { type Field as FieldName, type FieldErrors } from './signature';
+import VerifyEd25519, { type Field as FieldName, type FieldErrors, type Verdict } from './signature';
 import { encodingDefault } from './store';
 
 interface Props {
@@ -17,7 +17,7 @@ export default function FormVerify(props: Props) {
     const [message, setMessage] = useState(props.message ?? '');
     const [signature, setSignature] = useState(props.signature ?? '');
     const [publicKey, setPublicKey] = useState(props.publicKey ?? '');
-    const [verify, setVerify] = useState<boolean | undefined>(undefined);
+    const [verify, setVerify] = useState<Verdict | undefined>(undefined);
     const [messageFormat, setMessageFormat] = useState(MessageFormat.Text);
     const [errors, setErrors] = useState<FieldErrors>({});
 
@@ -47,7 +47,7 @@ export default function FormVerify(props: Props) {
             setVerify(undefined);
             return;
         }
-        setVerify(await ed25519.check(encoding));
+        setVerify(await ed25519.verdict(encoding));
     };
 
     return (
@@ -67,8 +67,14 @@ export default function FormVerify(props: Props) {
                 <button type="button" class="primary" onClick={performVerify}>Verify</button>
             </div>
 
-            {verify === true && <Banner kind="success">Signature is valid</Banner>}
-            {verify === false && <Banner kind="error">Signature is wrong</Banner>}
+            {verify === 'valid' && <Banner kind="success">Signature is valid</Banner>}
+            {verify === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
+            {verify === 'permissive-only' && (
+                <Banner kind="warning">
+                    Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215,
+                    the more permissive rules used by some systems (e.g. Zcash).
+                </Banner>
+            )}
         </section>
     );
 }
