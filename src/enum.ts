@@ -16,7 +16,8 @@ export enum MessageFormat {
 }
 
 /** Key files: a container that carries the key and says what it is (see keyfiles.ts). Only for the public and private key. */
-export type KeyFileFormat = 'pem' | 'openssh' | 'jwk';
+export type EcosystemFormat = 'didkey' | 'stellar' | 'onion' | 'near' | 'solana';
+export type KeyFileFormat = 'pem' | 'openssh' | 'jwk' | EcosystemFormat;
 
 /** Everything the menu of a key can offer: a plain notation of the bytes, or a key file. */
 export type FieldFormat = RawFormat | KeyFileFormat;

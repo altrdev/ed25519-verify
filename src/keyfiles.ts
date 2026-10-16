@@ -5,19 +5,25 @@
  */
 import { bytesToBase64 } from './bytes';
 import { CODECS, encodeAs } from './codecs';
-import type { FieldFormat, KeyFileFormat, RawFormat } from './enum';
+import { ECOSYSTEM_FORMATS, ECOSYSTEM_LABELS, encodeEcosystemPrivate, encodeEcosystemPublic } from './ecosystems';
+import type { EcosystemFormat, FieldFormat, KeyFileFormat, RawFormat } from './enum';
 
-export const KEY_FILE_FORMATS: KeyFileFormat[] = ['pem', 'openssh', 'jwk'];
+/** Key files (PEM, OpenSSH, JWK) and the formats of the ecosystems (did:key, Stellar...): anything that is not a plain notation. */
+export const FILE_FORMATS: KeyFileFormat[] = ['pem', 'openssh', 'jwk'];
+export const KEY_FILE_FORMATS: KeyFileFormat[] = [...FILE_FORMATS, ...ECOSYSTEM_FORMATS];
 export const isKeyFile = (format: FieldFormat): format is KeyFileFormat => (KEY_FILE_FORMATS as string[]).includes(format);
 
-export const KEY_FILE_LABELS: Record<KeyFileFormat, string> = { pem: 'PEM', openssh: 'OpenSSH', jwk: 'JWK' };
+export const KEY_FILE_LABELS: Record<KeyFileFormat, string> = { pem: 'PEM', openssh: 'OpenSSH', jwk: 'JWK', ...ECOSYSTEM_LABELS };
 
-/** Which key file format a name given by keyformats.ts ("PEM (PKCS#8)", "OpenSSH public key", "JWK") is. */
+/** Which format a name given by keyformats.ts ("PEM (PKCS#8)", "OpenSSH public key", "JWK", "Stellar"...) is. */
 export function keyFileOf(structured: string): KeyFileFormat {
     if (structured.startsWith('PEM')) return 'pem';
     if (structured.startsWith('OpenSSH')) return 'openssh';
-    return 'jwk';
+    const ecosystem = ECOSYSTEM_FORMATS.find((format) => ECOSYSTEM_LABELS[format] === structured);
+    return ecosystem ?? 'jwk';
 }
+
+const isEcosystem = (format: FieldFormat): format is EcosystemFormat => (ECOSYSTEM_FORMATS as string[]).includes(format);
 
 export const labelOf = (format: FieldFormat): string => (isKeyFile(format) ? KEY_FILE_LABELS[format] : CODECS[format].label);
 
@@ -100,7 +106,7 @@ export function encodePublicKey(publicKey: Uint8Array, format: FieldFormat): str
         case 'pem': return pem('PUBLIC KEY', concat(SPKI_PREFIX, publicKey));
         case 'openssh': return encodeOpenSshPublic(publicKey);
         case 'jwk': return encodeJwk(publicKey);
-        default: return encodeAs(publicKey, format as RawFormat);
+        default: return isEcosystem(format) ? encodeEcosystemPublic(publicKey, format) : encodeAs(publicKey, format as RawFormat);
     }
 }
 
@@ -110,6 +116,6 @@ export function encodePrivateKey(seed: Uint8Array, publicKey: Uint8Array, format
         case 'pem': return pem('PRIVATE KEY', concat(PKCS8_PREFIX, seed));
         case 'openssh': return encodeOpenSshPrivate(seed, publicKey);
         case 'jwk': return encodeJwk(publicKey, seed);
-        default: return encodeAs(seed, format as RawFormat);
+        default: return isEcosystem(format) ? encodeEcosystemPrivate(seed, publicKey, format) : encodeAs(seed, format as RawFormat);
     }
 }

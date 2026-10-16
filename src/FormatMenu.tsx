@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import { CODECS } from './codecs';
 import type { FieldFormat, RawFormat } from './enum';
-import { KEY_FILE_FORMATS, keyFileOf, KEY_FILE_LABELS } from './keyfiles';
+import { ECOSYSTEM_FORMATS, ECOSYSTEM_KINDS } from './ecosystems';
+import { FILE_FORMATS, keyFileOf, KEY_FILE_LABELS, labelOf } from './keyfiles';
 import { Icon } from './icons';
 import type { FieldReading } from './signature';
 
@@ -16,17 +17,25 @@ const EXAMPLES: Record<RawFormat, string> = {
     bytes: '[0, 255, 16…]',
 };
 
-const KEY_FILE_EXAMPLES = {
-    public: { pem: 'BEGIN PUBLIC KEY', openssh: 'ssh-ed25519 AAAA…', jwk: '{"kty":"OKP","x"…}' },
-    private: { pem: 'BEGIN PRIVATE KEY', openssh: 'BEGIN OPENSSH PRIVATE KEY', jwk: '{"kty":"OKP","d"…}' },
+const KEY_FILE_EXAMPLES: Record<'public' | 'private', Partial<Record<FieldFormat, string>>> = {
+    public: {
+        pem: 'BEGIN PUBLIC KEY', openssh: 'ssh-ed25519 AAAA…', jwk: '{"kty":"OKP","x"…}',
+        didkey: 'did:key:z6Mk…', stellar: 'G…', onion: 'xxxx….onion', near: 'ed25519:…',
+    },
+    private: {
+        pem: 'BEGIN PRIVATE KEY', openssh: 'BEGIN OPENSSH PRIVATE KEY', jwk: '{"kty":"OKP","d"…}',
+        stellar: 'S…', near: 'ed25519:… (64 bytes)', solana: '[12, 34… 64 numbers]',
+    },
 };
 
 /** Short name of what a field holds, for the button: "Base58", "PEM"... */
-export const readingLabel = (reading: FieldReading): string =>
-    reading.structured ? reading.structured.split(' ')[0] : CODECS[reading.format!].label;
+export const readingLabel = (reading: FieldReading, kind?: Props['kind']): string => labelOf(readingFormat(reading, kind));
 
-/** The item of the menu that matches what a field holds. */
-export const readingFormat = (reading: FieldReading): FieldFormat => (reading.structured ? keyFileOf(reading.structured) : reading.format!);
+/** The item of the menu that matches what a field holds (a list of 64 numbers in a private key field is a Solana keypair file). */
+export const readingFormat = (reading: FieldReading, kind?: Props['kind']): FieldFormat => {
+    if (reading.structured) return keyFileOf(reading.structured);
+    return kind === 'private' && reading.format === 'bytes' && reading.bytes.length === 64 ? 'solana' : reading.format!;
+};
 
 /** The line under a field once its text is recognised: "Detected: base58 · 32 bytes". */
 export function readingHint(reading: FieldReading | null): string | undefined {
@@ -135,7 +144,11 @@ export default function FormatMenu({ label, current, kind, name, disabled, onSel
                         <>
                             <hr role="separator" />
                             <h4 role="presentation">Key files</h4>
-                            {KEY_FILE_FORMATS.map((format) => item(format, KEY_FILE_LABELS[format], KEY_FILE_EXAMPLES[kind][format]))}
+                            {FILE_FORMATS.map((format) => item(format, KEY_FILE_LABELS[format], KEY_FILE_EXAMPLES[kind][format] ?? ''))}
+                            <hr role="separator" />
+                            <h4 role="presentation">Ecosystems</h4>
+                            {ECOSYSTEM_FORMATS.filter((format) => ECOSYSTEM_KINDS[format][kind]).map((format) =>
+                                item(format, KEY_FILE_LABELS[format], KEY_FILE_EXAMPLES[kind][format] ?? ''))}
                         </>
                     )}
                 </div>

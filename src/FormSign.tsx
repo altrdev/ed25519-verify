@@ -162,8 +162,8 @@ export default function FormSign(props: Props) {
                     <FormatMenu
                         name="Private key format"
                         kind="private"
-                        label={privateKeyReading ? readingLabel(privateKeyReading) : labelOf(formatPreference.privateKey.value)}
-                        current={privateKeyReading ? readingFormat(privateKeyReading) : formatPreference.privateKey.value}
+                        label={privateKeyReading ? readingLabel(privateKeyReading, 'private') : labelOf(formatPreference.privateKey.value)}
+                        current={privateKeyReading ? readingFormat(privateKeyReading, 'private') : formatPreference.privateKey.value}
                         onSelect={pickPrivateKeyFormat}
                     />
                 }
