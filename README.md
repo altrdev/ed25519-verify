@@ -35,12 +35,15 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 | Private key | 32-byte seed, hex or base64. The 64-byte NaCl/libsodium form (seed followed by public key) is accepted too: the seed is used |
 | Signature | 64 bytes, hex or base64 |
 
+Signatures are checked with the strict rules of RFC 8032 / FIPS 186-5 (not the more permissive ZIP215 rules), so
+"valid" means that a standards-compliant verifier agrees.
+
 The Hex / Base64 selector at the top of each tab applies to keys and signatures. The message has its own
 Text / Hex / Base64 selector, so you can sign and verify binary data (hashes, already encoded payloads) too.
 
 ## Privacy
 
-Signing and verification use [noble-ed25519](https://github.com/paulmillr/noble-ed25519) in your browser and the app makes no
+Signing and verification use [@noble/ed25519](https://github.com/paulmillr/noble-ed25519) in your browser and the app makes no
 requests with your data. Even so, treat any web page with care: do not paste production private keys into tools you have not audited,
 and prefer throwaway keys for testing. The source is small enough to read.
 

@@ -1,4 +1,4 @@
-import * as ed from 'noble-ed25519';
+import * as ed from '@noble/ed25519';
 import { MessageFormat, SignEncoding } from './enum';
 
 export type Field = 'publicKey' | 'privateKey' | 'signature' | 'message';
@@ -109,9 +109,8 @@ function decodeMessage(raw: string | null | undefined, format: MessageFormat): U
 const seedOf = (key: Uint8Array): Uint8Array => key.slice(0, 32);
 
 export async function generateKeyPair(encoding: SignEncoding): Promise<{ privateKey: string; publicKey: string }> {
-    const seed = crypto.getRandomValues(new Uint8Array(32));
-    const publicKey = hexToBytes(await ed.getPublicKey(bytesToHex(seed)));
-    return { privateKey: encode(seed, encoding), publicKey: encode(publicKey, encoding) };
+    const { secretKey, publicKey } = await ed.keygenAsync();
+    return { privateKey: encode(secretKey, encoding), publicKey: encode(publicKey, encoding) };
 }
 
 class VerifyEd25519 {
@@ -156,7 +155,8 @@ class VerifyEd25519 {
         const publicKey = decodeField('publicKey', this.publicKey, encoding);
         const message = decodeMessage(this.message, this.messageFormat);
         try {
-            return await ed.verify(bytesToHex(signature), bytesToHex(message), bytesToHex(publicKey));
+            // strict RFC 8032 / FIPS 186-5 verification (noble defaults to the more permissive ZIP215)
+            return await ed.verifyAsync(signature, message, publicKey, { zip215: false });
         } catch {
             // well formed but not usable (e.g. a public key that is not a point on the curve)
             return false;
@@ -166,13 +166,12 @@ class VerifyEd25519 {
     async sign(encoding: SignEncoding): Promise<string> {
         const seed = seedOf(decodeField('privateKey', this.privateKey, encoding));
         const message = decodeMessage(this.message, this.messageFormat);
-        const signature = await ed.sign(bytesToHex(message), bytesToHex(seed));
-        return encode(hexToBytes(signature), encoding);
+        return encode(await ed.signAsync(message, seed), encoding);
     }
 
     async getPublicKey(encoding: SignEncoding): Promise<string> {
         const seed = seedOf(decodeField('privateKey', this.privateKey, encoding));
-        return encode(hexToBytes(await ed.getPublicKey(bytesToHex(seed))), encoding);
+        return encode(await ed.getPublicKeyAsync(seed), encoding);
     }
 }
 
