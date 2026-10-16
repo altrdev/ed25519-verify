@@ -151,7 +151,7 @@ export function inspectField(field: Exclude<Field, 'message'>, raw: string, forc
 /** The bytes of the message, which can be plain text (UTF-8), already encoded as hex / base64, or the bytes of a file. */
 function decodeMessage(raw: string | Uint8Array | null | undefined, format: MessageFormat): Uint8Array {
     // the bytes of a file chosen as the message: used as they are, whatever the format selector says
-    if (raw instanceof Uint8Array) return raw;
+    if (typeof raw === 'object' && raw !== null) return raw; // (not `instanceof`: bytes made in another realm, such as a test's, are bytes too)
     const text = raw ?? '';
     if (format === MessageFormat.Text) return new TextEncoder().encode(text);
 
@@ -173,6 +173,23 @@ export async function generateKeyPair(
 ): Promise<{ privateKey: string; publicKey: string }> {
     const { secretKey, publicKey } = await ed.keygenAsync();
     return { privateKey: encodePrivateKey(secretKey, publicKey, privateFormat), publicKey: encodePublicKey(publicKey, publicFormat) };
+}
+
+/**
+ * The verdict for bytes already decoded (what the container formats of the "Signed formats" tab give): strict RFC 8032 rules make a
+ * signature 'valid', and one that only the permissive ZIP215 rules accept is told apart from a wrong one.
+ */
+export async function verdictOf(signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array): Promise<Verdict> {
+    const verifies = async (zip215: boolean) => {
+        try {
+            return await ed.verifyAsync(signature, message, publicKey, { zip215 });
+        } catch {
+            // well formed but not usable (e.g. a public key that is not a point on the curve)
+            return false;
+        }
+    };
+    if (await verifies(false)) return 'valid';
+    return (await verifies(true)) ? 'permissive-only' : 'invalid';
 }
 
 class VerifyEd25519 {
@@ -245,19 +262,7 @@ class VerifyEd25519 {
     async verdict(): Promise<Verdict> {
         const signature = decodeField('signature', this.signature, this.formats.signature);
         const publicKey = decodeField('publicKey', this.publicKey, this.formats.publicKey);
-        const message = decodeMessage(this.message, this.messageFormat);
-
-        const verifies = async (zip215: boolean) => {
-            try {
-                return await ed.verifyAsync(signature, message, publicKey, { zip215 });
-            } catch {
-                // well formed but not usable (e.g. a public key that is not a point on the curve)
-                return false;
-            }
-        };
-
-        if (await verifies(false)) return 'valid';
-        return (await verifies(true)) ? 'permissive-only' : 'invalid';
+        return verdictOf(signature, decodeMessage(this.message, this.messageFormat), publicKey);
     }
 
     /** What could explain a signature that does not verify (see diagnose.ts); for a verdict of "invalid". */

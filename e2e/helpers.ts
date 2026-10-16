@@ -27,3 +27,10 @@ export async function pickFormat(page: Page, name: string, format: string) {
 
 /** The tab that is showing (both forms stay mounted, the other one is hidden). */
 export const panel = (page: Page) => page.getByRole('tabpanel');
+
+// RFC 8037, appendix A: the key (it is the one of RFC 8032 test 1) and a JWS made with it
+export const JWS = {
+    privateKeyHex: '9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60',
+    jwkPublic: '{"kty":"OKP","crv":"Ed25519","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"}',
+    token: 'eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc.hgyY0il_MGCjP0JzlnLWG1PPOt7-09PGcvMg3AIbQR6dWbhijcNR4ki4iylGjg5BhVsPt9g7sVvpAr_MuM0KAg',
+};

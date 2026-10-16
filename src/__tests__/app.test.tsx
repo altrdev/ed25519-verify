@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/preact';
+import { fireEvent, render, screen, within } from '@testing-library/preact';
 import App, { VersionLabel } from '../App';
 
 describe('App', () => {
@@ -10,7 +10,7 @@ describe('App', () => {
         fireEvent.input(verifyInput, { target: { value: 'keep me' } });
 
         fireEvent.click(screen.getByRole('tab', { name: 'Sign message' }));
-        expect(screen.getByLabelText('Private key')).toBeVisible();
+        expect(within(screen.getByRole('tabpanel')).getByLabelText('Private key')).toBeVisible();
 
         fireEvent.click(screen.getByRole('tab', { name: 'Verify signature' }));
         expect(messageField().value).toBe('keep me');

@@ -1,11 +1,12 @@
 import { useState } from 'preact/hooks';
+import FormSigned from './FormSigned';
 import FormSign from './FormSign';
 import FormVerify from './FormVerify';
 import { Icon } from './icons';
-import { parseShareFragment } from './share';
+import { parseJwsShare, parseShareFragment } from './share';
 import { theme } from './store';
 
-const TABS = ['Verify signature', 'Sign message'];
+const TABS = ['Verify signature', 'Sign message', 'Signed formats'];
 const REPO_URL = 'https://github.com/altrdev/ed25519-verify';
 
 /** `v2.6.0` linked to its release notes; a build that is not a release ("dev", "main-1a2b3c4") is shown as it is. */
@@ -21,7 +22,9 @@ export function VersionLabel({ version }: { version: string }) {
 export default function App() {
     // a link made by the Verify tab: its fields are filled in and checked at once
     const [shared] = useState(() => parseShareFragment(location.hash));
-    const [tab, setTab] = useState(0);
+    // a link to a token opens the tab of the signed formats
+    const [sharedToken] = useState(() => parseJwsShare(location.hash));
+    const [tab, setTab] = useState(sharedToken ? 2 : 0);
     const dark = theme.value === 'dark';
 
     return (
@@ -80,6 +83,9 @@ export default function App() {
                 </div>
                 <div role="tabpanel" hidden={tab !== 1}>
                     <FormSign />
+                </div>
+                <div role="tabpanel" hidden={tab !== 2}>
+                    <FormSigned shared={sharedToken} />
                 </div>
             </main>
             <footer class="footer">

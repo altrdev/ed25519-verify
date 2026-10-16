@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import * as ed from '@noble/ed25519';
 import App from '../App';
 import FormVerify from '../FormVerify';
@@ -48,7 +48,9 @@ describe('share links in the app', () => {
     });
     afterEach(() => history.replaceState(null, '', '/'));
 
-    const value = (label: string) => (screen.getByLabelText(label) as HTMLTextAreaElement).value;
+    // the visible tab only: the forms of the other tabs stay mounted
+    const value = (label: string) =>
+        (within(screen.getByRole('tabpanel')).getByLabelText(label, { selector: 'textarea' }) as HTMLTextAreaElement).value;
 
     it('opens a link with the fields filled in and the answer shown', async () => {
         const signature = bytesToHex(await ed.signAsync(new TextEncoder().encode('shared message'), hexToBytes(SEED_HEX)));

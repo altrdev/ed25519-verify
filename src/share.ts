@@ -40,3 +40,28 @@ export function parseShareFragment(fragment: string): Partial<SharedVerification
         messageFormat: format !== null && MESSAGE_FORMATS.includes(format) ? (format as MessageFormat) : MessageFormat.Text,
     };
 }
+
+/* ------------------------------------------------------------------------ Signed formats */
+
+export interface SharedToken {
+    token: string;
+    publicKey: string;
+}
+
+/** The fragment of a link to a JWS verification (`#fmt=jws&token=…&key=…`), or '' when there is nothing to share. */
+export function jwsShareFragment({ token, publicKey }: SharedToken): string {
+    if (!token.trim() && !publicKey.trim()) return '';
+    const params = new URLSearchParams({ fmt: 'jws' });
+    if (token.trim()) params.set('token', token.trim());
+    if (publicKey.trim()) params.set('key', publicKey.trim());
+    return `#${params}`;
+}
+
+/** What a fragment holds when it is a link to a JWS verification, null for anything else. */
+export function parseJwsShare(fragment: string): Partial<SharedToken> | null {
+    const params = new URLSearchParams(fragment.replace(/^#/, ''));
+    if (params.get('fmt') !== 'jws') return null;
+    const token = params.get('token');
+    const publicKey = params.get('key');
+    return { ...(token !== null && { token }), ...(publicKey !== null && { publicKey }) };
+}

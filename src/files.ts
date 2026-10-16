@@ -5,13 +5,13 @@
 import { bytesToHex } from './bytes';
 import type { FieldFormat } from './enum';
 
-export type FileKind = 'key' | 'signature';
+export type FileKind = 'key' | 'signature' | 'text';
 
 /** A key file is a few hundred bytes (an encrypted OpenSSH one a little more): anything bigger is not a key. */
 export const MAX_FILE_BYTES = 16 * 1024;
 
 /** The sizes of a raw binary file (no text): a seed or a seed followed by the public key; a signature. */
-const RAW_SIZES: Record<FileKind, number[]> = { key: [32, 64], signature: [64] };
+const RAW_SIZES: Record<FileKind, number[]> = { key: [32, 64], signature: [64], text: [] };
 
 export class FileError extends Error {
     constructor(message: string) {
@@ -54,6 +54,7 @@ export async function readFileForField(file: File, kind: FileKind): Promise<stri
     const text = asText(bytes);
     if (text !== null) return text;
     if (RAW_SIZES[kind].includes(bytes.length)) return bytesToHex(bytes);
+    if (kind === 'text') throw new FileError(`${file.name || 'The file'} is not a text file.`);
     throw new FileError(
         `${file.name || 'The file'} is not text, and it is not ${RAW_SIZES[kind].join(' or ')} bytes of a raw ${kind === 'key' ? 'key' : 'signature'}.`,
     );

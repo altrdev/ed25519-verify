@@ -21,6 +21,8 @@ export interface DiagnoseInput {
     /** the text of the message as typed, and how it was read; the bytes of a file chosen as the message */
     message: string | Uint8Array;
     messageFormat: MessageFormat;
+    /** the signed bytes are not a message somebody hashed (the signing input of a token): do not try the hashes */
+    skipHashes?: boolean;
 }
 
 // the order of the prime subgroup: an S at or above it is a non-canonical signature
@@ -101,7 +103,7 @@ async function attempts(input: DiagnoseInput, original: Uint8Array): Promise<Att
     }
 
     // a hash of the message signed instead of the message (Ed25519ph-like uses, or a tool that signs a digest)
-    for (const name of ['SHA-256', 'SHA-512'] as const) {
+    for (const name of input.skipHashes ? [] : (['SHA-256', 'SHA-512'] as const)) {
         const digest = await hash(name, original);
         if (!digest) continue;
         found.push({ text: `the ${name} hash of the message signed instead of the message (the raw bytes of the hash)`, message: digest });
