@@ -79,6 +79,11 @@ Every push to `main` is tested, built and published to GitHub Pages by
 [`.github/workflows/deploy-to-gh-pages.yml`](.github/workflows/deploy-to-gh-pages.yml).
 In the repository settings, **Pages → Source** must be set to **GitHub Actions**.
 
+## Contributing
+
+Issues and pull requests are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md). Tagged versions are listed under
+[Releases](https://github.com/altrdev/ed25519-verify/releases).
+
 ## License
 
 [MIT](LICENSE) © Alessandro Travi
