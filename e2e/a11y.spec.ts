@@ -72,7 +72,7 @@ for (const theme of ['light', 'dark'] as const) {
             await check(page);
         });
 
-        test('key fields with Download and Open file, and the saved-file reminder', async ({ page }) => {
+        test('key fields with Download and Choose file, and the saved-file reminder', async ({ page }) => {
             await page.getByRole('tab', { name: 'Sign message' }).click();
             await panel(page).getByRole('button', { name: 'Load example' }).click();
             await panel(page).getByRole('button', { name: 'Download private key' }).click();

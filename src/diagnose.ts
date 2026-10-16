@@ -18,8 +18,8 @@ export interface Hints {
 export interface DiagnoseInput {
     publicKey: Uint8Array;
     signature: Uint8Array;
-    /** the text of the message as typed, and how it was read */
-    message: string;
+    /** the text of the message as typed, and how it was read; the bytes of a file chosen as the message */
+    message: string | Uint8Array;
     messageFormat: MessageFormat;
 }
 
@@ -75,7 +75,9 @@ async function attempts(input: DiagnoseInput, original: Uint8Array): Promise<Att
     const found: Attempt[] = [];
     const asText = (text: string, label: string) => found.push({ text: label, message: utf8(text) });
 
-    if (messageFormat === MessageFormat.Text) {
+    if (typeof message !== 'string') {
+        // a file: its bytes are what they are, only the hash and the key and signature mix-ups can be tried
+    } else if (messageFormat === MessageFormat.Text) {
         asText(`${message}\n`, 'a newline added at the end of the message');
         if (/\r?\n$/.test(message)) asText(message.replace(/\r?\n$/, ''), 'the newline at the end of the message removed');
         asText(message.replace(/\s+$/, ''), 'the spaces and line breaks at the end of the message removed');

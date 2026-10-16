@@ -37,6 +37,10 @@ interface FieldProps {
     fileKind?: FileKind;
     /** a button that saves the content as a file */
     download?: { filename: string; secret?: boolean };
+    /** shown instead of the text area (e.g. a file chosen as the value) */
+    content?: ComponentChildren;
+    /** something is being dragged over the field (when the caller handles the drop itself) */
+    dragging?: boolean;
     onInput?: (value: string) => void;
     onChange?: (value: string) => void;
 }
@@ -60,6 +64,8 @@ export default function Field({
     onRevealedChange,
     fileKind,
     download,
+    content,
+    dragging: draggingProp,
     onInput,
     onChange,
 }: FieldProps) {
@@ -74,7 +80,8 @@ export default function Field({
     // a file opened or dropped here: read in the browser, its text goes in the field as if it had been pasted
     const fileInput = useRef<HTMLInputElement>(null);
     const [fileError, setFileError] = useState<string | undefined>(undefined);
-    const [dragging, setDragging] = useState(false);
+    const [draggedOver, setDraggedOver] = useState(false);
+    const dragging = draggingProp || draggedOver;
     // after saving a private key: the file is not encrypted
     const [savedAs, setSavedAs] = useState<string | undefined>(undefined);
     const openFile = async (file: File | undefined) => {
@@ -97,7 +104,7 @@ export default function Field({
     };
 
     return (
-        <div class={`field${error ? ' invalid' : ''}`}>
+        <div class={`field${error ? ' invalid' : ''}${dragging ? ' dragging' : ''}`}>
             <div class="field-head">
                 <label for={id}>{label}</label>
                 <div class="field-actions">
@@ -139,47 +146,49 @@ export default function Field({
                             <button
                                 type="button"
                                 class="chip"
-                                aria-label={`Open file for ${label.toLowerCase()}`}
+                                aria-label={`Choose file for ${label.toLowerCase()}`}
                                 onClick={() => fileInput.current?.click()}
                             >
                                 <Icon name="upload" size={16} />
-                                Open file
+                                Choose file
                             </button>
                         </>
                     )}
                 </div>
             </div>
-            <textarea
-                id={id}
-                class={`${masked ? 'masked' : ''}${dragging ? ' dragging' : ''}`}
-                rows={visibleRows}
-                value={value}
-                disabled={disabled}
-                placeholder={placeholder}
-                spellcheck={false}
-                autocomplete="off"
-                autocapitalize="off"
-                aria-invalid={error ? true : undefined}
-                aria-describedby={error ? errorId : undefined}
-                onDragOver={(e) => {
-                    if (!fileKind || !hasFiles(e)) return;
-                    e.preventDefault(); // allows the drop
-                    setDragging(true);
-                }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={(e) => {
-                    if (!fileKind || !hasFiles(e)) return;
-                    e.preventDefault();
-                    setDragging(false);
-                    openFile(e.dataTransfer?.files[0]);
-                }}
-                onInput={(e) => {
-                    setFileError(undefined);
-                    setSavedAs(undefined);
-                    onInput?.(e.currentTarget.value);
-                }}
-                onChange={(e) => onChange?.(e.currentTarget.value)}
-            />
+            {content ?? (
+                <textarea
+                    id={id}
+                    class={masked ? 'masked' : ''}
+                    rows={visibleRows}
+                    value={value}
+                    disabled={disabled}
+                    placeholder={placeholder}
+                    spellcheck={false}
+                    autocomplete="off"
+                    autocapitalize="off"
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? errorId : undefined}
+                    onDragOver={(e) => {
+                        if (!fileKind || !hasFiles(e)) return;
+                        e.preventDefault(); // allows the drop
+                        setDraggedOver(true);
+                    }}
+                    onDragLeave={() => setDraggedOver(false)}
+                    onDrop={(e) => {
+                        if (!fileKind || !hasFiles(e)) return;
+                        e.preventDefault();
+                        setDraggedOver(false);
+                        openFile(e.dataTransfer?.files[0]);
+                    }}
+                    onInput={(e) => {
+                        setFileError(undefined);
+                        setSavedAs(undefined);
+                        onInput?.(e.currentTarget.value);
+                    }}
+                    onChange={(e) => onChange?.(e.currentTarget.value)}
+                />
+            )}
             {error && (
                 <p class="field-error" id={errorId} role="alert">
                     {error}

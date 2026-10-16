@@ -7,7 +7,8 @@ import { encodePrivateKey, encodePublicKey, isKeyFile, labelOf } from './keyfile
 import { ExampleButton, ExampleNote, nextIndex } from './ExampleButton';
 import { type Example, SIGNABLE_EXAMPLES } from './examples';
 import { Icon } from './icons';
-import MessageFormatSelector from './MessageFormatSelector';
+import MessageField from './MessageField';
+import type { MessageFile } from './messagefile';
 import VerifyEd25519, { encodeBytes, generateKeyPair, inspectField, InputError, type FieldErrors } from './signature';
 import { formatPreference } from './store';
 import { MessageFormat, type FieldFormat, type RawFormat } from './enum';
@@ -25,6 +26,7 @@ export default function FormSign(props: Props) {
     const [message, setMessage] = useState(props.message ?? '');
     const [privateKey, setPrivateKey] = useState(props.privateKey ?? '');
     const [messageFormat, setMessageFormat] = useState(MessageFormat.Text);
+    const [file, setFile] = useState<MessageFile | null>(null);
     const [revealed, setRevealed] = useState(false);
     const [errors, setErrors] = useState<FieldErrors>({});
     // a private key that can be read in several formats: the user picks one, until the text changes
@@ -120,6 +122,12 @@ export default function FormSign(props: Props) {
         setErrors((current) => ({ ...current, message: undefined }));
     };
 
+    const chooseFile = (chosen: MessageFile | null) => {
+        setFile(chosen);
+        setSignatureBytes(null);
+        setErrors((current) => ({ ...current, message: undefined }));
+    };
+
     const generate = async () => {
         const format = formatPreference.privateKey.value;
         const pair = await generateKeyPair(format);
@@ -138,6 +146,7 @@ export default function FormSign(props: Props) {
         setPrivateKey(key);
         setMessage(example.message);
         setMessageFormat(example.messageFormat);
+        setFile(null); // an example is typed text
         setKeyChoices(undefined);
         setKeyFormat(undefined);
         derive(key);
@@ -154,7 +163,7 @@ export default function FormSign(props: Props) {
     };
 
     const performSign = async (format: RawFormat | undefined = keyFormat) => {
-        const ed25519 = new VerifyEd25519(message, null, null, privateKey, messageFormat, { privateKey: format });
+        const ed25519 = new VerifyEd25519(file?.bytes ?? message, null, null, privateKey, messageFormat, { privateKey: format });
         const found = ed25519.validate(['privateKey', 'message']);
         setErrors(found);
         setKeyChoices(ed25519.choices(['privateKey']).privateKey);
@@ -236,13 +245,15 @@ export default function FormSign(props: Props) {
                 disabled
                 placeholder="Insert a private key (or generate one) to deduce it ..."
             />
-            <Field
-                label="Message"
-                rows={2}
+            <MessageField
                 value={message}
-                error={errors.message}
-                actions={<MessageFormatSelector value={messageFormat} onChange={changeMessageFormat} />}
                 onInput={onMessageInput}
+                format={messageFormat}
+                onFormatChange={changeMessageFormat}
+                error={errors.message}
+                file={file}
+                onFile={chooseFile}
+                onFileError={(error) => setErrors((current) => ({ ...current, message: error }))}
             />
             <div class="actions">
                 <button type="button" class="primary" onClick={() => performSign()}>
