@@ -20,10 +20,10 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 - **Sign** a message with a private key; the public key is deduced and shown next to it.
 - **Generate** a random key pair with one click, handy for trying things out.
 - **Clear input errors**: a malformed key or signature is explained next to the field ("expected 32 bytes, got 31",
-  "not valid hex or base64") instead of being reported as a wrong signature.
+  "not in a recognised format") instead of being reported as a wrong signature.
 - Messages as **text, hex or base64**, so binary payloads can be signed and verified as well.
 - Keys in **PEM, OpenSSH or JWK** pasted as they are (detected automatically), or as plain hex / base64.
-- **Hex or base64 is recognised by itself** for keys and signatures, by their length: no setting to get wrong, and the two can be mixed. Base64 may be URL-safe, unpadded or wrapped over several lines. On the Sign tab you choose how results are shown, and the choice is remembered.
+- **Formats are recognised by themselves** for keys and signatures: hex, `0x` hex, base64, base64url, base58, base32 or a list of bytes, mixed as you like. When a text could be two things (rare) you are asked to pick, never guessed for. On the Sign tab you choose how results are shown, and the choice is remembered.
 - Private key hidden by default, one-click **copy** for private and public keys and for signatures.
 - Light and dark theme, responsive layout, installable as a **PWA** (assets are precached by a service worker).
 
@@ -32,9 +32,13 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 | Field | Format |
 | --- | --- |
 | Message | Plain text (signed as UTF-8 bytes), or raw bytes written in hex or base64. Empty messages are allowed |
-| Public key | 32 bytes in hex or base64, or a key pasted as it is in a standard format: PEM (`BEGIN PUBLIC KEY`), OpenSSH (`ssh-ed25519 AAAA…`) or JWK |
-| Private key | 32-byte seed in hex or base64 (the 64-byte NaCl/libsodium form, seed followed by public key, is accepted too: the seed is used), or PEM PKCS#8 (`BEGIN PRIVATE KEY`), an unencrypted OpenSSH private key (`BEGIN OPENSSH PRIVATE KEY`) or a JWK |
-| Signature | 64 bytes, hex or base64 |
+| Public key | 32 bytes written as hex, `0x` hex, base64 (also URL-safe), base58, base32 or a list of numbers, or a key pasted as it is in a standard format: PEM (`BEGIN PUBLIC KEY`), OpenSSH (`ssh-ed25519 AAAA…`) or JWK |
+| Private key | The 32-byte seed in any of the above notations (the 64-byte form, seed followed by public key, is accepted too, e.g. a Solana keypair file: the seed is used), or PEM PKCS#8 (`BEGIN PRIVATE KEY`), an unencrypted OpenSSH private key (`BEGIN OPENSSH PRIVATE KEY`) or a JWK |
+| Signature | 64 bytes in any of the notations above |
+
+The notations: hex (`00ff10`), `0x`-prefixed hex, base64 and base64url (padding optional, wrapped lines fine), base58 (the
+Bitcoin alphabet, as Solana, NEAR or IPFS write keys and signatures), base32 (RFC 4648) and a list of numbers such as
+`[12, 34, 56]` (a Solana keypair file, or what Rust, Go and JavaScript print).
 
 **Keys in other formats are recognised by themselves** as well: paste the content of the file and a
 "Detected format" note appears under the field. A public key field also accepts a private JWK or OpenSSH private key (it
@@ -46,13 +50,19 @@ Signatures are checked with the strict rules of RFC 8032 / FIPS 186-5 (not the m
 "valid" means that a standards-compliant verifier agrees. In the rare case of a signature that fails the strict check
 but would be accepted under ZIP215 (used by some consensus systems, e.g. Zcash), the result says so instead of just "wrong".
 
-Hex and base64 need no setting for keys and signatures: the length tells them apart (a 32-byte key is 64 characters in hex and
-43 or 44 in base64, a 64-byte signature 128 against 86 or 88), so a text can never be read both ways. A text made of hex digits
-only is always read as hex, so a truncated hex key gets "expected 32 bytes, got 21" instead of being mistaken for another key.
-The *Show results as* selector of the Sign tab only decides how the signature, a generated key and the deduced public key are
-written; changing it rewrites them, it does not clear anything. The message has its own Text / Hex / Base64 selector (a text
-cannot tell "abcd" the string from "abcd" the two bytes), so you can sign and verify binary data (hashes, already encoded
-payloads) too.
+**No format to select for keys and signatures**: the app works it out. A key or a signature has only a few possible sizes
+(a 32-byte key is 64 hex characters, 43 or 44 in base64, 43 or 44 in base58; a 64-byte signature is 128, 86 or 88, 87 or 88),
+and in nearly every case only one reading of the text has such a size. A text made of hex digits only is always hex, so a
+truncated hex key gets "expected 32 bytes, got 21" instead of being mistaken for something else.
+
+**When a text could be two things**, the app does not guess. About 1 in 16 base58 keys has 43 characters, and 43 characters
+are also a valid unpadded base64 key (a different one). It then says so and offers *Read as base64* and *Read as base58*:
+one click settles it. The choice is dropped as soon as you edit the text.
+
+The *Show results as* selector of the Sign tab decides how the signature, a generated key and the deduced public key are
+written (hex or base64); changing it rewrites them, it does not clear anything. The message has its own Text / Hex / Base64
+selector (a text cannot tell "abcd" the string from "abcd" the two bytes), so you can sign and verify binary data (hashes,
+already encoded payloads) too.
 
 ## Privacy
 

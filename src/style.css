@@ -176,6 +176,7 @@ a.icon:hover, button.icon:hover { color: var(--text); background: var(--surface-
 .field.invalid textarea { border-color: var(--error-fg); }
 .field.invalid textarea:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--error-fg) 25%, transparent); }
 .field-hint { margin: 0; color: var(--muted); font-size: 0.8125rem; }
+.field-choices { display: flex; flex-wrap: wrap; gap: 6px; }
 .field-error { margin: 0; color: var(--error-fg); font-size: 0.8125rem; }
 .field textarea.masked { -webkit-text-security: disc; text-security: disc; }
 

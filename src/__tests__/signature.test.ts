@@ -1,5 +1,5 @@
 import VerifyEd25519, { generateKeyPair, InputError } from '../signature'
-import {MessageFormat, SignEncoding} from "../enum";
+import {MessageFormat, type RawFormat, SignEncoding} from "../enum";
 
 const publicKey = "u6xMxXSXi/dL9tWPS+qfxiOHMA6c2Czwh/k2hy/wx/U=";
 const base64Of = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
@@ -50,15 +50,18 @@ describe('Input validation', function() {
     })
 
     it('should report text that is neither hex nor base64', () => {
-        expect(validate({ signature: 'not base64!' }, ['signature']).signature).toBe('Signature is not valid hex or base64.');
-        expect(validate({ publicKey: 'zz'.repeat(32) + '#' }, ['publicKey']).publicKey).toBe('Public key is not valid hex or base64.');
-        expect(validate({ signature: 'G' }, ['signature']).signature).toBe('Signature is not valid hex or base64.');
+        const unknown = 'is not in a recognised format (hex, base64, base58, base32 or a list of bytes).';
+        expect(validate({ signature: 'not base64!' }, ['signature']).signature).toBe(`Signature ${unknown}`);
+        expect(validate({ publicKey: 'zz'.repeat(32) + '#' }, ['publicKey']).publicKey).toBe(`Public key ${unknown}`);
+        // 'I' is in no alphabet that can stand alone (base58 has no 'I'); 'G' alone would be a valid base58 of 1 byte
+        expect(validate({ signature: 'I' }, ['signature']).signature).toBe(`Signature ${unknown}`);
         // 'A' is a hex digit: a lone one is an odd number of hex digits
         expect(validate({ signature: 'A' }, ['signature']).signature).toBe('Signature is not valid hex: it has an odd number of digits (1).');
     })
 
     it('should report the wrong length and say how the text was read', () => {
-        const short = base64Of(new Uint8Array(31));
+        // not all zeros: a text made of 'A's alone is also valid base32
+        const short = base64Of(Uint8Array.from({ length: 31 }, (_, i) => i + 1));
         expect(validate({ publicKey: short }, ['publicKey']).publicKey)
             .toBe('Public key: expected 32 bytes, got 31 (read as base64).');
         expect(validate({ privateKey: short }, ['privateKey']).privateKey)
@@ -102,17 +105,30 @@ describe('Hex or base64 is detected, not chosen', function() {
             wrapped: `${padded.slice(0, 20)}\n  ${padded.slice(20)}\n`,
         };
     };
-    const errorsOf = (field: 'publicKey' | 'privateKey' | 'signature', value: string) =>
+    const errorsOf = (field: 'publicKey' | 'privateKey' | 'signature', value: string, forced?: RawFormat) =>
+        new VerifyEd25519('', field === 'signature' ? value : null, field === 'publicKey' ? value : null, field === 'privateKey' ? value : null,
+            MessageFormat.Text, forced ? { [field]: forced } : {}).validate([field]);
+    const choicesOf = (field: 'publicKey' | 'privateKey' | 'signature', value: string) =>
         new VerifyEd25519('', field === 'signature' ? value : null, field === 'publicKey' ? value : null, field === 'privateKey' ? value : null)
-            .validate([field]);
+            .choices([field])[field];
 
     it.each([['publicKey', 32], ['signature', 64], ['privateKey', 32], ['privateKey', 64]] as const)(
         'accepts a %s of %i bytes in every way of writing it', (field, size) => {
-            for (let i = 0; i < 100; i++) {
+            let asked = 0;
+            for (let i = 0; i < 200; i++) {
                 for (const [name, text] of Object.entries(variantsOf(random(size)))) {
-                    expect(errorsOf(field, text), `${field} as ${name}: ${text}`).toEqual({});
+                    if (Object.keys(errorsOf(field, text)).length === 0) continue;
+                    // the only refusal allowed: the text is valid base64 and also valid base58, so the user is asked to pick
+                    asked++;
+                    expect(name, `${field}: ${text}`).toBe('unpadded');
+                    expect(choicesOf(field, text), `${field}: ${text}`).toEqual(['base64', 'base58']);
+                    expect(errorsOf(field, text, 'base64'), `forced: ${text}`).toEqual({});
+                    expect(errorsOf(field, text, 'base58'), `forced: ${text}`).toEqual({});
                 }
             }
+            // only a 32-byte value written without padding (43 characters) can be ambiguous, and rarely (about 1 in 70)
+            if (size === 64) expect(asked).toBe(0);
+            expect(asked).toBeLessThan(15);
         });
 
     it('reads the same private key the same way whatever it is written in', async () => {

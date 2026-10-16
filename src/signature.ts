@@ -1,6 +1,7 @@
 import * as ed from '@noble/ed25519';
-import { bytesToBase64, bytesToHex, parseBase64, parseHex } from './bytes';
-import { MessageFormat, SignEncoding } from './enum';
+import { parseBase64, parseHex } from './bytes';
+import { CODECS, encodeAs, readings } from './codecs';
+import { MessageFormat, type RawFormat, SignEncoding } from './enum';
 import { isStructuredKey, KeyFormatError, parseStructuredKey } from './keyformats';
 
 export type Field = 'publicKey' | 'privateKey' | 'signature' | 'message';
@@ -15,13 +16,19 @@ export type Verdict = 'valid' | 'invalid' | 'permissive-only';
 /** Malformed input (as opposed to a signature that is well formed but does not match). */
 export class InputError extends Error {
     field: Field;
+    /** set when the text can be read in several formats and the user has to pick one */
+    choices?: RawFormat[];
 
-    constructor(field: Field, message: string) {
+    constructor(field: Field, message: string, choices?: RawFormat[]) {
         super(message);
         this.name = 'InputError';
         this.field = field;
+        this.choices = choices;
     }
 }
+
+/** The format to read a field in, when the text could be read in several. */
+export type FormatOverrides = Partial<Record<'publicKey' | 'privateKey' | 'signature', RawFormat>>;
 
 const LABELS: Record<Field, string> = {
     message: 'Message',
@@ -43,9 +50,11 @@ const EXPECTED: Record<Exclude<Field, 'message'>, string> = {
     privateKey: '32 bytes (or 64 in NaCl format)',
 };
 
-/** How a result is written: the only place where the Hex / Base64 choice still matters. */
-export const encodeBytes = (bytes: Uint8Array, encoding: SignEncoding): string =>
-    encoding === SignEncoding.Hex ? bytesToHex(bytes) : bytesToBase64(bytes);
+/** How a result is written. */
+export const encodeBytes = (bytes: Uint8Array, format: RawFormat): string => encodeAs(bytes, format);
+
+const formatName = (format: RawFormat) => CODECS[format].label.toLowerCase();
+const listOf = (names: string[]) => names.length < 3 ? names.join(' or ') : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
 
 /** A key pasted as PEM, OpenSSH or JWK carries its own format. */
 function decodeStructuredKey(field: 'publicKey' | 'privateKey', text: string): Uint8Array {
@@ -68,33 +77,47 @@ function decodeStructuredKey(field: 'publicKey' | 'privateKey', text: string): U
 }
 
 /**
- * Decodes a key or signature written in hex or in base64, throwing an InputError that says what is wrong with it.
- *
- * The encoding is not asked for, the text tells. A valid size in hex is 64 or 128 characters, in base64 43, 44, 86 or 88,
- * so a text cannot be valid under both readings. A text made of hex digits only is read as hex, even when it would also
- * decode as base64 of another size: that is a truncated hex key (a real base64 key is never made of hex digits only), and
- * it deserves "expected 32 bytes, got 21" rather than being taken for a different key.
+ * Decodes a key or signature, throwing an InputError that says what is wrong with it. The format is not asked for, the text
+ * tells (see readings() in codecs.ts): a key or signature has one of a few sizes, and in almost every case only one reading of
+ * the text has such a size. When two do, the text is ambiguous and the InputError lists the formats to pick from; `forced`
+ * is the pick.
  */
-function decodeField(field: Exclude<Field, 'message'>, raw: string | null | undefined): Uint8Array {
+function decodeField(field: Exclude<Field, 'message'>, raw: string | null | undefined, forced?: RawFormat): Uint8Array {
     const label = LABELS[field];
     if (!(raw ?? '').trim()) throw new InputError(field, `${label} is required.`);
     if (field !== 'signature' && isStructuredKey(raw!)) return decodeStructuredKey(field, raw!);
 
-    // tolerate line breaks and spaces coming from a paste
-    const value = raw!.replace(/\s+/g, '');
     const expected = `${label}: expected ${EXPECTED[field]}`;
+    const fits = (bytes: Uint8Array) => LENGTHS[field].includes(bytes.length);
 
-    if (/^[0-9a-f]+$/i.test(value)) {
-        const bytes = parseHex(value);
-        if (!bytes) throw new InputError(field, `${label} is not valid hex: it has an odd number of digits (${value.length}).`);
-        if (!LENGTHS[field].includes(bytes.length)) throw new InputError(field, `${expected}, got ${bytes.length} (read as hex).`);
+    if (forced) {
+        const text = forced === 'bytes' ? raw! : raw!.replace(/\s+/g, '');
+        const bytes = CODECS[forced].decode(text);
+        if (!bytes) throw new InputError(field, `${label} is not valid ${formatName(forced)}.`);
+        if (!fits(bytes)) throw new InputError(field, `${expected}, got ${bytes.length} (read as ${formatName(forced)}).`);
         return bytes;
     }
 
-    const bytes = parseBase64(value);
-    if (!bytes) throw new InputError(field, `${label} is not valid hex or base64.`);
-    if (!LENGTHS[field].includes(bytes.length)) throw new InputError(field, `${expected}, got ${bytes.length} (read as base64).`);
-    return bytes;
+    const found = readings(raw!);
+    const matching = found.filter((reading) => fits(reading.bytes));
+    if (matching.length === 1) return matching[0].bytes;
+    if (matching.length > 1) {
+        const formats = matching.map((reading) => reading.format);
+        throw new InputError(field, `${label}: this text could be ${listOf(formats.map(formatName))}: pick the format.`, formats);
+    }
+
+    // nothing has the right size: say what was found
+    const value = raw!.replace(/\s+/g, '');
+    if (found.length === 0) {
+        if (/^[0-9a-f]+$/i.test(value)) {
+            throw new InputError(field, `${label} is not valid hex: it has an odd number of digits (${value.length}).`);
+        }
+        throw new InputError(field, `${label} is not in a recognised format (hex, base64, base58, base32 or a list of bytes).`);
+    }
+    if (found.length === 1) {
+        throw new InputError(field, `${expected}, got ${found[0].bytes.length} (read as ${formatName(found[0].format)}).`);
+    }
+    throw new InputError(field, `${expected}, got ${listOf(found.map((r) => `${r.bytes.length} as ${formatName(r.format)}`))}.`);
 }
 
 /** The bytes of the message, which can be plain text (UTF-8) or already encoded as hex / base64. */
@@ -125,6 +148,7 @@ class VerifyEd25519 {
     publicKey: string | null;
     privateKey: string | null;
     messageFormat: MessageFormat;
+    formats: FormatOverrides;
 
     constructor(
         message: string,
@@ -132,9 +156,11 @@ class VerifyEd25519 {
         publicKey: string | null,
         privateKey: string | null,
         messageFormat: MessageFormat = MessageFormat.Text,
+        formats: FormatOverrides = {},
     ) {
         this.message = message;
         this.messageFormat = messageFormat;
+        this.formats = formats;
         this.signature = signature;
         this.publicKey = publicKey;
         this.privateKey = privateKey;
@@ -146,13 +172,27 @@ class VerifyEd25519 {
         for (const field of fields) {
             try {
                 if (field === 'message') decodeMessage(this.message, this.messageFormat);
-                else decodeField(field, this[field]);
+                else decodeField(field, this[field], this.formats[field]);
             } catch (error) {
                 if (!(error instanceof InputError)) throw error;
                 errors[field] = error.message;
             }
         }
         return errors;
+    }
+
+    /** The formats to pick from, for each of the fields whose text can be read in several. */
+    choices(fields: Field[]): Partial<Record<Field, RawFormat[]>> {
+        const found: Partial<Record<Field, RawFormat[]>> = {};
+        for (const field of fields) {
+            if (field === 'message') continue;
+            try {
+                decodeField(field, this[field], this.formats[field]);
+            } catch (error) {
+                if (error instanceof InputError && error.choices) found[field] = error.choices;
+            }
+        }
+        return found;
     }
 
     /** Resolves to false for a wrong signature; rejects with an InputError for malformed input. */
@@ -165,8 +205,8 @@ class VerifyEd25519 {
      * Only the strict RFC 8032 / FIPS 186-5 rules make a signature 'valid' (noble defaults to ZIP215).
      */
     async verdict(): Promise<Verdict> {
-        const signature = decodeField('signature', this.signature);
-        const publicKey = decodeField('publicKey', this.publicKey);
+        const signature = decodeField('signature', this.signature, this.formats.signature);
+        const publicKey = decodeField('publicKey', this.publicKey, this.formats.publicKey);
         const message = decodeMessage(this.message, this.messageFormat);
 
         const verifies = async (zip215: boolean) => {
@@ -184,7 +224,7 @@ class VerifyEd25519 {
 
     /** The signature as raw bytes; sign() writes it in the encoding of your choice. */
     async signBytes(): Promise<Uint8Array> {
-        const seed = seedOf(decodeField('privateKey', this.privateKey));
+        const seed = seedOf(decodeField('privateKey', this.privateKey, this.formats.privateKey));
         const message = decodeMessage(this.message, this.messageFormat);
         return ed.signAsync(message, seed);
     }
@@ -195,7 +235,7 @@ class VerifyEd25519 {
 
     /** The public key of the private key, as raw bytes. */
     async getPublicKeyBytes(): Promise<Uint8Array> {
-        return ed.getPublicKeyAsync(seedOf(decodeField('privateKey', this.privateKey)));
+        return ed.getPublicKeyAsync(seedOf(decodeField('privateKey', this.privateKey, this.formats.privateKey)));
     }
 
     async getPublicKey(encoding: SignEncoding): Promise<string> {

@@ -201,10 +201,10 @@ describe('Pasted keys used by the signature code', () => {
     it('still reports plain hex and base64 problems', () => {
         const errors = new VerifyEd25519('', 'zz!', 'abc', null).validate(['publicKey', 'signature']);
         expect(errors.publicKey).toBe('Public key is not valid hex: it has an odd number of digits (3).');
-        expect(errors.signature).toBe('Signature is not valid hex or base64.');
+        expect(errors.signature).toBe('Signature is not in a recognised format (hex, base64, base58, base32 or a list of bytes).');
         // a signature is never read as PEM / JWK
         expect(new VerifyEd25519('', '{"kty":"OKP"}', null, null).validate(['signature']).signature)
-            .toBe('Signature is not valid hex or base64.');
+            .toBe('Signature is not in a recognised format (hex, base64, base58, base32 or a list of bytes).');
     });
 
     it('rejects with an InputError on the right field when a rejected key is used', async () => {

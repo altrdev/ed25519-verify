@@ -1,6 +1,8 @@
 import type { ComponentChildren } from 'preact';
 import { useId, useState } from 'preact/hooks';
+import { CODECS } from './codecs';
 import CopyButton from './CopyButton';
+import type { RawFormat } from './enum';
 import { Icon } from './icons';
 
 interface FieldProps {
@@ -15,6 +17,9 @@ interface FieldProps {
     error?: string;
     /** neutral note under the field (hidden while there is an error) */
     hint?: string;
+    /** formats the pasted text can be read in, when it is ambiguous: shown as buttons under the error */
+    choices?: RawFormat[];
+    onChoose?: (format: RawFormat) => void;
     /** extra buttons on the label row */
     actions?: ComponentChildren;
     /** copy button on the label row */
@@ -29,7 +34,7 @@ interface FieldProps {
 }
 
 export default function Field({
-    label, value, rows = 3, growWithContent, disabled, placeholder, error, hint, actions, copyable, secret,
+    label, value, rows = 3, growWithContent, disabled, placeholder, error, hint, choices, onChoose, actions, copyable, secret,
     revealed: revealedProp, onRevealedChange, onInput, onChange,
 }: FieldProps) {
     const id = useId();
@@ -82,6 +87,15 @@ export default function Field({
                 onChange={(e) => onChange?.(e.currentTarget.value)}
             />
             {error && <p class="field-error" id={errorId} role="alert">{error}</p>}
+            {error && choices && choices.length > 0 && (
+                <div class="field-choices">
+                    {choices.map((format) => (
+                        <button type="button" class="chip" key={format} onClick={() => onChoose?.(format)}>
+                            Read as {CODECS[format].label.toLowerCase()}
+                        </button>
+                    ))}
+                </div>
+            )}
             {hint && !error && <p class="field-hint">{hint}</p>}
         </div>
     );
