@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
+import { createPublicKey, verify as nodeVerify } from 'node:crypto';
 import { chmodSync, readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { collectProblems, panel, pickFormat, RFC } from './helpers';
+import { collectProblems, JWS, panel, pickFormat, RFC } from './helpers';
 
 test.describe('verify and sign', () => {
     test('verifies a signature of the RFC 8032 vectors, and rejects a changed one', async ({ page }) => {
@@ -214,5 +215,50 @@ test.describe('key files', () => {
         await pickFormat(page, 'Public key format', 'openssh');
         const shown = await panel(page).getByRole('textbox', { name: 'Deduced Public key' }).inputValue();
         expect(derived.stdout.trim().split(' ').slice(0, 2).join(' ')).toBe(shown.trim());
+    });
+});
+
+test.describe('signed formats: JWS / JWT', () => {
+    test('verifies the token of RFC 8037 and shows what it contains', async ({ page }) => {
+        const problems = collectProblems(page);
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByLabel('Token', { exact: true }).fill(JWS.token);
+        await panel(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
+        await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(panel(page).getByText('Signature is valid')).toBeVisible();
+        await expect(panel(page).getByRole('region', { name: 'Token contents' })).toContainText('Example of Ed25519 signing');
+        expect(problems).toEqual([]);
+    });
+
+    test('refuses an unsigned token instead of calling it valid', async ({ page }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByLabel('Token', { exact: true }).fill('eyJhbGciOiJub25lIn0.e30.');
+        await panel(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
+        await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(panel(page).getByText(/not signed at all/)).toBeVisible();
+        await expect(panel(page).getByText('Signature is valid')).toHaveCount(0);
+    });
+
+    test('a token made here is verified by Node crypto, which knows nothing about this code', async ({ page }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'Create a token' }).click();
+        await panel(page).getByLabel('Private key', { exact: true }).fill(JWS.privateKeyHex);
+        await panel(page).getByLabel('Payload', { exact: true }).fill('{"sub":"ada","name":"Zoë"}');
+        await panel(page).getByRole('button', { name: 'Sign', exact: true }).click();
+        const token = (await panel(page).locator('.result').innerText()).trim();
+        expect(token.split('.')).toHaveLength(3);
+
+        const [header, payload, signature] = token.split('.');
+        const jwk = JSON.parse(
+            await panel(page)
+                .getByRole('textbox', { name: /Public key to verify it/ })
+                .inputValue(),
+        );
+        const key = createPublicKey({ key: jwk, format: 'jwk' });
+        expect(nodeVerify(null, Buffer.from(`${header}.${payload}`), key, Buffer.from(signature, 'base64url'))).toBe(true);
+        expect(JSON.parse(Buffer.from(header, 'base64url').toString())).toEqual({ alg: 'EdDSA', typ: 'JWT' });
     });
 });

@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
-import { panel, pickFormat, RFC } from './helpers';
+import { JWS, panel, pickFormat, RFC } from './helpers';
 
 // WCAG 2.1 A and AA plus axe's best practices, in both themes, with each kind of content on screen.
 const check = async (page: Page) => {
@@ -77,6 +77,29 @@ for (const theme of ['light', 'dark'] as const) {
             await panel(page).getByRole('button', { name: 'Load example' }).click();
             await panel(page).getByRole('button', { name: 'Download private key' }).click();
             await expect(panel(page).getByRole('status')).toBeVisible();
+            await check(page);
+        });
+
+        test('signed formats, a token verified', async ({ page }) => {
+            await page.getByRole('tab', { name: 'Signed formats' }).click();
+            await panel(page).getByLabel('Token', { exact: true }).fill(JWS.token);
+            await panel(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
+            await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(panel(page).getByRole('region', { name: 'Token contents' })).toBeVisible();
+            await check(page);
+        });
+
+        test('signed formats, a token with an error, and creating one', async ({ page }) => {
+            await page.getByRole('tab', { name: 'Signed formats' }).click();
+            await panel(page).getByLabel('Token', { exact: true }).fill('a.b');
+            await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(panel(page).getByText(/three parts/)).toBeVisible();
+            await check(page);
+            await panel(page).getByRole('button', { name: 'Create a token' }).click();
+            await panel(page).getByLabel('Private key', { exact: true }).fill(JWS.privateKeyHex);
+            await panel(page).getByLabel('Payload', { exact: true }).fill('{"sub":"ada"}');
+            await panel(page).getByRole('button', { name: 'Sign', exact: true }).click();
+            await expect(panel(page).locator('.result')).not.toBeEmpty();
             await check(page);
         });
 

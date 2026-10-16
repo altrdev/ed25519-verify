@@ -297,3 +297,12 @@ button.primary:active { transform: translateY(1px); }
 .example-note a { color: inherit; }
 
 .field.dragging textarea { border-style: dashed; background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
+
+.mode-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
+.decoded { margin-top: 4px; color: var(--muted); font-size: 0.9rem; }
+.decoded h2 { margin: 12px 0 4px; font-size: 0.9rem; color: var(--text); }
+.decoded pre { margin: 0; padding: 10px 12px; overflow-x: auto; background: var(--surface-2); border-radius: 10px; color: var(--text); font-size: 0.85rem; white-space: pre-wrap; word-break: break-word; }
+.decoded ul { margin: 8px 0 0; padding-left: 18px; }
+
+.panel { display: flex; flex-direction: column; gap: 18px; }
+.panel[hidden] { display: none; }
