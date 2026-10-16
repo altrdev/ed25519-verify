@@ -1,0 +1,56 @@
+name: Release
+
+# Publishes a GitHub release when a version tag (v1.2.3, v1.2.3-rc.1, ...) is pushed.
+# The release notes are generated from the merged pull requests since the previous tag.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v5
+
+      - name: Check the tag matches package.json 🏷️
+        run: |
+          version="v$(jq -r .version package.json)"
+          if [ "$GITHUB_REF_NAME" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match the version in package.json ($version)"
+            exit 1
+          fi
+
+      - name: Setup Node ⚙️
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install 📦
+        run: npm ci
+
+      - name: Test 🧬
+        run: npm test
+
+      - name: Build 🔧
+        run: npm run build
+
+      - name: Package 🗜️
+        run: |
+          cd dist
+          zip -r "../ed25519-verify-$GITHUB_REF_NAME.zip" .
+
+      - name: Publish release 🚀
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=""
+          # v1.2.3-rc.1 and similar are pre-releases
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then flags="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" "ed25519-verify-$GITHUB_REF_NAME.zip" \
+            --title "$GITHUB_REF_NAME" --generate-notes --verify-tag $flags
