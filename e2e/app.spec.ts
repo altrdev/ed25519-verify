@@ -18,6 +18,21 @@ test.describe('verify and sign', () => {
         expect(problems).toEqual([]);
     });
 
+    test('suggests what may be wrong when a signature does not verify', async ({ page }) => {
+        await page.goto('/');
+        await panel(page).getByLabel('Public key', { exact: true }).fill(RFC.publicKey);
+        // the message "72" is hex, but the selector is left on Text
+        await panel(page).getByLabel('Message', { exact: true }).fill(RFC.messageHex);
+        await panel(page).getByLabel('Signature', { exact: true }).fill(RFC.signature);
+        await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(panel(page).getByText('Signature is wrong')).toBeVisible();
+        await expect(panel(page).getByText('It is valid with the message read as hex (the selector is on Text).')).toBeVisible();
+        // the hint is right: switching the selector makes it valid
+        await panel(page).getByRole('group', { name: 'Message format' }).getByRole('button', { name: 'Hex' }).click();
+        await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(panel(page).getByText('Signature is valid')).toBeVisible();
+    });
+
     test('says what is wrong with an input instead of a wrong signature', async ({ page }) => {
         await page.goto('/');
         await panel(page).getByLabel('Public key', { exact: true }).fill('abcd');

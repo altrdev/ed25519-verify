@@ -5,6 +5,8 @@ import Field from './Field';
 import FormatMenu, { readingFormat, readingHint, readingLabel } from './FormatMenu';
 import { encodePublicKey, isKeyFile } from './keyfiles';
 import MessageFormatSelector from './MessageFormatSelector';
+import type { Hints } from './diagnose';
+import HintList from './HintList';
 import { MessageFormat, type FieldFormat, type RawFormat } from './enum';
 import { shareFragment } from './share';
 import VerifyEd25519, {
@@ -31,6 +33,7 @@ export default function FormVerify(props: Props) {
     const [signature, setSignature] = useState(props.signature ?? '');
     const [publicKey, setPublicKey] = useState(props.publicKey ?? '');
     const [verify, setVerify] = useState<Verdict | undefined>(undefined);
+    const [hints, setHints] = useState<Hints | undefined>(undefined);
     const [messageFormat, setMessageFormat] = useState(props.messageFormat ?? MessageFormat.Text);
     const [errors, setErrors] = useState<FieldErrors>({});
     // when a text can be read in several formats the user picks one; the pick is dropped as soon as the text changes
@@ -91,7 +94,10 @@ export default function FormVerify(props: Props) {
             setVerify(undefined);
             return;
         }
-        setVerify(await ed25519.verdict());
+        const verdict = await ed25519.verdict();
+        // a wrong signature: what usually causes it, when one of those makes it valid
+        setHints(verdict === 'invalid' ? await ed25519.hints() : undefined);
+        setVerify(verdict);
     };
 
     // a share link: the result is the first thing the reader sees
@@ -153,6 +159,7 @@ export default function FormVerify(props: Props) {
 
             {verify === 'valid' && <Banner kind="success">Signature is valid</Banner>}
             {verify === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
+            {verify === 'invalid' && hints && <HintList hints={hints} />}
             {verify === 'permissive-only' && (
                 <Banner kind="warning">
                     Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive rules

@@ -44,6 +44,16 @@ for (const theme of ['light', 'dark'] as const) {
             await check(page);
         });
 
+        test('verify tab, wrong signature with hints', async ({ page }) => {
+            // the RFC vector with the message typed as text "r" read as hex: the hint says so
+            await panel(page).getByLabel('Public key', { exact: true }).fill(RFC.publicKey);
+            await panel(page).getByLabel('Message', { exact: true }).fill('72');
+            await panel(page).getByLabel('Signature', { exact: true }).fill(RFC.signature);
+            await panel(page).getByRole('button', { name: 'Verify', exact: true }).click();
+            await expect(panel(page).getByRole('region', { name: 'Why it may be wrong' })).toBeVisible();
+            await check(page);
+        });
+
         test('format menu open', async ({ page }) => {
             await panel(page).getByLabel('Public key', { exact: true }).fill(RFC.publicKey);
             await page.getByRole('button', { name: /^Public key format:/ }).click();
