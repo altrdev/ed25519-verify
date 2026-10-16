@@ -216,6 +216,7 @@ a.icon:hover, button.icon:hover { color: var(--text); background: var(--surface-
 .menu button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; font-size: 0.875rem; text-align: left; }
 .menu button:hover, .menu button:focus-visible { background: var(--surface-2); }
 .menu button.current { color: var(--primary); font-weight: 600; background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.menu hr { border: 0; border-top: 1px solid var(--border); margin: 6px 4px; }
 .menu small { color: var(--muted); font-weight: 400; font-size: 0.75rem; }
 
 .actions { display: flex; }

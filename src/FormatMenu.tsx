@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import { CODECS } from './codecs';
-import type { RawFormat } from './enum';
+import type { FieldFormat, RawFormat } from './enum';
+import { KEY_FILE_FORMATS, keyFileOf, KEY_FILE_LABELS } from './keyfiles';
 import { Icon } from './icons';
 import type { FieldReading } from './signature';
 
@@ -15,9 +16,17 @@ const EXAMPLES: Record<RawFormat, string> = {
     bytes: '[0, 255, 16…]',
 };
 
+const KEY_FILE_EXAMPLES = {
+    public: { pem: 'BEGIN PUBLIC KEY', openssh: 'ssh-ed25519 AAAA…', jwk: '{"kty":"OKP","x"…}' },
+    private: { pem: 'BEGIN PRIVATE KEY', openssh: 'BEGIN OPENSSH PRIVATE KEY', jwk: '{"kty":"OKP","d"…}' },
+};
+
 /** Short name of what a field holds, for the button: "Base58", "PEM"... */
 export const readingLabel = (reading: FieldReading): string =>
     reading.structured ? reading.structured.split(' ')[0] : CODECS[reading.format!].label;
+
+/** The item of the menu that matches what a field holds. */
+export const readingFormat = (reading: FieldReading): FieldFormat => (reading.structured ? keyFileOf(reading.structured) : reading.format!);
 
 /** The line under a field once its text is recognised: "Detected: base58 · 32 bytes". */
 export function readingHint(reading: FieldReading | null): string | undefined {
@@ -31,15 +40,17 @@ interface Props {
     /** what the button shows, e.g. "Base58"; "Auto" when there is nothing to detect */
     label: string;
     /** the format to tick in the list */
-    current: RawFormat | null;
+    current: FieldFormat | null;
+    /** what the field holds: a key can be written as a key file too, a signature cannot */
+    kind: 'public' | 'private' | 'signature';
     /** accessible name, e.g. "Public key format" */
     name: string;
     disabled?: boolean;
-    onSelect: (format: RawFormat) => void;
+    onSelect: (format: FieldFormat) => void;
 }
 
 /** The format of a field. Picking one rewrites the text (an input) or changes how the result is written (an output). */
-export default function FormatMenu({ label, current, name, disabled, onSelect }: Props) {
+export default function FormatMenu({ label, current, kind, name, disabled, onSelect }: Props) {
     const [open, setOpen] = useState(false);
     const root = useRef<HTMLDivElement>(null);
     const menuId = useId();
@@ -65,6 +76,24 @@ export default function FormatMenu({ label, current, name, disabled, onSelect }:
         document.addEventListener('mousedown', onPointerDown);
         return () => document.removeEventListener('mousedown', onPointerDown);
     }, [open]);
+
+    const item = (format: FieldFormat, text: string, example: string) => (
+        <button
+            type="button"
+            role="menuitemradio"
+            aria-checked={format === current}
+            class={format === current ? 'current' : ''}
+            key={format}
+            data-format={format}
+            onClick={() => {
+                close(true);
+                onSelect(format);
+            }}
+        >
+            <span>{text} <small>{example}</small></span>
+            {format === current && <Icon name="check" size={16} />}
+        </button>
+    );
 
     const onMenuKeyDown = (event: KeyboardEvent) => {
         const all = items();
@@ -101,23 +130,14 @@ export default function FormatMenu({ label, current, name, disabled, onSelect }:
             {open && (
                 <div class="menu" id={menuId} role="menu" aria-label={name} onKeyDown={onMenuKeyDown}>
                     <h4 role="presentation">Encodings</h4>
-                    {ORDER.map((format) => (
-                        <button
-                            type="button"
-                            role="menuitemradio"
-                            aria-checked={format === current}
-                            class={format === current ? 'current' : ''}
-                            key={format}
-                            data-format={format}
-                            onClick={() => {
-                                close(true);
-                                onSelect(format);
-                            }}
-                        >
-                            <span>{CODECS[format].label} <small>{EXAMPLES[format]}</small></span>
-                            {format === current && <Icon name="check" size={16} />}
-                        </button>
-                    ))}
+                    {ORDER.map((format) => item(format, CODECS[format].label, EXAMPLES[format]))}
+                    {kind !== 'signature' && (
+                        <>
+                            <hr role="separator" />
+                            <h4 role="presentation">Key files</h4>
+                            {KEY_FILE_FORMATS.map((format) => item(format, KEY_FILE_LABELS[format], KEY_FILE_EXAMPLES[kind][format]))}
+                        </>
+                    )}
                 </div>
             )}
         </div>

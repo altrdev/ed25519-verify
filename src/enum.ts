@@ -14,3 +14,9 @@ export enum MessageFormat {
     Hex = 'hex',
     Base64 = 'base64'
 }
+
+/** Key files: a container that carries the key and says what it is (see keyfiles.ts). Only for the public and private key. */
+export type KeyFileFormat = 'pem' | 'openssh' | 'jwk';
+
+/** Everything the menu of a key can offer: a plain notation of the bytes, or a key file. */
+export type FieldFormat = RawFormat | KeyFileFormat;

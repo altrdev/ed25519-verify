@@ -63,7 +63,7 @@ one click settles it. The choice is dropped as soon as you edit the text.
 recognised as, and picking another format **rewrites the field in that format**: the same bytes, written another way, so the
 app doubles as a converter (a PEM public key to hex, a base58 signature to base64, a keypair file to a seed...). In the
 fields that are results (the signature, a generated or deduced key) the menu chooses how they are written. The choice is
-remembered for each field. The message has its own Text / Hex / Base64 selector (a text cannot tell "abcd" the string
+remembered for each field. Key fields also have a **Key files** group: PEM (PKCS#8 / SPKI), OpenSSH and JWK, so a hex seed can be exported as a `.pem`, an `id_ed25519` file or a JWK (and *Generate* writes a new pair that way). The message has its own Text / Hex / Base64 selector (a text cannot tell "abcd" the string
 from "abcd" the two bytes), so you can sign and verify binary data (hashes, already encoded payloads) too.
 
 ## Privacy

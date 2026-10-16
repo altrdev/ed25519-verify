@@ -1,9 +1,10 @@
 import { useState } from 'preact/hooks';
 import Banner from './Banner';
 import Field from './Field';
-import FormatMenu, { readingHint, readingLabel } from './FormatMenu';
+import FormatMenu, { readingFormat, readingHint, readingLabel } from './FormatMenu';
+import { encodePublicKey, isKeyFile } from './keyfiles';
 import MessageFormatSelector from './MessageFormatSelector';
-import { MessageFormat, type RawFormat } from './enum';
+import { MessageFormat, type FieldFormat, type RawFormat } from './enum';
 import VerifyEd25519, { encodeBytes, inspectField, type Field as FieldName, type FieldErrors, type FieldReading, type FormatOverrides, type Verdict } from './signature';
 
 interface Props {
@@ -28,20 +29,24 @@ export default function FormVerify(props: Props) {
     const signatureReading = inspectField('signature', signature, formats.signature);
 
     /** Picking a format rewrites the text in that format: the same bytes, written another way. */
-    const convert = (field: 'publicKey' | 'signature', reading: FieldReading | null, format: RawFormat) => {
+    const convert = (field: 'publicKey' | 'signature', reading: FieldReading | null, format: FieldFormat) => {
         if (!reading) return;
-        (field === 'publicKey' ? setPublicKey : setSignature)(encodeBytes(reading.bytes, format));
+        if (field === 'publicKey') setPublicKey(encodePublicKey(reading.bytes.slice(0, 32), format));
+        else if (!isKeyFile(format)) setSignature(encodeBytes(reading.bytes, format));
+        else return;
         setVerify(undefined);
         setErrors((current) => ({ ...current, [field]: undefined }));
         setChoices((current) => ({ ...current, [field]: undefined }));
-        setFormats((current) => ({ ...current, [field]: format }));   // the new text is read as picked, never asked about
+        // the new text is read as picked, never asked about (key files are recognised by themselves)
+        setFormats((current) => ({ ...current, [field]: isKeyFile(format) ? undefined : format }));
     };
 
     const formatMenu = (field: 'publicKey' | 'signature', reading: FieldReading | null, name: string) => (
         <FormatMenu
             name={name}
+            kind={field === 'publicKey' ? 'public' : 'signature'}
             label={reading ? readingLabel(reading) : 'Auto'}
-            current={reading?.format ?? null}
+            current={reading ? readingFormat(reading) : null}
             disabled={!reading}
             onSelect={(format) => convert(field, reading, format)}
         />

@@ -51,6 +51,7 @@ src/
   signature.ts      all the cryptography, input parsing and validation (no UI)
   codecs.ts         hex, base64, base58, base32 and byte-array codecs, and how a pasted text can be read
   keyformats.ts     parsers for keys pasted as PEM (PKCS#8 / SPKI), OpenSSH or JWK (no UI, no dependencies)
+  keyfiles.ts       the opposite direction: writes keys as PEM, OpenSSH or JWK (checked byte for byte against OpenSSL / ssh-keygen)
   FormatMenu.tsx    the format menu of a key / signature field (converts the text, or picks how a result is written)
   bytes.ts          hex and base64 helpers
   store.ts          theme and encoding preferences (signals, persisted in localStorage)

@@ -1,6 +1,7 @@
 import { signal, effect } from '@preact/signals';
 import { CODECS } from './codecs';
-import type { RawFormat } from './enum';
+import type { FieldFormat, RawFormat } from './enum';
+import { isKeyFile } from './keyfiles';
 
 export type Theme = 'light' | 'dark';
 
@@ -37,15 +38,18 @@ effect(() => {
 
 export type FormattedField = 'publicKey' | 'privateKey' | 'signature';
 const FORMATTED_FIELDS: FormattedField[] = ['publicKey', 'privateKey', 'signature'];
-const isFormat = (value: unknown): value is RawFormat => typeof value === 'string' && value in CODECS;
+const isRawFormat = (value: unknown): value is RawFormat => typeof value === 'string' && value in CODECS;
+/** A key can be written as a key file (PEM, OpenSSH, JWK) too; a signature only as plain notation. */
+const isFormatOf = (field: FormattedField, value: unknown): value is FieldFormat =>
+    isRawFormat(value) || (field !== 'signature' && typeof value === 'string' && isKeyFile(value as FieldFormat));
 
-function loadFormats(): Record<FormattedField, RawFormat> {
+function loadFormats(): Record<FormattedField, FieldFormat> {
     // earlier versions had a single choice, hex or base64, for everything
     const base: RawFormat = read('encoding') === 'hex' ? 'hex' : 'base64';
-    const formats: Record<FormattedField, RawFormat> = { publicKey: base, privateKey: base, signature: base };
+    const formats: Record<FormattedField, FieldFormat> = { publicKey: base, privateKey: base, signature: base };
     try {
         const saved = JSON.parse(read('formats') ?? '{}');
-        for (const field of FORMATTED_FIELDS) if (isFormat(saved?.[field])) formats[field] = saved[field];
+        for (const field of FORMATTED_FIELDS) if (isFormatOf(field, saved?.[field])) formats[field] = saved[field];
     } catch {
         // unreadable value: keep the defaults
     }
@@ -54,9 +58,10 @@ function loadFormats(): Record<FormattedField, RawFormat> {
 
 const initial = loadFormats();
 export const formatPreference = {
-    publicKey: signal<RawFormat>(initial.publicKey),
-    privateKey: signal<RawFormat>(initial.privateKey),
-    signature: signal<RawFormat>(initial.signature),
+    publicKey: signal<FieldFormat>(initial.publicKey),
+    privateKey: signal<FieldFormat>(initial.privateKey),
+    // never a key file: a signature has no container (the signature formats come later)
+    signature: signal<RawFormat>(initial.signature as RawFormat),
 };
 
 effect(() => {
