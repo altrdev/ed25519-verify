@@ -507,7 +507,7 @@
         "sizes": "16x16"
       }
   ],
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#fffefe",
   "theme_color": "#6200EE"
