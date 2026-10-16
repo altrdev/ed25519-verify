@@ -1,28 +1,25 @@
+import Segmented from './Segmented';
 import { encodingDefault } from './store';
 import { SignEncoding } from './enum';
 
-export default function SelectorEncoding({ reset = () => {} }: { reset?: () => void }) {
-    const select = (encoding: SignEncoding) => {
-        reset();
-        encodingDefault.value = encoding;
-    };
+const OPTIONS = [
+    { value: SignEncoding.Hex, label: 'Hex' },
+    { value: SignEncoding.Base64, label: 'Base64' },
+];
 
+export default function SelectorEncoding({ reset = () => {} }: { reset?: () => void }) {
     return (
         <div class="encoding">
-            <span class="encoding-label" id="encoding-label">Encoding</span>
-            <div class="segmented small" role="group" aria-labelledby="encoding-label">
-                {[SignEncoding.Hex, SignEncoding.Base64].map((encoding) => (
-                    <button
-                        type="button"
-                        key={encoding}
-                        class={encodingDefault.value === encoding ? 'active' : ''}
-                        aria-pressed={encodingDefault.value === encoding}
-                        onClick={() => select(encoding)}
-                    >
-                        {encoding === SignEncoding.Hex ? 'Hex' : 'Base64'}
-                    </button>
-                ))}
-            </div>
+            <span class="encoding-label" id="encoding-label">Keys and signature encoding</span>
+            <Segmented
+                options={OPTIONS}
+                value={encodingDefault.value}
+                labelledBy="encoding-label"
+                onChange={(encoding) => {
+                    reset();
+                    encodingDefault.value = encoding;
+                }}
+            />
         </div>
     );
 }

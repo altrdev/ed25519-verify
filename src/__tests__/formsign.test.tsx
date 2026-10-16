@@ -1,7 +1,10 @@
-import { render, screen, fireEvent } from '@testing-library/preact';
+import { render, screen, fireEvent, within } from '@testing-library/preact';
 import { encodingDefault } from '../store';
 import { SignEncoding } from '../enum';
 import FormSign from '../FormSign';
+
+const messageFormat = (name: string) =>
+    within(screen.getByRole('group', { name: 'Message format' })).getByRole('button', { name });
 
 const privateKey = "Au+pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo=";
 const expectedSignature = "9as6qIjGsKt5L+m5vcJhMrN007oYMAQk4yUtZBeVQ3LRXWa99R2iStrXND9UWqkSeCfiKB55aO+aUYjMI6XvCQ==";
@@ -60,7 +63,7 @@ describe('FormSign component', () => {
         render(<FormSign message="000000001" privateKey={privateKey} />);
         fireEvent.click(screen.getByText('Sign'));
         await screen.findByRole('alert');
-        fireEvent.input(screen.getByLabelText('Message (Plain text)'), { target: { value: 'other' } });
+        fireEvent.input(screen.getByLabelText('Message'), { target: { value: 'other' } });
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
@@ -77,7 +80,7 @@ describe('FormSign component', () => {
         const publicKey = screen.getByLabelText('Deduced Public key') as HTMLTextAreaElement;
         expect(publicKey.value).toMatch(/^[A-Za-z0-9+/]{43}=$/);
 
-        fireEvent.input(screen.getByLabelText('Message (Plain text)'), { target: { value: 'hi' } });
+        fireEvent.input(screen.getByLabelText('Message'), { target: { value: 'hi' } });
         fireEvent.click(screen.getByText('Sign'));
         expect((await screen.findByRole('alert')).textContent).toContain('Signature:');
     });
@@ -109,5 +112,41 @@ describe('FormSign component', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Copy signature' }));
         expect(writeText).toHaveBeenCalledWith(expectedSignature);
         expect(await screen.findByText('Copied')).toBeInTheDocument();
+    });
+
+    it('signs a message given as hex or base64 exactly like the same text', async () => {
+        // "000000001" as UTF-8 bytes
+        const asHex = '303030303030303031';
+        const asBase64 = 'MDAwMDAwMDAx';
+        for (const [format, value] of [['Hex', asHex], ['Base64', asBase64]]) {
+            const { unmount } = render(<FormSign privateKey={privateKey} />);
+            fireEvent.click(messageFormat(format));
+            fireEvent.input(screen.getByLabelText('Message'), { target: { value } });
+            fireEvent.click(screen.getByText('Sign'));
+            expect((await screen.findByRole('alert')).textContent).toContain(expectedSignature);
+            unmount();
+        }
+    });
+
+    it('explains a message that is not valid in the selected format, and clears it when the format changes', async () => {
+        render(<FormSign privateKey={privateKey} message="not hex!" />);
+        fireEvent.click(messageFormat('Hex'));
+        fireEvent.click(screen.getByText('Sign'));
+        expect(await screen.findByText('Message is not valid hex.')).toBeInTheDocument();
+        expect(screen.getByLabelText('Message')).toHaveAttribute('aria-invalid', 'true');
+        expect(screen.queryByText('Signature:')).not.toBeInTheDocument();
+
+        fireEvent.click(messageFormat('Text'));
+        expect(screen.queryByText('Message is not valid hex.')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByText('Sign'));
+        expect((await screen.findByRole('alert')).textContent).toContain('Signature:');
+    });
+
+    it('drops a stale signature when the message format changes', async () => {
+        render(<FormSign message="3030" privateKey={privateKey} />);
+        fireEvent.click(screen.getByText('Sign'));
+        await screen.findByRole('alert');
+        fireEvent.click(messageFormat('Hex'));
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 });

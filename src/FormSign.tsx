@@ -3,10 +3,11 @@ import Banner from './Banner';
 import CopyButton from './CopyButton';
 import Field from './Field';
 import { Icon } from './icons';
+import MessageFormatSelector from './MessageFormatSelector';
 import SelectorEncoding from './SelectorEncoding';
 import VerifyEd25519, { generateKeyPair, InputError, type FieldErrors } from './signature';
 import { encodingDefault } from './store';
-import type { SignEncoding } from './enum';
+import { MessageFormat, type SignEncoding } from './enum';
 
 interface Props {
     message?: string;
@@ -19,6 +20,7 @@ export default function FormSign(props: Props) {
     const [privateKey, setPrivateKey] = useState(props.privateKey ?? '');
     const [signature, setSignature] = useState(props.signature ?? '');
     const [publicKey, setPublicKey] = useState('');
+    const [messageFormat, setMessageFormat] = useState(MessageFormat.Text);
     const [revealed, setRevealed] = useState(false);
     const [errors, setErrors] = useState<FieldErrors>({});
     const encoding = encodingDefault.value;
@@ -61,6 +63,18 @@ export default function FormSign(props: Props) {
         setErrors((current) => ({ ...current, ...found }));
     };
 
+    const onMessageInput = (value: string) => {
+        setMessage(value);
+        setSignature('');
+        setErrors((current) => ({ ...current, message: undefined }));
+    };
+
+    const changeMessageFormat = (format: MessageFormat) => {
+        setMessageFormat(format);
+        setSignature('');
+        setErrors((current) => ({ ...current, message: undefined }));
+    };
+
     const generate = async () => {
         const pair = await generateKeyPair(encodingDefault.value);
         derivation.current++;
@@ -71,8 +85,8 @@ export default function FormSign(props: Props) {
     };
 
     const performSign = async () => {
-        const ed25519 = new VerifyEd25519(message, null, null, privateKey);
-        const found = ed25519.validate(encodingDefault.value, ['privateKey']);
+        const ed25519 = new VerifyEd25519(message, null, null, privateKey, messageFormat);
+        const found = ed25519.validate(encodingDefault.value, ['privateKey', 'message']);
         setErrors(found);
         if (Object.keys(found).length > 0) {
             setSignature('');
@@ -82,7 +96,9 @@ export default function FormSign(props: Props) {
             setSignature(await ed25519.sign(encodingDefault.value));
         } catch (error) {
             setSignature('');
-            setErrors({ privateKey: error instanceof InputError ? error.message : 'Signing failed.' });
+            setErrors(
+                error instanceof InputError ? { [error.field]: error.message } : { privateKey: 'Signing failed.' }
+            );
         }
     };
 
@@ -116,13 +132,12 @@ export default function FormSign(props: Props) {
                 placeholder="Insert a private key (or generate one) to deduce it ..."
             />
             <Field
-                label="Message (Plain text)"
+                label="Message"
                 rows={2}
                 value={message}
-                onInput={(value) => {
-                    setMessage(value);
-                    setSignature('');
-                }}
+                error={errors.message}
+                actions={<MessageFormatSelector value={messageFormat} onChange={changeMessageFormat} />}
+                onInput={onMessageInput}
             />
             <div class="actions">
                 <button type="button" class="primary" onClick={performSign}>Sign</button>

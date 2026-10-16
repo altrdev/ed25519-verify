@@ -1,7 +1,7 @@
 import * as ed from 'noble-ed25519';
-import { SignEncoding } from './enum';
+import { MessageFormat, SignEncoding } from './enum';
 
-export type Field = 'publicKey' | 'privateKey' | 'signature';
+export type Field = 'publicKey' | 'privateKey' | 'signature' | 'message';
 export type FieldErrors = Partial<Record<Field, string>>;
 
 /** Malformed input (as opposed to a signature that is well formed but does not match). */
@@ -16,19 +16,20 @@ export class InputError extends Error {
 }
 
 const LABELS: Record<Field, string> = {
+    message: 'Message',
     publicKey: 'Public key',
     privateKey: 'Private key',
     signature: 'Signature',
 };
 
-const LENGTHS: Record<Field, number[]> = {
+const LENGTHS: Record<Exclude<Field, 'message'>, number[]> = {
     publicKey: [32],
     signature: [64],
     // 64 bytes is the NaCl/libsodium form (32-byte seed followed by the public key)
     privateKey: [32, 64],
 };
 
-const EXPECTED: Record<Field, string> = {
+const EXPECTED: Record<Exclude<Field, 'message'>, string> = {
     publicKey: '32 bytes',
     signature: '64 bytes',
     privateKey: '32 bytes (or 64 in NaCl format)',
@@ -42,8 +43,6 @@ const hexToBytes = (hex: string): Uint8Array => {
     for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
     return bytes;
 };
-
-const utf8ToHex = (text: string): string => bytesToHex(new TextEncoder().encode(text));
 
 function parseHex(value: string): Uint8Array | null {
     return /^[0-9a-f]+$/i.test(value) && value.length % 2 === 0 ? hexToBytes(value) : null;
@@ -71,7 +70,7 @@ const encode = (bytes: Uint8Array, encoding: SignEncoding): string =>
 const encodingName = (encoding: SignEncoding) => (encoding === SignEncoding.Hex ? 'hex' : 'base64');
 
 /** Decodes a key or signature, throwing an InputError that says what is wrong with it. */
-function decodeField(field: Field, raw: string | null | undefined, encoding: SignEncoding): Uint8Array {
+function decodeField(field: Exclude<Field, 'message'>, raw: string | null | undefined, encoding: SignEncoding): Uint8Array {
     const label = LABELS[field];
     // tolerate line breaks and spaces coming from a paste
     const value = (raw ?? '').replace(/\s+/g, '');
@@ -92,6 +91,20 @@ function decodeField(field: Field, raw: string | null | undefined, encoding: Sig
     return bytes;
 }
 
+/** The bytes of the message, which can be plain text (UTF-8) or already encoded as hex / base64. */
+function decodeMessage(raw: string | null | undefined, format: MessageFormat): Uint8Array {
+    const text = raw ?? '';
+    if (format === MessageFormat.Text) return new TextEncoder().encode(text);
+
+    // an empty message is a valid message; whitespace from a paste is tolerated
+    const value = text.replace(/\s+/g, '');
+    if (!value) return new Uint8Array(0);
+
+    const bytes = format === MessageFormat.Hex ? parseHex(value) : parseBase64(value);
+    if (!bytes) throw new InputError('message', `Message is not valid ${format === MessageFormat.Hex ? 'hex' : 'base64'}.`);
+    return bytes;
+}
+
 /** The seed of a private key, whether it was given as 32 bytes or in the 64-byte NaCl form. */
 const seedOf = (key: Uint8Array): Uint8Array => key.slice(0, 32);
 
@@ -106,9 +119,17 @@ class VerifyEd25519 {
     signature: string | null;
     publicKey: string | null;
     privateKey: string | null;
+    messageFormat: MessageFormat;
 
-    constructor(message: string, signature: string | null, publicKey: string | null, privateKey: string | null) {
+    constructor(
+        message: string,
+        signature: string | null,
+        publicKey: string | null,
+        privateKey: string | null,
+        messageFormat: MessageFormat = MessageFormat.Text,
+    ) {
         this.message = message;
+        this.messageFormat = messageFormat;
         this.signature = signature;
         this.publicKey = publicKey;
         this.privateKey = privateKey;
@@ -119,7 +140,8 @@ class VerifyEd25519 {
         const errors: FieldErrors = {};
         for (const field of fields) {
             try {
-                decodeField(field, this[field], encoding);
+                if (field === 'message') decodeMessage(this.message, this.messageFormat);
+                else decodeField(field, this[field], encoding);
             } catch (error) {
                 if (!(error instanceof InputError)) throw error;
                 errors[field] = error.message;
@@ -132,8 +154,9 @@ class VerifyEd25519 {
     async check(encoding: SignEncoding): Promise<boolean> {
         const signature = decodeField('signature', this.signature, encoding);
         const publicKey = decodeField('publicKey', this.publicKey, encoding);
+        const message = decodeMessage(this.message, this.messageFormat);
         try {
-            return await ed.verify(bytesToHex(signature), utf8ToHex(this.message), bytesToHex(publicKey));
+            return await ed.verify(bytesToHex(signature), bytesToHex(message), bytesToHex(publicKey));
         } catch {
             // well formed but not usable (e.g. a public key that is not a point on the curve)
             return false;
@@ -142,7 +165,8 @@ class VerifyEd25519 {
 
     async sign(encoding: SignEncoding): Promise<string> {
         const seed = seedOf(decodeField('privateKey', this.privateKey, encoding));
-        const signature = await ed.sign(utf8ToHex(this.message), bytesToHex(seed));
+        const message = decodeMessage(this.message, this.messageFormat);
+        const signature = await ed.sign(bytesToHex(message), bytesToHex(seed));
         return encode(hexToBytes(signature), encoding);
     }
 

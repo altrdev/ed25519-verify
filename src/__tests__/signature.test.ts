@@ -1,5 +1,5 @@
 import VerifyEd25519, { generateKeyPair, InputError } from '../signature'
-import {SignEncoding} from "../enum";
+import {MessageFormat, SignEncoding} from "../enum";
 
 const publicKey = "u6xMxXSXi/dL9tWPS+qfxiOHMA6c2Czwh/k2hy/wx/U=";
 const base64Of = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
@@ -132,5 +132,46 @@ describe('Generate key pair', function() {
         const a = await generateKeyPair(SignEncoding.Hex);
         const b = await generateKeyPair(SignEncoding.Hex);
         expect(a.privateKey).not.toBe(b.privateKey);
+    })
+})
+
+describe('Message format', function() {
+    const privateKey = "Au+pr7EwTqpNEGOMkz3s5RnDnunOnhDYCT0hjueZIXo=";
+
+    it('should sign hex and base64 messages like the equivalent text', async () => {
+        const text = await new VerifyEd25519("000000001", null, null, privateKey).sign(SignEncoding.Base64);
+        const hex = await new VerifyEd25519("303030303030303031", null, null, privateKey, MessageFormat.Hex).sign(SignEncoding.Base64);
+        const base64 = await new VerifyEd25519("MDAwMDAwMDAx", null, null, privateKey, MessageFormat.Base64).sign(SignEncoding.Base64);
+        expect(hex).toBe(text);
+        expect(base64).toBe(text);
+    })
+
+    it('should round trip binary data that is not valid UTF-8', async () => {
+        const pair = await generateKeyPair(SignEncoding.Hex);
+        const binary = "00ff80fe7f"; // 0x80 and 0xfe cannot be written as text
+        const signed = await new VerifyEd25519(binary, null, null, pair.privateKey, MessageFormat.Hex).sign(SignEncoding.Hex);
+        expect(await new VerifyEd25519(binary, signed, pair.publicKey, null, MessageFormat.Hex).check(SignEncoding.Hex)).toBe(true);
+        expect(await new VerifyEd25519("00ff80fe7e", signed, pair.publicKey, null, MessageFormat.Hex).check(SignEncoding.Hex)).toBe(false);
+    })
+
+    it('should accept an empty message in every format', async () => {
+        for (const format of [MessageFormat.Text, MessageFormat.Hex, MessageFormat.Base64]) {
+            const signed = await new VerifyEd25519("", null, null, privateKey, format).sign(SignEncoding.Base64);
+            expect(signed).toBe(await new VerifyEd25519("", null, null, privateKey).sign(SignEncoding.Base64));
+        }
+    })
+
+    it('should tolerate whitespace and report malformed hex / base64 messages', async () => {
+        const wrapped = new VerifyEd25519("3030 3030\n30303030 31", null, null, privateKey, MessageFormat.Hex);
+        expect(await wrapped.sign(SignEncoding.Base64)).toBe(await new VerifyEd25519("000000001", null, null, privateKey).sign(SignEncoding.Base64));
+
+        const bad = (message: string, format: MessageFormat) =>
+            new VerifyEd25519(message, null, null, privateKey, format).validate(SignEncoding.Base64, ['message']).message;
+        expect(bad("xyz", MessageFormat.Hex)).toBe('Message is not valid hex.');
+        expect(bad("abc", MessageFormat.Hex)).toBe('Message is not valid hex.'); // odd number of digits
+        expect(bad("not base64!", MessageFormat.Base64)).toBe('Message is not valid base64.');
+        expect(bad("anything goes", MessageFormat.Text)).toBeUndefined();
+        await expect(new VerifyEd25519("xyz", null, null, privateKey, MessageFormat.Hex).sign(SignEncoding.Base64))
+            .rejects.toMatchObject({ field: 'message' });
     })
 })

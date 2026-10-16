@@ -21,6 +21,7 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 - **Generate** a random key pair with one click, handy for trying things out.
 - **Clear input errors**: a malformed key or signature is explained next to the field ("expected 32 bytes, got 31",
   "not valid base64", "it looks like hex: switch the encoding") instead of being reported as a wrong signature.
+- Messages as **text, hex or base64**, so binary payloads can be signed and verified as well.
 - Keys and signatures in **hex or base64** (your choice is remembered). Base64 may be URL-safe, unpadded or wrapped over several lines.
 - Private key hidden by default, one-click **copy** for private and public keys and for signatures.
 - Light and dark theme, responsive layout, installable as a **PWA** (assets are precached by a service worker).
@@ -29,12 +30,13 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 
 | Field | Format |
 | --- | --- |
-| Message | Plain text, signed and verified as UTF-8 bytes |
+| Message | Plain text (signed as UTF-8 bytes), or raw bytes written in hex or base64. Empty messages are allowed |
 | Public key | 32 bytes, hex or base64 |
 | Private key | 32-byte seed, hex or base64. The 64-byte NaCl/libsodium form (seed followed by public key) is accepted too: the seed is used |
 | Signature | 64 bytes, hex or base64 |
 
-The Hex / Base64 selector applies to keys and signatures, not to the message.
+The Hex / Base64 selector at the top of each tab applies to keys and signatures. The message has its own
+Text / Hex / Base64 selector, so you can sign and verify binary data (hashes, already encoded payloads) too.
 
 ## Privacy
 
