@@ -14,6 +14,8 @@ export default defineConfig({
         baseURL: 'http://localhost:4173',
         trace: 'retain-on-failure',
         permissions: ['clipboard-read', 'clipboard-write'],
+        // the app fades its banners in: axe must see the settled page, not a frame of the animation (a flaky contrast failure otherwise)
+        reducedMotion: 'reduce',
     },
     projects: [
         {
