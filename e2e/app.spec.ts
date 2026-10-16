@@ -388,3 +388,86 @@ test.describe('signed formats: SSH signatures', () => {
         await expect(panel(other).getByRole('button', { name: 'SSH signature' })).toHaveAttribute('aria-pressed', 'true');
     });
 });
+
+test.describe('signed formats: minisign', () => {
+    const hasMinisign = spawnSync('minisign', ['-v']).error === undefined;
+
+    test('verifies a signature that minisign made, and refuses a changed trusted comment', async ({ page }) => {
+        test.skip(!hasMinisign, 'minisign is not installed');
+        const dir = mkdtempSync(join(tmpdir(), 'e2e-minisign-'));
+        const message = 'a message\nof two lines\n';
+        writeFileSync(join(dir, 'message.txt'), message);
+        expect(spawnSync('minisign', ['-G', '-W', '-f', '-p', join(dir, 'k.pub'), '-s', join(dir, 'k.key')]).status).toBe(0);
+        const signing = spawnSync('minisign', [
+            '-S',
+            '-s',
+            join(dir, 'k.key'),
+            '-m',
+            join(dir, 'message.txt'),
+            '-t',
+            'checked in the page',
+        ]);
+        expect(signing.status, signing.stderr.toString()).toBe(0);
+        const signature = readFileSync(join(dir, 'message.txt.minisig'), 'utf8');
+
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'minisign' }).click();
+        await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
+        await signed(page).getByLabel('Message', { exact: true }).fill(message);
+        await signed(page)
+            .getByLabel('Public key you trust', { exact: true })
+            .fill(readFileSync(join(dir, 'k.pub'), 'utf8'));
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await expect(signed(page).getByRole('region', { name: 'Signature details' })).toContainText('checked in the page');
+
+        await signed(page).getByLabel('Signature', { exact: true }).fill(signature.replace('checked in the page', 'changed after'));
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText(/trusted comment is not the one that was signed/)).toBeVisible();
+
+        await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
+        await signed(page).getByLabel('Message', { exact: true }).fill('a message\nof two lines');
+        await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(signed(page).getByText('Signature is wrong')).toBeVisible();
+        await expect(signed(page).getByText('It is valid with a newline added at the end of the message.')).toBeVisible();
+    });
+
+    test('a signature made in the page, with the public key file it shows, is accepted by minisign -V', async ({ page }) => {
+        test.skip(!hasMinisign, 'minisign is not installed');
+        const dir = mkdtempSync(join(tmpdir(), 'e2e-minisign-'));
+        const message = 'signed in the page, with an accent: è\n';
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'minisign' }).click();
+        await panel(page).getByRole('button', { name: 'Create a signature' }).click();
+        await signed(page).getByLabel('Private key', { exact: true }).fill(RFC.privateKey);
+        await signed(page).getByLabel('Message', { exact: true }).fill(message);
+        await signed(page).getByLabel('Trusted comment (optional)', { exact: true }).fill('from the page');
+        await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
+        const armored = await signed(page).locator('pre.armor').innerText();
+        const publicFile = await signed(page).getByLabel('Public key to verify it', { exact: true }).inputValue();
+
+        writeFileSync(join(dir, 'message.txt'), message);
+        writeFileSync(join(dir, 'message.txt.minisig'), `${armored.trim()}\n`);
+        writeFileSync(join(dir, 'page.pub'), publicFile);
+        const check = spawnSync('minisign', ['-V', '-p', join(dir, 'page.pub'), '-m', join(dir, 'message.txt')], { encoding: 'utf8' });
+        expect(check.status, check.stderr).toBe(0);
+        expect(check.stdout).toContain('Trusted comment: from the page');
+    });
+
+    test('loads the examples, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
+        await page.goto('/');
+        await page.getByRole('tab', { name: 'Signed formats' }).click();
+        await panel(page).getByRole('button', { name: 'minisign' }).click();
+        await signed(page).getByRole('button', { name: 'Load example' }).click();
+        await expect(signed(page).getByText('Signature is valid')).toBeVisible();
+        await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
+        const link = await page.evaluate(() => navigator.clipboard.readText());
+        expect(link).toContain('fmt=minisign');
+        const other = await context.newPage();
+        await other.goto(link);
+        await expect(signed(other).getByText('Signature is valid')).toBeVisible();
+        await expect(panel(other).getByRole('button', { name: 'minisign' })).toHaveAttribute('aria-pressed', 'true');
+    });
+});

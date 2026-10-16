@@ -160,3 +160,43 @@ export const SSHSIG_EXAMPLES: SshsigExample[] = [
         source: 'https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.sshsig',
     },
 ];
+
+export interface MinisignExample extends ExampleInfo {
+    signature: string;
+    /** the key to trust: the content of a minisign `.pub` file */
+    publicKey: string;
+    message: string;
+    trustedComment: string;
+    /** for the Create tab: the key and its id, which make the signature above when signing (only for the hashed form) */
+    privateKey: string;
+    keyId: string;
+}
+
+// made with minisign 0.11 (`minisign -G -W`, `minisign -S`) for a key created for these examples: it protects nothing
+const MINISIGN_EXAMPLE_KEY = {
+    publicKey: 'untrusted comment: minisign public key B74960C202F410C9\nRWTJEPQCwmBJt134g5TvjpQuUaPfSyDKhTo8dp2OlM9YDzgm24kHbykm\n',
+    privateKey: 'f1ac93937869f682a585b20db4be66d84ff090c82f42914e69952c649a32c75e',
+    keyId: 'B74960C202F410C9',
+    message: 'hello world\n',
+};
+
+export const MINISIGN_EXAMPLES: MinisignExample[] = [
+    {
+        title: 'Made by minisign',
+        note: 'The signature of the text "hello world" with a trusted comment, in the form minisign writes by default: it signs the BLAKE2b-512 hash of the message. minisign -V accepts it.',
+        ...MINISIGN_EXAMPLE_KEY,
+        trustedComment: 'timestamp:1700000000\tfile:msg.txt',
+        signature:
+            'untrusted comment: signature from minisign secret key\nRUTJEPQCwmBJt1+ho+eXhWVFgLEF3cIAf1KYknPR+0wnBDrSAOc0dX6/6zfCPVq2btUddi6bxZ+d1ill9L/KIE3hUWANdJywcgo=\ntrusted comment: timestamp:1700000000\tfile:msg.txt\n4Z9h8bxCC1lNqEdCSrAPwD8Of9rHLqWq/JWt7Ckn7S4wg0IhKDcgiISy4mejS5me/EKLlbhptrAN0lTh5AvPAA==\n',
+        source: 'https://jedisct1.github.io/minisign/#signature-format',
+    },
+    {
+        title: 'A legacy signature',
+        note: 'The same text signed with minisign -l, the older form that signs the message itself instead of its hash ("Ed" instead of "ED"). Still accepted by minisign.',
+        ...MINISIGN_EXAMPLE_KEY,
+        trustedComment: 'legacy one',
+        signature:
+            'untrusted comment: signature from minisign secret key\nRWTJEPQCwmBJtx3h7m6cUL7+aIl1v3uuE+mu8hjAfoGsuZH0RJxCCBvNJjuvb0SA5YAZBKq8AD84FGU+Rict3kIaQ2Z2nKuAcgY=\ntrusted comment: legacy one\neSHtuzBqUO+7uYe7nX90XkbRDuPesCjh7edvpj/IJSOHc1YdSfBczgXi2yquCemvjVK1pfKkqCRDT4b7tKMkCA==\n',
+        source: 'https://jedisct1.github.io/minisign/#signature-format',
+    },
+];

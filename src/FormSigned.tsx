@@ -1,15 +1,17 @@
 import { useState } from 'preact/hooks';
 import JwsPanel from './JwsPanel';
+import MinisignPanel from './MinisignPanel';
 import Segmented from './Segmented';
-import type { SharedSshsig, SharedToken } from './share';
+import type { SharedMinisign, SharedSshsig, SharedToken } from './share';
 import SshsigPanel from './SshsigPanel';
 
-type SignedFormat = 'jws' | 'sshsig';
+type SignedFormat = 'jws' | 'sshsig' | 'minisign';
 type Mode = 'verify' | 'create';
 
 const FORMATS: { value: SignedFormat; label: string }[] = [
     { value: 'jws', label: 'JWS / JWT' },
     { value: 'sshsig', label: 'SSH signature' },
+    { value: 'minisign', label: 'minisign' },
 ];
 const MODES: { value: Mode; label: string }[] = [
     { value: 'verify', label: 'Verify a signature' },
@@ -20,11 +22,12 @@ interface Props {
     /** a link to a verification: which format it is for, and what it holds */
     sharedJws?: Partial<SharedToken> | null;
     sharedSshsig?: Partial<SharedSshsig> | null;
+    sharedMinisign?: Partial<SharedMinisign> | null;
 }
 
 /** Signatures in the containers other tools use (a JWT, an SSH signature...): the container is read, the signed bytes are worked out. */
-export default function FormSigned({ sharedJws, sharedSshsig }: Props) {
-    const [format, setFormat] = useState<SignedFormat>(sharedSshsig ? 'sshsig' : 'jws');
+export default function FormSigned({ sharedJws, sharedSshsig, sharedMinisign }: Props) {
+    const [format, setFormat] = useState<SignedFormat>(sharedMinisign ? 'minisign' : sharedSshsig ? 'sshsig' : 'jws');
     const [mode, setMode] = useState<Mode>('verify');
 
     return (
@@ -39,6 +42,9 @@ export default function FormSigned({ sharedJws, sharedSshsig }: Props) {
             </div>
             <div class="panel" hidden={format !== 'sshsig'}>
                 <SshsigPanel mode={mode} initial={sharedSshsig ?? undefined} autoVerify={!!sharedSshsig?.signature} />
+            </div>
+            <div class="panel" hidden={format !== 'minisign'}>
+                <MinisignPanel mode={mode} initial={sharedMinisign ?? undefined} autoVerify={!!sharedMinisign?.signature} />
             </div>
         </section>
     );

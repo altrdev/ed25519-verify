@@ -3,7 +3,7 @@ import FormSigned from './FormSigned';
 import FormSign from './FormSign';
 import FormVerify from './FormVerify';
 import { Icon } from './icons';
-import { parseJwsShare, parseShareFragment, parseSshsigShare } from './share';
+import { parseJwsShare, parseMinisignShare, parseShareFragment, parseSshsigShare } from './share';
 import { theme } from './store';
 
 const TABS = ['Verify signature', 'Sign message', 'Signed formats'];
@@ -25,7 +25,8 @@ export default function App() {
     // a link to a token opens the tab of the signed formats
     const [sharedToken] = useState(() => parseJwsShare(location.hash));
     const [sharedSshsig] = useState(() => parseSshsigShare(location.hash));
-    const [tab, setTab] = useState(sharedToken || sharedSshsig ? 2 : 0);
+    const [sharedMinisign] = useState(() => parseMinisignShare(location.hash));
+    const [tab, setTab] = useState(sharedToken || sharedSshsig || sharedMinisign ? 2 : 0);
     const dark = theme.value === 'dark';
 
     return (
@@ -86,7 +87,7 @@ export default function App() {
                     <FormSign />
                 </div>
                 <div role="tabpanel" hidden={tab !== 2}>
-                    <FormSigned sharedJws={sharedToken} sharedSshsig={sharedSshsig} />
+                    <FormSigned sharedJws={sharedToken} sharedSshsig={sharedSshsig} sharedMinisign={sharedMinisign} />
                 </div>
             </main>
             <footer class="footer">
