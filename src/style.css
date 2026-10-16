@@ -90,7 +90,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   color: var(--on-primary);
 }
 
-button.icon {
+a.icon, button.icon {
   display: grid;
   place-items: center;
   width: 40px;
@@ -101,10 +101,12 @@ button.icon {
   color: var(--muted);
   transition: color 0.15s, background 0.15s;
 }
-button.icon:hover { color: var(--text); background: var(--surface-2); }
+a.icon:hover, button.icon:hover { color: var(--text); background: var(--surface-2); }
+
+.topbar-actions { display: flex; gap: 8px; }
 
 /* layout */
-.container { max-width: 760px; margin: 0 auto; padding: 28px 24px 64px; }
+.container { max-width: 760px; margin: 0 auto; padding: 28px 24px 32px; }
 .lead { margin: 0 0 20px; color: var(--muted); }
 
 /* segmented controls (tabs and encoding) */
@@ -218,13 +220,25 @@ button.primary:active { transform: translateY(1px); }
   user-select: all;
 }
 
+.footer {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 24px 40px;
+  display: flex;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.footer a { color: inherit; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.footer a:hover { color: var(--text); }
+
 @keyframes pop { from { opacity: 0; transform: translateY(-4px); } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
 @media (max-width: 520px) {
-  .topbar-inner, .container { padding-left: 16px; padding-right: 16px; }
+  .topbar-inner, .container, .footer { padding-left: 16px; padding-right: 16px; }
   .brand h1 span { display: none; }
   .segmented { display: flex; }
   .segmented:not(.small) button { flex: 1; padding-left: 8px; padding-right: 8px; }
