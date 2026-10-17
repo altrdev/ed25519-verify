@@ -10,6 +10,9 @@
  * (wrong key type, encrypted, ...) rather than fail with a generic message. This module knows nothing about the UI.
  */
 import { parseBase64 } from './bytes';
+import { looksLikeDidDocument, parseDidDocument } from './did';
+import { JwksError } from './jwks';
+import { entryName, KeyListError, looksLikeKeyList, parseKeyList } from './sshkeys';
 import { detectEcosystem, ECOSYSTEM_LABELS, EcosystemError, parseEcosystemKey } from './ecosystems';
 
 export interface ParsedKey {
@@ -39,15 +42,23 @@ const looksLikeJwk = (text: string) => /^\{\s*("|\})/.test(text);
 /** True when the text looks like PEM, an OpenSSH public key or JSON (a JWK), rather than plain hex or base64. */
 export function isStructuredKey(text: string): boolean {
     const t = text.trim();
-    return t.startsWith('-----BEGIN') || looksLikeJwk(t) || detectEcosystem(t) !== null || /^(ssh|ecdsa|sk)-[\w@.-]+\s/.test(t);
+    return (
+        t.startsWith('-----BEGIN') ||
+        looksLikeJwk(t) ||
+        looksLikeKeyList(t) ||
+        detectEcosystem(t) !== null ||
+        /^(ssh|ecdsa|sk)-[\w@.-]+\s/.test(t)
+    );
 }
 
 /** Name of the format a pasted text appears to be in, or null for plain hex / base64. It does not validate the key. */
 export function detectKeyFormat(text: string): string | null {
     const t = text.trim();
+    if (looksLikeDidDocument(t)) return 'DID document';
     if (looksLikeJwk(t)) return 'JWK';
     const ecosystem = detectEcosystem(t);
     if (ecosystem) return ECOSYSTEM_LABELS[ecosystem];
+    if (looksLikeKeyList(t)) return 'SSH key list (authorized_keys / allowed_signers)';
     if (/^(ssh|ecdsa|sk)-[\w@.-]+\s/.test(t)) return 'OpenSSH public key';
     const pem = /^-----BEGIN ([A-Z0-9 ]+)-----/.exec(t);
     if (!pem) return null;
@@ -72,6 +83,7 @@ export const keyFormatHint = (text: string): string | undefined => {
 export function parseStructuredKey(text: string): ParsedKey {
     const t = text.trim();
     if (t.startsWith('-----BEGIN')) return parsePem(t);
+    if (looksLikeDidDocument(t)) return parseDidKey(t);
     if (looksLikeJwk(t)) return parseJwk(t);
     if (detectEcosystem(t)) {
         try {
@@ -82,8 +94,29 @@ export function parseStructuredKey(text: string): ParsedKey {
             throw error;
         }
     }
+    if (looksLikeKeyList(t)) return parseKeyListKey(t);
     return parseOpenSshPublic(t);
 }
+
+/** A list of SSH keys holding one Ed25519 key is that key; with several, a signature is what tells which (the SSH signature format). */
+function parseKeyListKey(text: string): ParsedKey {
+    let list: ReturnType<typeof parseKeyList>;
+    try {
+        list = parseKeyList(text);
+    } catch (error) {
+        if (error instanceof KeyListError) throw new KeyFormatError(error.message);
+        throw error;
+    }
+    const distinct = list.keys.filter((key, i) => list.keys.findIndex((other) => bytesEqual(other.publicKey, key.publicKey)) === i);
+    if (distinct.length === 1) return { format: 'SSH key list', publicKey: distinct[0].publicKey };
+    if (distinct.length === 0)
+        throw new KeyFormatError(`this list has no ssh-ed25519 key${list.ignored ? ` (${list.ignored} of another kind)` : ''}.`);
+    throw new KeyFormatError(
+        `this list has ${distinct.length} Ed25519 keys (${distinct.map(entryName).join('; ')}): paste the line of the one to use, or use the SSH signature format, which finds the entry that made the signature.`,
+    );
+}
+
+const bytesEqual = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((value, i) => value === b[i]);
 
 /* ---------------------------------------------------------------- PEM / DER */
 
@@ -291,6 +324,23 @@ function parseOpenSshPrivate(der: Uint8Array): ParsedKey {
 }
 
 /* ---------------------------------------------------------------------- JWK */
+
+/** A DID document holding one Ed25519 key is that key. With several, the JWS tab picks by kid: elsewhere there is nothing to pick with. */
+function parseDidKey(text: string): ParsedKey {
+    let set: ReturnType<typeof parseDidDocument>;
+    try {
+        set = parseDidDocument(text);
+    } catch (error) {
+        if (error instanceof JwksError) throw new KeyFormatError(error.message);
+        throw error;
+    }
+    if (set.keys.length === 1) return { format: 'DID document', publicKey: set.keys[0].publicKey };
+    if (set.keys.length === 0) throw new KeyFormatError('this DID document has no Ed25519 key.');
+    const names = set.keys.map((key) => key.kid ?? `number ${key.position}`).join(', ');
+    throw new KeyFormatError(
+        `this DID document has ${set.keys.length} Ed25519 keys (${names}): paste the one to use (its publicKeyMultibase or publicKeyJwk), or use the JWS / JWT format, which picks the key by the kid of the token.`,
+    );
+}
 
 function parseJwk(text: string): ParsedKey {
     let parsed: unknown;

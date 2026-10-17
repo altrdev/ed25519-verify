@@ -135,3 +135,50 @@ describe('a link to a token with a key set', () => {
         await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
     });
 });
+
+describe('JWS tab with a DID document', () => {
+    const DID = 'did:web:example.com';
+    const method = (fragment: string, x: string) => ({ id: `${DID}#${fragment}`, type: 'JsonWebKey2020', publicKeyJwk: jwk(x) });
+    const DOCUMENT = JSON.stringify({ id: DID, verificationMethod: [method('key-1', X1), method('key-2', X2)] });
+
+    beforeEach(() => {
+        render(<FormSigned />);
+    });
+
+    it('picks the method the token names, by its whole id or by its fragment', async () => {
+        for (const kid of [`${DID}#key-2`, '#key-2', 'key-2']) {
+            type('Token', await token({ alg: 'EdDSA', kid }, SEED_2));
+            type('Public key', DOCUMENT);
+            click('Verify');
+            await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
+            expect(screen.getByText(/Using the key .* of the DID document, as the token asks/)).toBeInTheDocument();
+        }
+    });
+
+    it('does not guess: no kid with several keys is a question, an unknown kid lists the methods', async () => {
+        type('Token', await token({ alg: 'EdDSA' }, SEED_2));
+        type('Public key', DOCUMENT);
+        click('Verify');
+        expect(await screen.findByText(/the DID document has 2 Ed25519 keys: pick/)).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: `Use the key "${DID}#key-2"` }));
+        await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
+
+        type('Token', await token({ alg: 'EdDSA', kid: 'other' }, SEED_2));
+        click('Verify');
+        expect(await screen.findByText(/The DID document has no key "other", the one the token names/)).toBeInTheDocument();
+        expect(screen.queryByText('Signature is wrong')).not.toBeInTheDocument();
+    });
+
+    it('goes through the example, and Create reproduces its token', async () => {
+        const load = () =>
+            fireEvent.click(screen.getAllByRole('button', { name: 'Load example' }).find((b) => !b.closest('[hidden]')) as HTMLElement);
+        for (let i = 0; i < 4; i++) load();
+        await waitFor(() => expect(screen.getByText('A token and the DID document of its issuer.')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
+        expect(screen.getByText(/Using the key "did:web:example.com#key-2" of the DID document/)).toBeInTheDocument();
+        fireEvent.click(within(screen.getByRole('group', { name: 'Action' })).getByRole('button', { name: 'Create a signature' }));
+        for (let i = 0; i < 4; i++) load();
+        click('Sign');
+        expect(await screen.findByText('Identical to the token of the example.')).toBeInTheDocument();
+    });
+});

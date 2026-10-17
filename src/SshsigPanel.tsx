@@ -14,6 +14,7 @@ import type { MessageFile } from './messagefile';
 import { MessageFormat, type RawFormat } from './enum';
 import Segmented from './Segmented';
 import { type SharedSshsig, sshsigShareFragment } from './share';
+import { allowsNamespace, entryName, KeyListError, type ListedKey, looksLikeKeyList, parseKeyList, unchecked } from './sshkeys';
 import VerifyEd25519, { type FormatOverrides, inspectField, type Verdict, verdictOf } from './signature';
 import {
     checkNamespace,
@@ -63,6 +64,14 @@ function Details({ shown }: { shown: Shown }) {
     );
 }
 
+/** What to tell about the entries of a key list that made the signature: who, and what the page did not check. */
+function keyListNote(entries: ListedKey[], namespace: string): string {
+    const open = entries.flatMap(unchecked);
+    return `The key is ${entries.map(entryName).join('; ')} of the list${
+        entries.some((entry) => entry.namespaces) ? `, which allows the namespace "${namespace}"` : ''
+    }${open.length ? `. Not checked here: ${[...new Set(open)].join(', ')}` : ''}.`;
+}
+
 function Verify({
     initial,
     initialFile,
@@ -83,8 +92,10 @@ function Verify({
     const [formats, setFormats] = useState<FormatOverrides>({});
     const [shown, setShown] = useState<Shown | null>(null);
     const [exampleIndex, setExampleIndex] = useState<number | null>(null);
+    const [keyNote, setKeyNote] = useState<string | undefined>(undefined);
 
-    const publicKeyReading = inspectField('publicKey', publicKey, formats.publicKey);
+    const isList = looksLikeKeyList(publicKey);
+    const publicKeyReading = isList ? null : inspectField('publicKey', publicKey, formats.publicKey);
 
     const verify = async (
         picked: FormatOverrides = formats,
@@ -99,7 +110,31 @@ function Verify({
         }
 
         let trusted: Uint8Array | undefined;
-        if (values.publicKey.trim()) {
+        let note: string | undefined;
+        if (looksLikeKeyList(values.publicKey)) {
+            // an authorized_keys / allowed_signers text: the entry that made the signature is found by its key, then its options apply
+            setChoices(undefined);
+            try {
+                const list = parseKeyList(values.publicKey);
+                if (list.keys.length === 0) {
+                    found.publicKey = `The list has no ssh-ed25519 key${list.ignored ? ` (${list.ignored} of another kind)` : ''}.`;
+                } else if (parsed) {
+                    const made = list.keys.filter((entry) => sameBytes(entry.publicKey, parsed.publicKey));
+                    const allowed = made.filter((entry) => allowsNamespace(entry, parsed.namespace));
+                    if (made.length === 0) {
+                        found.publicKey = `This signature was made by the key ${await fingerprint(parsed.publicKey)}, which is none of the ${list.keys.length} of the list (${list.keys.map(entryName).join('; ')}).`;
+                    } else if (allowed.length === 0) {
+                        found.publicKey = `${made.map(entryName).join('; ')} ${made.length === 1 ? 'is' : 'are'} the key of this signature, but ${made.length === 1 ? 'its' : 'their'} namespaces option allows only ${made.map((entry) => entry.namespaces?.join(',')).join('; ')}, and the signature is for "${parsed.namespace}".`;
+                    } else {
+                        trusted = allowed[0].publicKey;
+                        note = keyListNote(allowed, parsed.namespace);
+                    }
+                }
+            } catch (error) {
+                if (!(error instanceof KeyListError)) throw error;
+                found.publicKey = error.message;
+            }
+        } else if (values.publicKey.trim()) {
             const key = new VerifyEd25519('', null, values.publicKey, null, undefined, picked);
             found.publicKey = key.validate(['publicKey']).publicKey;
             setChoices(key.choices(['publicKey']).publicKey);
@@ -120,6 +155,7 @@ function Verify({
             found.publicKey = `This signature was made by the key ${embedded}, not by the key you gave (${await fingerprint(trusted)}).`;
         }
 
+        setKeyNote(note);
         setErrors(found);
         if (!parsed || found.publicKey || found.message || found.namespace) {
             setShown(null);
@@ -159,6 +195,7 @@ function Verify({
 
     const reset = (field: keyof Errors) => {
         setShown(null);
+        setKeyNote(undefined);
         setErrors((current) => ({ ...current, [field]: undefined }));
     };
 
@@ -238,8 +275,8 @@ function Verify({
                     setFormats(picked);
                     verify(picked);
                 }}
-                hint={readingHint(publicKeyReading)}
-                placeholder="ssh-ed25519 AAAA… (an authorized_keys line, or any format of a public key)"
+                hint={isList ? keyNote : readingHint(publicKeyReading)}
+                placeholder="ssh-ed25519 AAAA… (a line of authorized_keys or allowed_signers, or a whole file of them, or any format of a public key)"
                 fileKind="key"
                 onInput={(value) => {
                     setPublicKey(value);

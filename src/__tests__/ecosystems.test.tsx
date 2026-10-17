@@ -69,6 +69,16 @@ describe('ecosystem formats', () => {
         expect(() => parseEcosystemKey('did:key:zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme')).toThrow(/not an Ed25519/);
         expect(() => parseEcosystemKey('ed25519:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')).toThrow(/expected 32/);
         expect(() => parseEcosystemKey('did:key:abc')).toThrow(EcosystemError);
+    });
+
+    it('reads a multibase key alone (the publicKeyMultibase of a DID document), the same key as the did:key', () => {
+        const w3c = 'z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK';
+        const key = parseStructuredKey(w3c);
+        expect(key.format).toBe('multibase');
+        expect(bytesToHex(key.publicKey!)).toBe(bytesToHex(parseEcosystemKey(`did:key:${w3c}`).publicKey!));
+        expect(encodeEcosystemPublic(key.publicKey!, 'multibase')).toBe(w3c);
+        expect(() => parseEcosystemKey(w3c.slice(0, -2))).toThrow(EcosystemError);
+        expect(() => parseEcosystemKey(`${w3c}1`)).toThrow(EcosystemError);
         // the Stellar addresses of other kinds (muxed M…, pre-auth T…) are not matched at all
         expect(detectEcosystem(`M${STELLAR_PUBLIC.slice(1)}`)).toBeNull();
     });
@@ -77,7 +87,7 @@ describe('ecosystem formats', () => {
         for (let i = 0; i < 60; i++) {
             const s = ed.utils.randomSecretKey();
             const p = await ed.getPublicKeyAsync(s);
-            for (const format of ['didkey', 'stellar', 'onion', 'near'] as const) {
+            for (const format of ['didkey', 'multibase', 'stellar', 'onion', 'near'] as const) {
                 same(parseStructuredKey(encodePublicKey(p, format)).publicKey, p);
             }
             for (const format of ['stellar', 'near'] as const) same(parseStructuredKey(encodePrivateKey(s, p, format)).privateKey, s);
@@ -94,6 +104,7 @@ describe('ecosystem formats in the forms', () => {
         render(<FormVerify publicKey={PUBLIC_HEX} />);
         for (const [format, text] of [
             ['didkey', DID],
+            ['multibase', DID.slice('did:key:'.length)],
             ['stellar', STELLAR_PUBLIC],
             ['onion', ONION],
             ['near', NEAR_PUBLIC],
@@ -126,6 +137,7 @@ describe('ecosystem formats in the forms', () => {
         const names = Array.from(document.querySelectorAll('[role="menuitemradio"]')).map((el) => el.getAttribute('data-format'));
         expect(names).toEqual(expect.arrayContaining(['stellar', 'near', 'solana']));
         expect(names).not.toContain('didkey');
+        expect(names).not.toContain('multibase');
         expect(names).not.toContain('onion');
     });
 });

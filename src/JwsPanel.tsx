@@ -22,6 +22,7 @@ import {
     timeNotes,
     tokenOf,
 } from './jws';
+import { looksLikeDidDocument, parseDidDocument } from './did';
 import { JwksError, keyChoiceLabel, looksLikeJwkSet, parseJwkSet, selectKey, type SetKey } from './jwks';
 import { encodeJwk } from './keyfiles';
 import { readingHint } from './FormatMenu';
@@ -70,7 +71,7 @@ function Verify({ initial, autoVerify }: { initial?: Partial<SharedToken>; autoV
     const [keyNote, setKeyNote] = useState<string | undefined>(undefined);
     const [keyOptions, setKeyOptions] = useState<SetKey[] | undefined>(undefined);
 
-    const isSet = looksLikeJwkSet(publicKey);
+    const isSet = looksLikeJwkSet(publicKey) || looksLikeDidDocument(publicKey);
     const publicKeyReading = isSet ? null : inspectField('publicKey', publicKey, formats.publicKey);
 
     const verify = async (picked: FormatOverrides = formats, values = { token, publicKey }, chosen?: number) => {
@@ -85,11 +86,11 @@ function Verify({ initial, autoVerify }: { initial?: Partial<SharedToken>; autoV
         let publicKeyBytes: Uint8Array | undefined;
         let note: string | undefined;
         let options: SetKey[] | undefined;
-        if (looksLikeJwkSet(values.publicKey)) {
-            // a set of keys: the one the token names, from the set the user pasted (never a key carried by the token)
+        if (looksLikeJwkSet(values.publicKey) || looksLikeDidDocument(values.publicKey)) {
+            // a set of keys (or a DID document): the one the token names, from the set the user pasted (never a key carried by the token)
             setChoices(undefined);
             try {
-                const set = parseJwkSet(values.publicKey);
+                const set = looksLikeDidDocument(values.publicKey) ? parseDidDocument(values.publicKey) : parseJwkSet(values.publicKey);
                 if (parsed) {
                     const selection = selectKey(set, parsed.header.kid, chosen);
                     if ('key' in selection) {
@@ -202,7 +203,7 @@ function Verify({ initial, autoVerify }: { initial?: Partial<SharedToken>; autoV
                 }}
                 picks={keyOptions?.map((key) => ({ label: keyChoiceLabel(key), onPick: () => verify(formats, undefined, key.position) }))}
                 hint={isSet ? keyNote : readingHint(publicKeyReading)}
-                placeholder="Hex, base64, PEM, OpenSSH, a JWK such as {&quot;kty&quot;:&quot;OKP&quot;,&quot;crv&quot;:&quot;Ed25519&quot;,&quot;x&quot;:…} or a whole JWK Set (the key is picked by the kid of the token)"
+                placeholder="Hex, base64, PEM, OpenSSH, a JWK such as {&quot;kty&quot;:&quot;OKP&quot;,&quot;crv&quot;:&quot;Ed25519&quot;,&quot;x&quot;:…} a whole JWK Set or a DID document (the key is picked by the kid of the token)"
                 fileKind="key"
                 onInput={edit(setPublicKey, 'publicKey')}
             />

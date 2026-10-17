@@ -17,6 +17,8 @@ export interface SetKey {
     /** its position among the keys of the set that count (Ed25519 ones), from 1 */
     position: number;
     kid?: string;
+    /** other ways a token may name the same key (the fragment of a DID document method) */
+    aliases?: string[];
     publicKey: Uint8Array;
 }
 
@@ -24,6 +26,8 @@ export interface JwkSet {
     keys: SetKey[];
     /** keys of other types (RSA, EC, X25519...) that were left out */
     ignored: number;
+    /** what the keys come from, for the messages: 'set' (a JWK Set) or 'DID document' */
+    what?: string;
 }
 
 const shown = (value: string) => JSON.stringify(value.length > 40 ? `${value.slice(0, 40)}…` : value);
@@ -74,6 +78,7 @@ export type Selection =
     /** several keys could be it and the token does not say: the user decides */
     | { choose: SetKey[]; error: string };
 
+const named = (set: JwkSet) => set.what ?? 'set';
 const label = (key: SetKey) => (key.kid !== undefined ? shown(key.kid) : `number ${key.position}`);
 const others = (set: JwkSet) => (set.ignored ? ` (${set.ignored} other key${set.ignored === 1 ? '' : 's'} of another type left out)` : '');
 
@@ -81,29 +86,29 @@ const others = (set: JwkSet) => (set.ignored ? ` (${set.ignored} other key${set.
 export function selectKey(set: JwkSet, kid: unknown, chosen?: number): Selection {
     if (set.keys.length === 0) {
         return {
-            error: `The set has no Ed25519 key${set.ignored ? ` (its ${set.ignored} key${set.ignored === 1 ? ' is' : 's are'} of another type)` : ''}.`,
+            error: `The ${named(set)} has no Ed25519 key${set.ignored ? ` (its ${set.ignored} key${set.ignored === 1 ? ' is' : 's are'} of another type)` : ''}.`,
         };
     }
     if (kid !== undefined && typeof kid !== 'string') return { error: 'The "kid" in the header of the token is not a text.' };
     if (typeof kid === 'string') {
-        const matches = set.keys.filter((key) => key.kid === kid);
+        const matches = set.keys.filter((key) => key.kid === kid || key.aliases?.includes(kid));
         if (matches.length === 1) {
-            return { key: matches[0], note: `Using the key ${shown(kid)} of the set, as the token asks${others(set)}.` };
+            return { key: matches[0], note: `Using the key ${shown(kid)} of the ${named(set)}, as the token asks${others(set)}.` };
         }
         if (matches.length > 1) {
-            return { error: `Two keys of the set have the kid ${shown(kid)}: it is not possible to tell which one signed.` };
+            return { error: `Two keys of the ${named(set)} have the kid ${shown(kid)}: it is not possible to tell which one signed.` };
         }
         const names = set.keys.map(label).join(', ');
-        return { error: `The set has no key ${shown(kid)}, the one the token names. It has: ${names}.` };
+        return { error: `The ${named(set)} has no key ${shown(kid)}, the one the token names. It has: ${names}.` };
     }
     if (set.keys.length === 1) {
-        return { key: set.keys[0], note: `The token names no key and the set has one Ed25519 key: using it${others(set)}.` };
+        return { key: set.keys[0], note: `The token names no key and the ${named(set)} has one Ed25519 key: using it${others(set)}.` };
     }
     const picked = chosen === undefined ? undefined : set.keys.find((key) => key.position === chosen);
-    if (picked) return { key: picked, note: `Using the key ${label(picked)} of the set, the one you picked${others(set)}.` };
+    if (picked) return { key: picked, note: `Using the key ${label(picked)} of the ${named(set)}, the one you picked${others(set)}.` };
     return {
         choose: set.keys,
-        error: `The token names no key (no "kid") and the set has ${set.keys.length} Ed25519 keys: pick the one to verify with.`,
+        error: `The token names no key (no "kid") and the ${named(set)} has ${set.keys.length} Ed25519 keys: pick the one to verify with.`,
     };
 }
 

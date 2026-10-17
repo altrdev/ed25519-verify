@@ -7,10 +7,11 @@ import { CODECS, encodeBase32 } from './codecs';
 import type { EcosystemFormat } from './enum';
 import { sha3_256 } from './sha3';
 
-export const ECOSYSTEM_FORMATS: EcosystemFormat[] = ['didkey', 'stellar', 'onion', 'near', 'solana'];
+export const ECOSYSTEM_FORMATS: EcosystemFormat[] = ['didkey', 'multibase', 'stellar', 'onion', 'near', 'solana'];
 
 export const ECOSYSTEM_LABELS: Record<EcosystemFormat, string> = {
     didkey: 'did:key',
+    multibase: 'multibase',
     stellar: 'Stellar',
     onion: 'Tor onion',
     near: 'NEAR',
@@ -20,6 +21,7 @@ export const ECOSYSTEM_LABELS: Record<EcosystemFormat, string> = {
 /** What each ecosystem has for a public key and for a private one (a Tor address is a public key only, did:key too). */
 export const ECOSYSTEM_KINDS: Record<EcosystemFormat, { public: boolean; private: boolean }> = {
     didkey: { public: true, private: false },
+    multibase: { public: true, private: false },
     stellar: { public: true, private: true },
     onion: { public: true, private: false },
     near: { public: true, private: true },
@@ -49,17 +51,24 @@ const same = (a: Uint8Array, b: ArrayLike<number>) => a.length === b.length && a
 // multicodec ed25519-pub (0xed) as a varint: 0xed 0x01; multibase base58btc prefix "z"
 const MULTICODEC = [0xed, 0x01];
 
-const encodeDidKey = (publicKey: Uint8Array) => `did:key:z${CODECS.base58.encode(concat(MULTICODEC, publicKey))}`;
+const encodeMultibase = (publicKey: Uint8Array) => `z${CODECS.base58.encode(concat(MULTICODEC, publicKey))}`;
+const encodeDidKey = (publicKey: Uint8Array) => `did:key:${encodeMultibase(publicKey)}`;
 
-function decodeDidKey(text: string): EcosystemKey {
-    const encoded = text.slice('did:key:'.length).split(/[#?]/)[0]; // a verification method (…#z6Mk…) names the same key
-    if (!encoded.startsWith('z')) throw new EcosystemError('a did:key is written in base58 (it starts with "z").');
+/**
+ * The key of a multibase text as DID documents (publicKeyMultibase) and did:key write it: "z" for base58btc, then the multicodec
+ * prefix of an Ed25519 key and its 32 bytes. `what` names the format in the messages.
+ */
+function decodeMultibase(encoded: string, format: 'didkey' | 'multibase', what: string): EcosystemKey {
+    if (!encoded.startsWith('z')) throw new EcosystemError(`a ${what} is written in base58 (it starts with "z").`);
     const bytes = CODECS.base58.decode(encoded.slice(1));
-    if (!bytes) throw new EcosystemError('the did:key is not valid base58.');
-    if (bytes[0] !== 0xed || bytes[1] !== 0x01) throw new EcosystemError('this did:key is not an Ed25519 key (z6Mk…).');
-    if (bytes.length !== 34) throw new EcosystemError(`the did:key holds ${bytes.length - 2} bytes, an Ed25519 key has 32.`);
-    return { format: 'didkey', publicKey: bytes.slice(2) };
+    if (!bytes) throw new EcosystemError(`the ${what} is not valid base58.`);
+    if (bytes[0] !== 0xed || bytes[1] !== 0x01) throw new EcosystemError(`this ${what} is not an Ed25519 key (z6Mk…).`);
+    if (bytes.length !== 34) throw new EcosystemError(`the ${what} holds ${bytes.length - 2} bytes, an Ed25519 key has 32.`);
+    return { format, publicKey: bytes.slice(2) };
 }
+
+// a verification method (…#z6Mk…) names the same key
+const decodeDidKey = (text: string): EcosystemKey => decodeMultibase(text.slice('did:key:'.length).split(/[#?]/)[0], 'didkey', 'did:key');
 
 /* ------------------------------------------------------------------ Stellar */
 
@@ -136,6 +145,7 @@ function decodeNear(text: string): EcosystemKey {
 
 const PATTERNS: [EcosystemFormat, RegExp][] = [
     ['didkey', /^did:key:/i],
+    ['multibase', /^z6Mk[1-9A-HJ-NP-Za-km-z]{40,50}$/],
     ['near', /^ed25519:/],
     ['stellar', /^[GS][A-Z2-7]{55}$/],
     ['onion', /^((https?|ws):\/\/)?([a-z2-7]+\.)*[a-z2-7]{56}\.onion\b/i],
@@ -152,6 +162,8 @@ export function parseEcosystemKey(text: string): EcosystemKey {
     switch (detectEcosystem(t)) {
         case 'didkey':
             return decodeDidKey(t);
+        case 'multibase':
+            return decodeMultibase(t, 'multibase', 'multibase key');
         case 'near':
             return decodeNear(t);
         case 'stellar':
@@ -169,6 +181,8 @@ export function encodeEcosystemPublic(publicKey: Uint8Array, format: EcosystemFo
     switch (format) {
         case 'didkey':
             return encodeDidKey(publicKey);
+        case 'multibase':
+            return encodeMultibase(publicKey);
         case 'stellar':
             return strkey(STELLAR_VERSION.public, publicKey);
         case 'onion':

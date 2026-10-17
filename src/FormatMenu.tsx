@@ -23,6 +23,7 @@ const KEY_FILE_EXAMPLES: Record<'public' | 'private', Partial<Record<FieldFormat
         openssh: 'ssh-ed25519 AAAA…',
         jwk: '{"kty":"OKP","x"…}',
         didkey: 'did:key:z6Mk…',
+        multibase: 'z6Mk…',
         stellar: 'G…',
         onion: 'xxxx….onion',
         near: 'ed25519:…',
