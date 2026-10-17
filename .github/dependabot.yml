@@ -27,3 +27,11 @@ updates:
       actions:
         patterns:
           - "*"
+
+  # the reference tools of the fixtures (scripts/requirements.txt): pycose is pinned, a new version is looked at
+  - package-ecosystem: pip
+    directory: /scripts
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "[chore]"

@@ -1,0 +1,3 @@
+# the reference implementation of COSE; pycose 1.1.0 cannot read what cbor2 6 returns
+pycose==1.1.0
+cbor2>=5.6,<6

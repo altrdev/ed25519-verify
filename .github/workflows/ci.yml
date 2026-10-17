@@ -37,6 +37,19 @@ jobs:
       - name: Install minisign and signify, the reference tools of their tests 🔏
         run: sudo apt-get install -y minisign signify-openbsd
 
+      - name: Setup Python, for pycose ⚙️
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install pycose, the reference tool of COSE 🐍
+        run: pip install -r scripts/requirements.txt
+
+      - name: Make the COSE fixtures again with pycose and compare them 🔏
+        run: python scripts/check_cose_fixtures.py
+
       - name: Lint and format 🧹
         run: npm run lint
 
