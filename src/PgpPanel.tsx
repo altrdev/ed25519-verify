@@ -12,6 +12,7 @@ import MessageField from './MessageField';
 import type { MessageFile } from './messagefile';
 import {
     candidateKeys,
+    type CertificateReview,
     HASH_NAMES,
     PgpError,
     type PgpCertificate,
@@ -20,9 +21,15 @@ import {
     parseCertificate,
     parsePgpSignature,
     readPgp,
+    REVOCATION_REASONS,
+    type Revocation,
+    reviewCertificate,
     SIGNATURE_TYPES,
     signedHash,
     spaced,
+    type Standing,
+    standingOf,
+    type UserIdReview,
 } from './openpgp';
 import { pgpShareFragment, type SharedPgp } from './share';
 import VerifyEd25519, { type FormatOverrides, inspectField, type Verdict, verdictOf } from './signature';
@@ -39,7 +46,9 @@ interface Shown {
     parsed: ParsedPgpSignature;
     /** the key that made it (one of the block), or null when a plain key was given */
     key: PgpKey | null;
-    userIds: string[];
+    /** what the key block says about the keys and user IDs (its own signatures, expiry, revocations), null for a plain key */
+    review: CertificateReview | null;
+    standing: Standing | null;
     /** the hash of the message starts with the two bytes the signature keeps */
     prefixMatches: boolean;
     size: number;
@@ -50,6 +59,22 @@ interface Shown {
 const bytesLabel = (size: number) => `${size.toLocaleString('en-US')} byte${size === 1 ? '' : 's'}`;
 const when = (seconds: number) => `${new Date(seconds * 1000).toISOString().replace('.000Z', 'Z').replace('T', ' ')}`;
 const looksLikeBlock = (text: string) => /-----BEGIN PGP (PUBLIC KEY BLOCK|PRIVATE KEY BLOCK)-----/.test(text);
+const day = (seconds: number) => new Date(seconds * 1000).toISOString().slice(0, 10);
+
+const revocationText = (revocation: Revocation) =>
+    `revoked${revocation.created !== undefined ? ` on ${day(revocation.created)}` : ''} (${REVOCATION_REASONS[revocation.code] ?? `reason ${revocation.code}`}${revocation.text ? `: "${revocation.text}"` : ''})`;
+
+/** A user ID as the block shows it, and what was found about it: only a signature of the key over it that verifies makes it more than a claim. */
+function userIdText(user: UserIdReview) {
+    const revoked = user.revocations.find((revocation) => revocation.check === 'checked');
+    const certification = {
+        checked: 'signed by the key itself (checked)',
+        missing: 'no signature of the key over it in this block: the block only claims it',
+        wrong: 'its signature by the key does not verify: the block was altered',
+        unchecked: `could not be checked${user.note ? ` (${user.note.replace(/\.$/, '')})` : ''}`,
+    }[user.certification];
+    return `${user.userId}: ${certification}${revoked ? `; ${revocationText(revoked)}` : ''}`;
+}
 
 function Details({ shown }: { shown: Shown }) {
     const { parsed, key } = shown;
@@ -77,9 +102,20 @@ function Details({ shown }: { shown: Shown }) {
                         <li>It names the key {spaced(parsed.issuerFingerprint)}, which was not compared with the key you gave.</li>
                     )
                 )}
-                {shown.userIds.length > 0 && (
-                    <li>User IDs of the key block (as it claims them, not checked): {shown.userIds.join(', ')}</li>
+                {shown.review?.userIds.map((user) => (
+                    <li key={user.userId}>User ID {userIdText(user)}</li>
+                ))}
+                {shown.review && shown.review.othersCertifications > 0 && (
+                    <li>
+                        {shown.review.othersCertifications} certification{shown.review.othersCertifications === 1 ? '' : 's'} of its user
+                        IDs by other keys: that is the web of trust, which this page does not look at.
+                    </li>
                 )}
+                {shown.verdict !== 'valid' && // for a valid signature the verdict banner already says them
+                    shown.standing?.issues.map((issue) => <li key={issue}>{issue}</li>)}
+                {shown.standing?.facts.map((fact) => (
+                    <li key={fact}>{fact}</li>
+                ))}
                 <li>
                     Message: {shown.cleartext ? 'the text of the cleartext message, ' : ''}
                     {bytesLabel(shown.size)}
@@ -91,8 +127,9 @@ function Details({ shown }: { shown: Shown }) {
                 </li>
             </ul>
             <p class="muted">
-                This checks the mathematics only. It does not know whether the key is certified by anyone, expired or revoked: check the
-                fingerprint with the owner of the key.
+                {shown.review
+                    ? 'This looks only inside the key block you pasted: the signature, the signatures that bind its user IDs and subkeys to the primary key, its expiry dates and the revocations it holds. It does not know whether anyone certified the key (the web of trust), and a revocation or a new expiry date published elsewhere, on a keyserver for instance, is not in this block: "no revocation here" is not "not revoked". Check the fingerprint with the owner of the key.'
+                    : 'A plain key carries nothing to look at: whether it is certified, expired or revoked was not checked, only the mathematics. Check the fingerprint with the owner of the key.'}
             </p>
         </section>
     );
@@ -141,6 +178,7 @@ function Verify({
 
         // the keys: a block (primary key and subkeys), or a plain Ed25519 key in any format
         let certificate: PgpCertificate | undefined;
+        let review: CertificateReview | null = null;
         let plainKey: Uint8Array | undefined;
         if (!values.publicKey.trim()) {
             found.publicKey = 'The public key is needed: a signature names the key that made it but does not carry it.';
@@ -151,6 +189,7 @@ function Verify({
                 const read = readPgp(values.publicKey);
                 if (!('armored' in read) || read.armored.kind !== 'public key') throw new PgpError('This is not a public key block.');
                 certificate = await parseCertificate(read.armored.bytes);
+                review = await reviewCertificate(read.armored.bytes);
             } catch (error) {
                 found.publicKey = asError(error);
             }
@@ -214,7 +253,8 @@ function Verify({
             verdict,
             parsed,
             key: used.key,
-            userIds: certificate?.userIds ?? [],
+            review,
+            standing: review && used.key ? standingOf(review, used.key, parsed) : null,
             prefixMatches: parsed.hashPrefix[0] === hash[0] && parsed.hashPrefix[1] === hash[1],
             size: document.length,
             cleartext: !!cleartextBytes,
@@ -338,7 +378,21 @@ function Verify({
                 <ExampleButton onClick={loadNextExample} />
             </div>
             <ExampleNote example={exampleIndex === null ? null : PGP_EXAMPLES[exampleIndex]} />
-            {shown?.verdict === 'valid' && <Banner kind="success">Signature is valid</Banner>}
+            {shown?.verdict === 'valid' && (
+                <Banner kind={shown.standing?.issues.length ? 'warning' : 'success'}>
+                    <div>Signature is valid</div>
+                    {shown.standing && shown.standing.issues.length > 0 && (
+                        <>
+                            <p>But read it with this, from the key block:</p>
+                            <ul>
+                                {shown.standing.issues.map((issue) => (
+                                    <li key={issue}>{issue}</li>
+                                ))}
+                            </ul>
+                        </>
+                    )}
+                </Banner>
+            )}
             {shown?.verdict === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
             {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
             {shown?.verdict === 'permissive-only' && (

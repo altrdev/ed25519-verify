@@ -254,6 +254,8 @@ button.primary:active { transform: translateY(1px); }
 .banner.error { background: var(--error-bg); color: var(--error-fg); border-color: var(--error-border); }
 .banner > svg { flex: none; margin-top: 1px; }
 .banner-body { min-width: 0; flex: 1; font-weight: 500; }
+.banner-body p { margin: 0.5rem 0 0.25rem; font-weight: 400; }
+.banner-body ul { margin: 0; padding-left: 1.25rem; font-weight: 400; }
 .result-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .result-head .chip { color: inherit; border-color: currentColor; }
 .result {

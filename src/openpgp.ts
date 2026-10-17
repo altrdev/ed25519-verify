@@ -3,9 +3,12 @@
  * signed, the algorithm and hash, "subpackets" (the time, the key that made it) and the signature; it is NOT over the message but
  * over the hash of `message | the signature's own header | a trailer`, and the Ed25519 signature is made over that hash.
  * Also reads the armor (`-----BEGIN PGP …-----` with its CRC-24), cleartext signed messages and public keys (primary key and
- * subkeys, their fingerprints). It does NOT judge a key: certification, expiry and revocation are not checked, only the mathematics.
+ * subkeys, their fingerprints) and says what the block itself tells about a key: its self-signatures (the user IDs and subkeys really
+ * bound to the primary key), when it expires and whether it is revoked. Only what is in the pasted block: the web of trust and the
+ * keyservers are out of reach, so nothing here is "trusted", and "no revocation in this block" is not "not revoked".
  * Pure functions: the screen is in PgpPanel.tsx.
  */
+import * as ed from '@noble/ed25519';
 import { bytesToHex, parseBase64 } from './bytes';
 import { sha3_256 } from './sha3';
 
@@ -32,6 +35,9 @@ const u16 = (value: number) => Uint8Array.of(value >> 8, value & 255);
 const u32 = (value: number) => Uint8Array.of((value >>> 24) & 255, (value >>> 16) & 255, (value >>> 8) & 255, value & 255);
 const readU32 = (b: Uint8Array, at = 0) => b[at] * 2 ** 24 + (b[at + 1] << 16) + (b[at + 2] << 8) + b[at + 3];
 const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((value, i) => value === b[i]);
+/** A key packet as it is hashed (for the fingerprint and for the signatures over a key): a marker, the length, the body. */
+const hashedKey = (body: Uint8Array) =>
+    body[0] === 6 ? concat(Uint8Array.of(0x9b), u32(body.length), body) : concat(Uint8Array.of(0x99), u16(body.length), body);
 
 // ---- armor -------------------------------------------------------------------------------------------------------------------
 
@@ -266,7 +272,7 @@ async function readKey(body: Uint8Array, primary: boolean): Promise<PgpKey | nul
     } else {
         return null;
     }
-    const full = version === 6 ? concat(Uint8Array.of(0x9b), u32(body.length), body) : concat(Uint8Array.of(0x99), u16(body.length), body);
+    const full = hashedKey(body);
     const hash = version === 6 ? await digest('SHA-256', full) : await digest('SHA-1', full);
     const keyId = version === 6 ? hash.slice(0, 8) : hash.slice(12);
     return {
@@ -356,6 +362,14 @@ export interface ParsedPgpSignature {
     expires?: number;
     issuerKeyId?: string;
     issuerFingerprint?: string;
+    /** key expiration time subpacket: seconds after the creation of the key; 0 or none: never */
+    keyExpires?: number;
+    /** key flags subpacket, first byte (0x01 certify, 0x02 sign) */
+    keyFlags?: number;
+    /** the reason of a revocation: a code and a free text */
+    revocation?: { code: number; text: string };
+    /** a signature inside this one (the back-signature of a signing subkey), as the body of a signature packet */
+    embedded?: Uint8Array;
 }
 
 const KNOWN_SUBPACKETS = new Set([
@@ -387,6 +401,10 @@ function readSubpackets(area: Uint8Array, into: Partial<ParsedPgpSignature>, has
         else if (type === 3 && data.length === 4 && hashed) into.expires = readU32(data);
         else if (type === 16 && data.length === 8 && !into.issuerKeyId) into.issuerKeyId = bytesToHex(data).toUpperCase();
         else if (type === 33 && data.length > 1 && hashed) into.issuerFingerprint = bytesToHex(data.slice(1)).toUpperCase();
+        else if (type === 9 && data.length === 4 && hashed) into.keyExpires = readU32(data);
+        else if (type === 27 && data.length >= 1 && hashed) into.keyFlags = data[0];
+        else if (type === 29 && data.length >= 1 && hashed) into.revocation = { code: data[0], text: decoder.decode(data.slice(1)) };
+        else if (type === 32 && !into.embedded) into.embedded = data; // it is signed by its own key, so it may sit in the unhashed area
     }
 }
 
@@ -415,7 +433,14 @@ export function parsePgpSignature(data: Uint8Array): ParsedPgpSignature {
             `There is no signature packet in this data${tags ? ` (it holds packets ${tags}: this may be a key or an encrypted message)` : ''}.`,
         );
     }
-    const b = packet.body;
+    return parseSignatureBody(packet.body, true);
+}
+
+/**
+ * The body of a signature packet. `forDocument`: the signature is for a document (the type 0 or 1, Ed25519) or an error says why not;
+ * otherwise (a self-signature of a key block) any type is read, and the signature bytes are empty for another algorithm.
+ */
+export function parseSignatureBody(b: Uint8Array, forDocument: boolean): ParsedPgpSignature {
     const version = b[0];
     if (version === 3) throw new PgpError('This is a version 3 signature (very old format): not supported.');
     if (version !== 4 && version !== 6) throw new PgpError(`A signature of version ${version} is not supported (4 and 6 are).`);
@@ -443,7 +468,7 @@ export function parsePgpSignature(data: Uint8Array): ParsedPgpSignature {
     }
     if (pos > b.length) throw new PgpError('The signature is cut short.');
 
-    if (type !== 0x00 && type !== 0x01) {
+    if (forDocument && type !== 0x00 && type !== 0x01) {
         throw new PgpError(
             `This signature is for ${SIGNATURE_TYPES[type] ?? `something of type ${type}`}, not for a document: it cannot be checked against a message.`,
         );
@@ -456,6 +481,8 @@ export function parsePgpSignature(data: Uint8Array): ParsedPgpSignature {
     } else if (algorithm === ALGORITHM_ED25519) {
         signature = b.slice(pos, pos + 64);
         if (signature.length !== 64) throw new PgpError(`An Ed25519 signature has 64 bytes, this one ${signature.length}.`);
+    } else if (!forDocument) {
+        signature = new Uint8Array(0);
     } else {
         const names: Record<number, string> = { 1: 'RSA', 3: 'RSA', 17: 'DSA', 19: 'ECDSA', 28: 'Ed448' };
         throw new PgpError(
@@ -506,6 +533,325 @@ export function candidateKeys(signature: ParsedPgpSignature, keys: PgpKey[]): Pg
     if (signature.issuerFingerprint) return same.filter((key) => key.fingerprint === signature.issuerFingerprint);
     if (signature.issuerKeyId) return same.filter((key) => key.keyId === signature.issuerKeyId);
     return same;
+}
+
+// ---- what the key block says about a key ------------------------------------------------------------------------------------
+
+/** What was found for a link inside the block: `checked` means a signature that is there and verifies with the primary key. */
+export type Check = 'checked' | 'missing' | 'wrong' | 'unchecked';
+
+export interface Revocation {
+    /** when the revocation was made (the time the signer wrote in it) */
+    created?: number;
+    /** 0 none given, 1 superseded, 2 compromised, 3 retired, 32 user ID no longer valid */
+    code: number;
+    text: string;
+    /** `checked`: the revocation verifies, it counts. `wrong`: it does not verify, it is ignored. `unchecked`: it could not be checked */
+    check: 'checked' | 'wrong' | 'unchecked';
+}
+
+export interface KeyReview {
+    key: PgpKey;
+    /** the primary key: a signature of the key over itself or over a user ID; a subkey: its binding to the primary key */
+    binding: Check;
+    /** why a binding could not be checked, or is wrong */
+    note?: string;
+    /** when the key expires, from the newest checked binding: a time (seconds), `null` never, `undefined` not known (no checked binding) */
+    expires?: number | null;
+    revocations: Revocation[];
+}
+
+export interface UserIdReview {
+    userId: string;
+    /** the primary key's own signature over this user ID */
+    certification: Check;
+    note?: string;
+    revocations: Revocation[];
+}
+
+export interface CertificateReview {
+    keys: KeyReview[];
+    userIds: UserIdReview[];
+    /** certifications of user IDs made by other keys: they are the web of trust, not looked at */
+    othersCertifications: number;
+}
+
+export const REVOCATION_REASONS: Record<number, string> = {
+    0: 'no reason given',
+    1: 'the key was superseded',
+    2: 'the key was compromised',
+    3: 'the key is retired and no longer used',
+    32: 'the user ID is no longer in use',
+};
+
+/** A revocation for "no reason" or "compromised" voids every signature of the key; the other reasons only the ones made after it. */
+export const isHardRevocation = (code: number) => code === 0 || code === 2;
+
+interface Holder {
+    kind: 'primary' | 'sub' | 'uid';
+    body: Uint8Array;
+    key: PgpKey | null;
+    sigs: Uint8Array[];
+}
+
+interface Judged {
+    sig?: ParsedPgpSignature;
+    state: 'checked' | 'wrong' | 'unchecked';
+    note?: string;
+}
+
+const madeBy = (sig: ParsedPgpSignature, key: PgpKey) => {
+    if (sig.issuerFingerprint) return sig.issuerFingerprint === key.fingerprint;
+    if (sig.issuerKeyId) return sig.issuerKeyId === key.keyId;
+    return true; // names no one: it was made by the key it is attached to
+};
+
+/** Reads and verifies one signature of the block with the key `signer` (null: that key is not Ed25519, nothing can be checked). */
+async function judge(body: Uint8Array, data: Uint8Array, signer: PgpKey | null): Promise<Judged> {
+    let sig: ParsedPgpSignature;
+    try {
+        sig = parseSignatureBody(body, false);
+    } catch (error) {
+        if (error instanceof PgpError) return { state: 'unchecked', note: error.message };
+        throw error;
+    }
+    if (!signer)
+        return { sig, state: 'unchecked', note: 'The key that made it is not an Ed25519 key, so its signatures are not looked at.' };
+    if (sig.algorithm !== ALGORITHM_EDDSA_LEGACY && sig.algorithm !== ALGORITHM_ED25519) {
+        return { sig, state: 'unchecked', note: 'It was made with an algorithm other than Ed25519.' };
+    }
+    try {
+        const hash = await signedHash(sig, data);
+        const valid = await ed.verifyAsync(sig.signature, hash, signer.publicKey, { zip215: false });
+        return { sig, state: valid ? 'checked' : 'wrong' };
+    } catch (error) {
+        if (error instanceof PgpError) return { sig, state: 'unchecked', note: error.message };
+        return { sig, state: 'wrong' };
+    }
+}
+
+const revocationOf = (judged: Judged): Revocation => ({
+    created: judged.sig?.created,
+    code: judged.sig?.revocation?.code ?? 0,
+    text: judged.sig?.revocation?.text ?? '',
+    check: judged.state,
+});
+
+/** `checked` if one verifies; else `wrong` if one is there and does not; `unchecked` if they could not be checked; `missing` if none. */
+function summary(judged: Judged[]): { check: Check; note?: string } {
+    if (judged.some((j) => j.state === 'checked')) return { check: 'checked' };
+    if (judged.some((j) => j.state === 'wrong')) return { check: 'wrong', note: 'Its signature does not verify: the block was altered.' };
+    if (judged.length > 0) return { check: 'unchecked', note: judged.find((j) => j.note)?.note };
+    return { check: 'missing' };
+}
+
+/** The newest of the checked signatures decides the expiry: no subpacket in it means the key does not expire. */
+function expiryOf(checked: ParsedPgpSignature[], created: number): number | null | undefined {
+    if (checked.length === 0) return undefined;
+    const newest = checked.reduce((a, b) => ((b.created ?? 0) >= (a.created ?? 0) ? b : a));
+    return newest.keyExpires ? created + newest.keyExpires : null;
+}
+
+/**
+ * Looks inside a public key block: whether the user IDs and subkeys are bound to the primary key by its own signatures (checked,
+ * not just claimed), when each key expires, and the revocations the block holds. Only the block is looked at.
+ */
+export async function reviewCertificate(data: Uint8Array): Promise<CertificateReview> {
+    const holders: Holder[] = [];
+    let current: Holder | undefined;
+    let skipping = false;
+    for (const { tag, body } of readPackets(data)) {
+        if (tag === 6 || tag === 14) {
+            current = { kind: tag === 6 ? 'primary' : 'sub', body, key: await readKey(body, tag === 6), sigs: [] };
+            holders.push(current);
+            skipping = false;
+        } else if (tag === 13) {
+            current = { kind: 'uid', body, key: null, sigs: [] };
+            holders.push(current);
+            skipping = false;
+        } else if (tag === 17) {
+            skipping = true; // a user attribute (a photo) and the signatures after it
+        } else if (tag === 2 && current && !skipping) {
+            current.sigs.push(body);
+        }
+    }
+    const primary = holders.find((holder) => holder.kind === 'primary');
+    const review: CertificateReview = { keys: [], userIds: [], othersCertifications: 0 };
+    if (!primary) return review;
+    const signer = primary.key;
+    const primaryPacket = hashedKey(primary.body);
+    const own = (sig: Judged) => !!sig.sig && (!signer || madeBy(sig.sig, signer));
+    const ofType = (holder: Holder, types: number[]) => holder.sigs.filter((body) => types.includes(body[1]));
+
+    const checkedForExpiry: ParsedPgpSignature[] = [];
+
+    for (const holder of holders) {
+        if (holder.kind === 'uid') {
+            const data = concat(primaryPacket, Uint8Array.of(0xb4), u32(holder.body.length), holder.body);
+            const certs = await Promise.all(ofType(holder, [0x10, 0x11, 0x12, 0x13]).map((body) => judge(body, data, signer)));
+            const mine = certs.filter(own);
+            review.othersCertifications += certs.length - mine.length;
+            const revocations = await Promise.all(ofType(holder, [0x30]).map((body) => judge(body, data, signer)));
+            const { check, note } = summary(mine);
+            checkedForExpiry.push(...mine.filter((j) => j.state === 'checked').map((j) => j.sig as ParsedPgpSignature));
+            review.userIds.push({
+                userId: decoder.decode(holder.body),
+                certification: check,
+                note,
+                revocations: revocations.filter(own).map(revocationOf),
+            });
+        }
+    }
+
+    for (const holder of holders) {
+        if (holder.kind === 'uid' || !holder.key) continue;
+        if (holder.kind === 'primary') {
+            const direct = await Promise.all(ofType(holder, [0x1f]).map((body) => judge(body, primaryPacket, signer)));
+            const revocations = await Promise.all(ofType(holder, [0x20]).map((body) => judge(body, primaryPacket, signer)));
+            const checkedDirect = direct.filter((j) => j.state === 'checked').map((j) => j.sig as ParsedPgpSignature);
+            const certified = review.userIds.some((u) => u.certification === 'checked');
+            const everything = [...checkedDirect, ...checkedForExpiry];
+            let binding: Check;
+            let note: string | undefined;
+            if (certified || checkedDirect.length > 0) binding = 'checked';
+            else if (review.userIds.some((u) => u.certification === 'wrong') || direct.some((j) => j.state === 'wrong')) {
+                binding = 'wrong';
+                note = 'Its signature over itself does not verify: the block was altered.';
+            } else if (review.userIds.some((u) => u.certification === 'unchecked') || direct.some((j) => j.state === 'unchecked')) {
+                binding = 'unchecked';
+                note = review.userIds.find((u) => u.note)?.note ?? direct.find((j) => j.note)?.note;
+            } else binding = 'missing';
+            review.keys.push({
+                key: holder.key,
+                binding,
+                note,
+                expires: expiryOf(everything, holder.key.created),
+                revocations: revocations.filter(own).map(revocationOf),
+            });
+        } else {
+            const data = concat(primaryPacket, hashedKey(holder.body));
+            const bindings = (await Promise.all(ofType(holder, [0x18]).map((body) => judge(body, data, signer)))).filter(own);
+            const revocations = await Promise.all(ofType(holder, [0x28]).map((body) => judge(body, data, signer)));
+            const subKey = holder.key;
+            // a subkey that signs proves it holds the key with a signature of its own over the primary key (type 0x19, inside the binding)
+            const withBack = await Promise.all(
+                bindings.map(async (binding): Promise<Judged> => {
+                    if (binding.state !== 'checked' || !binding.sig) return binding;
+                    if (!binding.sig.embedded) {
+                        return {
+                            sig: binding.sig,
+                            state: 'wrong',
+                            note: 'The subkey has no signature of its own over the primary key (type 0x19).',
+                        };
+                    }
+                    const back = await judge(binding.sig.embedded, data, subKey);
+                    if (back.state === 'checked' && back.sig?.type === 0x19) return binding;
+                    return {
+                        sig: binding.sig,
+                        state: back.state === 'unchecked' ? 'unchecked' : 'wrong',
+                        note: back.note ?? 'The signature of the subkey over the primary key does not verify.',
+                    };
+                }),
+            );
+            const { check, note } = summary(withBack);
+            review.keys.push({
+                key: subKey,
+                binding: check,
+                note: note ?? withBack.find((j) => j.state !== 'checked')?.note,
+                expires: expiryOf(
+                    withBack.filter((j) => j.state === 'checked').map((j) => j.sig as ParsedPgpSignature),
+                    subKey.created,
+                ),
+                revocations: revocations.filter(own).map(revocationOf),
+            });
+        }
+    }
+    return review;
+}
+
+export interface Standing {
+    /** what the signature should be read with: the key or the signature expired, a revocation, a link that is not there or wrong */
+    issues: string[];
+    /** what was found and is in order, or is only worth knowing */
+    facts: string[];
+}
+
+const day = (seconds: number) => new Date(seconds * 1000).toISOString().slice(0, 10);
+
+/** The key of `review` as it concerns a signature made on `at` (a time in seconds, if the signature carries one). */
+function describeKey(review: KeyReview, label: string, at: number | undefined, now: number, out: Standing) {
+    if (review.expires === null) out.facts.push(`${label} does not expire.`);
+    else if (review.expires !== undefined) {
+        const date = day(review.expires);
+        if (review.expires > now) out.facts.push(`${label} expires on ${date}.`);
+        else if (at === undefined)
+            out.issues.push(`${label} expired on ${date}; the signature carries no time, so it cannot be told if it was made before.`);
+        else if (at < review.expires) out.issues.push(`${label} expired on ${date}. The signature was made before that, on ${day(at)}.`);
+        else out.issues.push(`${label} expired on ${date}. The signature was made AFTER that, on ${day(at)}.`);
+    }
+    const checked = review.revocations.filter((r) => r.check === 'checked');
+    for (const r of checked) {
+        const reason = `${REVOCATION_REASONS[r.code] ?? `reason ${r.code}`}${r.text ? `: "${r.text}"` : ''}`;
+        if (isHardRevocation(r.code)) {
+            out.issues.push(
+                `${label} was revoked${r.created !== undefined ? ` on ${day(r.created)}` : ''} (${reason}): its signatures are not to be relied on, whatever their date.`,
+            );
+        } else {
+            const order =
+                r.created === undefined || at === undefined
+                    ? ''
+                    : at < r.created
+                      ? ' The signature was made before the revocation.'
+                      : ' The signature was made AFTER the revocation.';
+            out.issues.push(`${label} was revoked${r.created !== undefined ? ` on ${day(r.created)}` : ''} (${reason}).${order}`);
+        }
+    }
+    if (review.revocations.some((r) => r.check === 'wrong')) {
+        out.facts.push(`${label} has a revocation signature that does not verify; it is ignored.`);
+    }
+    if (checked.length === 0 && !review.revocations.some((r) => r.check === 'unchecked')) {
+        out.facts.push(`No revocation of ${label.toLowerCase()} is in this block (it may exist elsewhere, e.g. on a keyserver).`);
+    }
+}
+
+/** What the block says about the key that made a signature, and the primary key it hangs from, in words. Never "trusted". */
+export function standingOf(review: CertificateReview, key: PgpKey, signature: ParsedPgpSignature, now = Date.now() / 1000): Standing {
+    const out: Standing = { issues: [], facts: [] };
+    const used = review.keys.find((k) => k.key.fingerprint === key.fingerprint);
+    const primary = review.keys.find((k) => k.key.primary);
+    if (signature.created !== undefined && signature.expires) {
+        const expires = signature.created + signature.expires;
+        if (expires <= now) out.issues.push(`The signature itself expired on ${day(expires)}.`);
+    }
+    if (!used) return out;
+    const at = signature.created;
+    const bindingText = (k: KeyReview, label: string) => {
+        if (k.binding === 'checked') {
+            out.facts.push(
+                k.key.primary
+                    ? `${label} has a signature over itself that verifies.`
+                    : `${label} is bound to the primary key by a signature that verifies (and the subkey signed the primary key back).`,
+            );
+        } else if (k.binding === 'missing') {
+            out.issues.push(
+                k.key.primary
+                    ? `${label}: the block has no signature of the key over itself or its user IDs, so nothing in it is certified.`
+                    : `${label}: the block has no binding signature for this subkey, so nothing in it ties the subkey to the primary key.`,
+            );
+        } else if (k.binding === 'wrong') {
+            out.issues.push(`${label}: ${k.note ?? 'a self-signature does not verify'}`);
+        } else {
+            out.facts.push(`${label}: its self-signatures could not be checked${k.note ? ` (${k.note.replace(/\.$/, '')})` : ''}.`);
+        }
+    };
+    const label = used.key.primary ? 'The primary key' : 'The subkey';
+    bindingText(used, label);
+    describeKey(used, label, at, now, out);
+    if (primary && primary !== used) {
+        bindingText(primary, 'The primary key');
+        describeKey(primary, 'The primary key', at, now, out);
+    }
+    return out;
 }
 
 /** `338D FA4E …` */

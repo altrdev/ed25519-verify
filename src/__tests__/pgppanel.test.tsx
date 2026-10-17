@@ -4,8 +4,16 @@ import { MessageFormat } from '../enum';
 import { PGP_EXAMPLES } from '../examples';
 import FormSigned from '../FormSigned';
 import { parsePgpShare, pgpShareFragment } from '../share';
+import { bytesToHex } from '../bytes';
+import { candidateKeys, parseCertificate, parsePgpSignature, readPgp } from '../openpgp';
 import {
     PGP_CLEARSIGNED,
+    PGP_EXPIRED_PUBLIC,
+    PGP_EXPIRED_SIG,
+    PGP_PARTS_REVOKED_PUBLIC,
+    PGP_PARTS_REVOKED_SIG,
+    PGP_REVOKED_PUBLIC,
+    PGP_REVOKED_SIG,
     PGP_DETACHED_PRIMARY,
     PGP_DETACHED_SUB,
     PGP_MESSAGE,
@@ -41,10 +49,13 @@ describe('OpenPGP tab, verifying', () => {
         click('Verify');
         await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
         expect(region().getByText(new RegExp(`Key: ${spaced(PGP_SUBKEY_FINGERPRINT)} \\(a subkey, version 4\\)`))).toBeInTheDocument();
-        expect(region().getByText(/Fixture <fixture@example.com>/)).toBeInTheDocument();
+        expect(region().getByText('User ID Fixture <fixture@example.com>: signed by the key itself (checked)')).toBeInTheDocument();
+        expect(region().getByText('The subkey does not expire.')).toBeInTheDocument();
+        expect(screen.queryByText(/But read it with this/)).not.toBeInTheDocument();
         expect(region().getByText(/it is the message that was signed/)).toBeInTheDocument();
         expect(region().getByText(/EdDSA \(algorithm 22\), hash SHA-512/)).toBeInTheDocument();
-        expect(region().getByText(/does not know whether the key is certified/)).toBeInTheDocument();
+        expect(region().getByText(/looks only inside the key block you pasted/)).toBeInTheDocument();
+        expect(region().getByText(/does not know whether anyone certified the key/)).toBeInTheDocument();
     });
 
     it('shows the primary key when it made the signature', async () => {
@@ -78,6 +89,62 @@ describe('OpenPGP tab, verifying', () => {
         await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
         expect(region().getByText(new RegExp(`Key: ${spaced(PGP_V6_FINGERPRINT)}`))).toBeInTheDocument();
         expect(region().getByText(/version 6, Ed25519 \(algorithm 27\)/)).toBeInTheDocument();
+    });
+
+    it('a valid signature of a key that has expired says so in the verdict, with the date and the order', async () => {
+        type('Signature', PGP_EXPIRED_SIG);
+        type('Message', PGP_MESSAGE);
+        type('Public key you trust', PGP_EXPIRED_PUBLIC);
+        click('Verify');
+        await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
+        expect(screen.getByText(/But read it with this, from the key block/)).toBeInTheDocument();
+        // in the verdict only: the details do not repeat it
+        expect(
+            screen.getByText('The subkey expired on 2020-06-29. The signature was made before that, on 2020-03-01.'),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText('The primary key expired on 2020-12-31. The signature was made before that, on 2020-03-01.'),
+        ).toBeInTheDocument();
+    });
+
+    it('a revoked key: the reason, and that the revocation is in the block', async () => {
+        type('Signature', PGP_REVOKED_SIG);
+        type('Message', PGP_MESSAGE);
+        type('Public key you trust', PGP_REVOKED_PUBLIC);
+        click('Verify');
+        await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
+        expect(
+            screen.getByText(/The primary key was revoked on 2020-06-01 \(the key was compromised: "fixture compromised"\)/),
+        ).toBeInTheDocument();
+    });
+
+    it('lists each user ID with what was found, a revoked one included, and the subkey revocation after the signature', async () => {
+        type('Signature', PGP_PARTS_REVOKED_SIG);
+        type('Message', PGP_MESSAGE);
+        type('Public key you trust', PGP_PARTS_REVOKED_PUBLIC);
+        click('Verify');
+        await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
+        expect(region().getByText('User ID Kept Fixture <kept@example.com>: signed by the key itself (checked)')).toBeInTheDocument();
+        expect(
+            region().getByText(
+                'User ID Dropped Fixture <dropped@example.com>: signed by the key itself (checked); revoked on 2020-06-01 (the user ID is no longer in use)',
+            ),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText(/The subkey was revoked on 2020-06-01.*The signature was made before the revocation\./),
+        ).toBeInTheDocument();
+    });
+
+    it('a plain key has no block to look into, and the page says it did not look', async () => {
+        const certificate = await parseCertificate((readPgp(PGP_V6_PUBLIC) as { armored: { bytes: Uint8Array } }).armored.bytes);
+        const signature = parsePgpSignature((readPgp(PGP_V6_SIG) as { armored: { bytes: Uint8Array } }).armored.bytes);
+        type('Signature', PGP_V6_SIG);
+        type('Message', PGP_MESSAGE);
+        type('Public key you trust', bytesToHex(candidateKeys(signature, certificate.keys)[0].publicKey));
+        click('Verify');
+        await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
+        expect(region().getByText(/A plain key carries nothing to look at/)).toBeInTheDocument();
+        expect(screen.queryByText(/But read it with this/)).not.toBeInTheDocument();
     });
 
     it('says wrong for another message, and hints at a newline that was lost', async () => {
