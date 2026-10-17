@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { detectContainer, handoffFor } from '../detect';
 import { MessageFormat } from '../enum';
 import { JWS_EXAMPLES, MINISIGN_EXAMPLES, PGP_EXAMPLES, SIGNIFY_EXAMPLES, SSHSIG_EXAMPLES, COSE_EXAMPLES, EXAMPLES } from '../examples';
-import { COSE_ATTACHED, COSE_DETACHED, COSE_PLAIN } from './fixtures/cose';
+import { COSE_ATTACHED, COSE_DETACHED, COSE_PLAIN, SIGN_THREE } from './fixtures/cose';
 import { MS_PUBLIC_FILE, MS_SIG_LEGACY } from './fixtures/minisign';
 import { PGP_PUBLIC } from './fixtures/openpgp';
 import { SSH_PUBLIC } from './fixtures/sshsig';
@@ -18,7 +18,8 @@ describe('which container a pasted signature is', () => {
         expect(detectContainer(SIGNIFY_EXAMPLES[0].signature)).toBe('signify');
         expect(detectContainer(PGP_EXAMPLES[0].signature)).toBe('pgp');
         expect(detectContainer(PGP_EXAMPLES[1].signature)).toBe('pgp'); // a cleartext signed message
-        for (const hex of [COSE_ATTACHED, COSE_PLAIN, COSE_DETACHED, `d83d${COSE_PLAIN}`]) expect(detectContainer(hex)).toBe('cose');
+        for (const hex of [COSE_ATTACHED, COSE_PLAIN, COSE_DETACHED, `d83d${COSE_PLAIN}`, SIGN_THREE])
+            expect(detectContainer(hex)).toBe('cose');
         expect(detectContainer(Buffer.from(COSE_ATTACHED, 'hex').toString('base64'))).toBe('cose');
         expect(detectContainer(COSE_ATTACHED.replace(/(.{32})/g, '$1\n'))).toBe('cose');
         expect(COSE_EXAMPLES[0].message).toBe(COSE_ATTACHED);

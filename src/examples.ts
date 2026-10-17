@@ -225,18 +225,22 @@ export const MINISIGN_EXAMPLES: MinisignExample[] = [
     },
 ];
 
-export interface CoseExample extends ExampleInfo {
-    /** the COSE_Sign1, as hex */
+export interface CoseVerifyExample extends ExampleInfo {
+    /** the COSE_Sign1 or COSE_Sign, as hex */
     message: string;
+    /** a key, or several for a COSE_Sign */
     publicKey: string;
     /** the payload typed, when the message has none */
     payload: string;
     externalData: string;
+    detached: boolean;
+}
+
+export interface CoseExample extends CoseVerifyExample {
     /** for the Create tab: what makes the message above when signing */
     privateKey: string;
     kid: string;
     contentType: string;
-    detached: boolean;
 }
 
 // the key of RFC 8032 test 1, as in the examples of the COSE working group
@@ -271,6 +275,34 @@ export const COSE_EXAMPLES: CoseExample[] = [
         contentType: '',
         detached: true,
         source: 'https://www.rfc-editor.org/rfc/rfc9052#name-signing-and-verification-pro',
+    },
+];
+
+/** What the Verify tab loads: the examples of Create (it can make them), and messages it cannot make (a CWT, a COSE_Sign). */
+export const COSE_VERIFY_EXAMPLES: CoseVerifyExample[] = [
+    ...COSE_EXAMPLES,
+    {
+        title: 'A CWT with the claims of RFC 8392',
+        note: 'A CWT (tag 61) whose payload is the claims of RFC 8392 appendix A.3, signed with Ed25519. The signature is valid and the token expired in 2015: it can be correctly signed and no longer good. The page shows what the claims say, and says so.',
+        publicKey: COSE_EXAMPLE_KEY.publicKey,
+        message:
+            'd83dd28443a10127a104524173796d6d657472696345434453413235365850a70175636f61703a2f2f61732e6578616d706c652e636f6d02656572696b77037818636f61703a2f2f6c696768742e6578616d706c652e636f6d041a5612aeb0051a5610d9f0061a5610d9f007420b715840ee1caa3e0265a12d8ccae3337d398152ecd583a499e180187b48db5a6f885cbd165f70f4eb52dd3ad553ac80738d4898dca020eff7f39e6d3d55c338c4c97b09',
+        payload: '',
+        externalData: '',
+        detached: false,
+        source: 'https://www.rfc-editor.org/rfc/rfc8392#appendix-A.3',
+    },
+    {
+        title: 'A COSE_Sign with three signatures, two keys',
+        note: 'One message signed by three signers (tag 98). The keys of alice and bob are given, as a COSE_KeySet; the third signature has no key here, so it is not checked and the message is not called valid. Add a key per line to check it. Made with pycose.',
+        publicKey:
+            '82a401012006215820d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a0245616c696365a4010120062158203d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c0243626f62',
+        message:
+            'd8628440a04b68656c6c6f20776f726c64838343a10127a10445616c6963655840cfc60a942dc2c0b03f3879675860ef34063299b2a266f0d606120f03226131dd3db9b95f8e0afae2dfb442a2f20c5d44c82f13dcde3086f761ef56e5b593e3088343a10127a10443626f6258408cfb1aec2d392817e389a226eb3149e711c58fa3e64d49a5fe4ac412332de4f7bb3ad0b841962820eddd7a61eb92c75c5194dd21e2f0c3d4e1bca2d7480c050c8343a10127a05840018b326f88af4d1d93b9270d99ae3a105d6d915958af093b8788f326bd6193bd834649f75ac3594c05b0b94927be28166490d00c4be75e935c96b0015a2db108',
+        payload: '',
+        externalData: '',
+        detached: false,
+        source: 'https://www.rfc-editor.org/rfc/rfc9052#section-4.1',
     },
 ];
 

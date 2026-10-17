@@ -7,24 +7,33 @@ import { isBytes } from './cbor';
 import {
     bytesFromText,
     CoseError,
+    type CoseKey,
+    type CoseSigner,
     encodeCoseKey,
     HEADER_NAMES,
     type Header,
     type ParsedCose,
-    parseCose,
+    type ParsedCoseSign,
+    parseCoseMessage,
     readCoseKey,
+    readCoseKeys,
+    readCwtClaims,
+    type SignerResult,
     signCose,
     signedData,
+    summarizeSigners,
+    verifySigners,
 } from './cose';
 import CopyButton from './CopyButton';
 import { type Hints, diagnose } from './diagnose';
 import DownloadButton from './DownloadButton';
 import { ExampleButton, ExampleNote, nextIndex } from './ExampleButton';
 import { MessageFormat, type RawFormat } from './enum';
-import { COSE_EXAMPLES, type CoseExample } from './examples';
+import { COSE_EXAMPLES, COSE_VERIFY_EXAMPLES, type CoseExample, type CoseVerifyExample } from './examples';
 import Field from './Field';
 import { readingHint } from './FormatMenu';
 import HintList from './HintList';
+import { timeNotes } from './jws';
 import MessageField from './MessageField';
 import type { MessageFile } from './messagefile';
 import Segmented from './Segmented';
@@ -40,8 +49,10 @@ const asError = (error: unknown) => {
 };
 
 interface Shown {
-    verdict: Verdict;
-    parsed: ParsedCose;
+    /** of a COSE_Sign1; a COSE_Sign has one result for each signature */
+    verdict?: Verdict;
+    results?: SignerResult[];
+    parsed: ParsedCose | ParsedCoseSign;
     /** where the payload came from, and how big it is */
     payloadBytes: Uint8Array;
     attached: boolean;
@@ -92,30 +103,145 @@ function HeaderList({ title, header, note }: { title: string; header: Header; no
 
 const bytesLabel = (size: number) => `${size.toLocaleString('en-US')} byte${size === 1 ? '' : 's'}`;
 
+const nameOf = (kind: 'sign1' | 'sign', tagged: boolean, cwt: boolean) => {
+    const name = kind === 'sign' ? 'COSE_Sign' : 'COSE_Sign1';
+    const tag = kind === 'sign' ? 98 : 18;
+    return cwt ? `A CWT (tag 61) holding a ${name}` : tagged ? `${name} (tag ${tag})` : `${name} without a tag`;
+};
+
+const date = (seconds: number) => {
+    const when = new Date(seconds * 1000);
+    return Number.isNaN(when.getTime()) ? null : when.toISOString().replace('.000Z', 'Z');
+};
+const TIMES: CborKey[] = [4, 5, 6];
+
+/** Is the whole message proved by its signatures? Not when one is wrong, or was not checked. */
+const proved = (shown: Shown) => (shown.results ? summarizeSigners(shown.results).overall === 'valid' : shown.verdict === 'valid');
+
+/** The payload read as CBOR claims, when it is a map: what the token says, which is not what the signature proves. */
+function Claims({ shown }: { shown: Shown }) {
+    const { parsed } = shown;
+    const claims = readCwtClaims(shown.payloadBytes);
+    if (!claims) return null;
+    const token = parsed.cwt || parsed.protectedHeader.get(3) === 'application/cwt';
+    const notes = token ? [...timeNotes({ text: null, json: null, ...claims }, Math.floor(Date.now() / 1000)), ...claims.problems] : [];
+    return (
+        <section class="decoded" aria-label="Claims">
+            <h2>{token ? 'CWT claims' : 'Payload read as CBOR'}</h2>
+            <p>
+                {proved(shown)
+                    ? 'This is what the token says. The signature proves who signed it, not that it is true or still good.'
+                    : 'This is what the token says, but the signature is not (all) proved, so anyone could have changed it.'}
+            </p>
+            {claims.claims.length === 0 ? (
+                <p>The map is empty.</p>
+            ) : (
+                <ul>
+                    {claims.claims.map(({ key, name, value }) => (
+                        <li key={String(key)}>
+                            {token && name ? name : String(key)}: {showValue(value)}
+                            {token && TIMES.includes(key) && typeof value === 'number' && date(value) && ` (${date(value)})`}
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {notes.length > 0 && (
+                <ul>
+                    {notes.map((note) => (
+                        <li key={note}>{note}</li>
+                    ))}
+                </ul>
+            )}
+        </section>
+    );
+}
+
+const VERDICT_WORDS: Record<SignerResult['verdict'], string> = {
+    valid: 'valid',
+    invalid: 'wrong',
+    'permissive-only': 'valid only under the permissive ZIP215 rules, not the strict RFC 8032 ones',
+    'not-checked': 'not checked',
+};
+
+function Signer({ signer, result, number }: { signer: CoseSigner; result: SignerResult; number: number }) {
+    return (
+        <li>
+            <strong>Signature {number}:</strong> {VERDICT_WORDS[result.verdict]}
+            {result.keyIndex !== undefined && ` (key ${result.keyIndex + 1} of those given)`}
+            {result.reason && <span> {result.reason}</span>}
+            <ul>
+                <HeaderList title="Protected header" header={signer.protectedHeader} note="signed" />
+                <HeaderList title="Unprotected header" header={signer.unprotectedHeader} note="not signed: anyone could have changed it" />
+            </ul>
+        </li>
+    );
+}
+
 function Details({ shown }: { shown: Shown }) {
     const { parsed } = shown;
     const text = printable(shown.payloadBytes);
     return (
-        <section class="decoded" aria-label="Message details">
-            <h2>What the message says</h2>
-            <ul>
-                <li>
-                    {parsed.cwt
-                        ? 'A CWT (tag 61) holding a COSE_Sign1'
-                        : parsed.tagged
-                          ? 'COSE_Sign1 (tag 18)'
-                          : 'COSE_Sign1 without a tag'}
-                    , algorithm {parsed.algorithm === -19 ? 'Ed25519 (-19)' : 'EdDSA (-8)'}
-                </li>
-                <HeaderList title="Protected header" header={parsed.protectedHeader} note="signed" />
-                <HeaderList title="Unprotected header" header={parsed.unprotectedHeader} note="not signed: anyone could have changed it" />
-                <li>
-                    Payload ({shown.attached ? 'in the message' : 'given apart'}, {bytesLabel(shown.payloadBytes.length)}):{' '}
-                    {text !== null ? <code>{clip(text)}</code> : <code>{clip(bytesToHex(shown.payloadBytes), 120)}</code>}
-                </li>
-            </ul>
-        </section>
+        <>
+            <section class="decoded" aria-label="Message details">
+                <h2>What the message says</h2>
+                <ul>
+                    <li>
+                        {nameOf(parsed.kind, parsed.tagged, parsed.cwt)}
+                        {parsed.kind === 'sign1'
+                            ? `, algorithm ${parsed.algorithm === -19 ? 'Ed25519 (-19)' : 'EdDSA (-8)'}`
+                            : `, ${parsed.signers.length} signature${parsed.signers.length === 1 ? '' : 's'}`}
+                    </li>
+                    <HeaderList title="Protected header" header={parsed.protectedHeader} note="signed" />
+                    <HeaderList
+                        title="Unprotected header"
+                        header={parsed.unprotectedHeader}
+                        note="not signed: anyone could have changed it"
+                    />
+                    <li>
+                        Payload ({shown.attached ? 'in the message' : 'given apart'}, {bytesLabel(shown.payloadBytes.length)}):{' '}
+                        {text !== null ? <code>{clip(text)}</code> : <code>{clip(bytesToHex(shown.payloadBytes), 120)}</code>}
+                    </li>
+                </ul>
+            </section>
+            {parsed.kind === 'sign' && shown.results && (
+                <section class="decoded" aria-label="Signatures">
+                    <h2>Signatures</h2>
+                    <ul>
+                        {parsed.signers.map((signer, index) => (
+                            <Signer key={index} signer={signer} result={(shown.results as SignerResult[])[index]} number={index + 1} />
+                        ))}
+                    </ul>
+                </section>
+            )}
+            <Claims shown={shown} />
+        </>
     );
+}
+
+/** The answer for a COSE_Sign: valid only when every signature was checked and is valid. */
+function SignersBanner({ results }: { results: SignerResult[] }) {
+    const { valid, invalid, notChecked, total, overall } = summarizeSigners(results);
+    const plural = (n: number) => `${n} signature${n === 1 ? '' : 's'}`;
+    if (overall === 'invalid')
+        return <Banner kind="error">{`${invalid} of ${plural(total)} ${invalid === 1 ? 'is' : 'are'} wrong`}</Banner>;
+    if (overall === 'permissive-only') {
+        return (
+            <Banner kind="warning">
+                Not all signatures are valid under the strict RFC 8032 rules, but all would be accepted under ZIP215, the more permissive
+                rules used by some systems (e.g. Zcash).
+            </Banner>
+        );
+    }
+    if (overall === 'incomplete') {
+        return (
+            <Banner kind="warning">
+                {valid === 0
+                    ? `None of ${plural(total)} could be checked, so the message is not proved.`
+                    : `${valid} of ${plural(total)} ${valid === 1 ? 'is' : 'are'} valid; ${notChecked} not checked, so the message is not proved as a whole.`}
+            </Banner>
+        );
+    }
+    return <Banner kind="success">{total === 1 ? 'Signature is valid' : `All ${total} signatures are valid`}</Banner>;
 }
 
 function Verify({
@@ -140,28 +266,36 @@ function Verify({
     const [exampleIndex, setExampleIndex] = useState<number | null>(null);
 
     const coseKey = readCoseKey(publicKey);
-    const publicKeyReading = coseKey ? null : inspectField('publicKey', publicKey, formats.publicKey);
+    const keySet = coseKey ? null : readCoseKeys(publicKey);
+    const publicKeyReading = coseKey || keySet ? null : inspectField('publicKey', publicKey, formats.publicKey);
 
     const verify = async (
         picked: FormatOverrides = formats,
         values = { message, publicKey, payload, payloadFormat, externalData, file },
     ) => {
         const found: Errors = {};
-        let parsed: ParsedCose | undefined;
+        let parsed: ParsedCose | ParsedCoseSign | undefined;
         try {
-            parsed = parseCose(bytesFromText(values.message));
+            parsed = parseCoseMessage(bytesFromText(values.message));
         } catch (error) {
             found.message = asError(error);
         }
 
         let key: Uint8Array | undefined;
         let keyId: Uint8Array | undefined;
+        // a COSE_Sign takes several keys: a COSE_KeySet, or one per line
+        let keys: CoseKey[] = [];
         if (!values.publicKey.trim()) {
             found.publicKey = 'The public key is needed: a COSE message does not carry it.';
             setChoices(undefined);
         } else {
-            const fromCose = readCoseKey(values.publicKey);
-            if (fromCose) {
+            const many = parsed?.kind === 'sign' ? readCoseKeys(values.publicKey) : null;
+            const fromCose = many ? null : readCoseKey(values.publicKey);
+            if (many) {
+                keys = many.filter((candidate) => candidate.publicKey);
+                if (keys.length === 0) found.publicKey = 'These COSE_Keys hold only private keys: give the public ones.';
+                setChoices(undefined);
+            } else if (fromCose) {
                 if (fromCose.publicKey) key = fromCose.publicKey;
                 else found.publicKey = 'This COSE_Key holds only a private key: give the public one.';
                 keyId = fromCose.kid;
@@ -172,6 +306,7 @@ function Verify({
                 setChoices(reader.choices(['publicKey']).publicKey);
                 if (!found.publicKey) key = reader.bytesOf('publicKey');
             }
+            if (key && !many) keys = [{ publicKey: key, kid: keyId }];
         }
 
         // the payload: in the message, or given apart
@@ -189,18 +324,28 @@ function Verify({
             }
         }
 
-        const messageKid = parsed && (parsed.protectedHeader.get(4) ?? parsed.unprotectedHeader.get(4));
+        const messageKid = parsed?.kind === 'sign1' && (parsed.protectedHeader.get(4) ?? parsed.unprotectedHeader.get(4));
         if (isBytes(messageKid) && keyId && bytesToHex(messageKid) !== bytesToHex(keyId)) {
             found.publicKey = `The message names the key ${showValue(messageKid)}, the key you gave is ${showValue(keyId)}.`;
         }
 
         setErrors(found);
-        if (!parsed || !key || !payloadBytes || found.publicKey || found.payload) {
+        if (!parsed || keys.length === 0 || !payloadBytes || found.publicKey || found.payload) {
             setShown(null);
             return;
         }
         const aad = encoder.encode(values.externalData);
-        const verdict = await verdictOf(parsed.signature, signedData(parsed.protectedBytes, payloadBytes, aad), key);
+        if (parsed.kind === 'sign') {
+            setShown({
+                results: await verifySigners(parsed, payloadBytes, aad, keys, verdictOf),
+                parsed,
+                payloadBytes,
+                attached: !!parsed.payload,
+            });
+            return;
+        }
+        const publicKey = keys[0].publicKey as Uint8Array;
+        const verdict = await verdictOf(parsed.signature, signedData(parsed.protectedBytes, payloadBytes, aad), publicKey);
         setShown({
             verdict,
             parsed,
@@ -211,12 +356,12 @@ function Verify({
                 verdict === 'invalid'
                     ? await diagnose(
                           {
-                              publicKey: key,
+                              publicKey,
                               signature: parsed.signature,
                               message: parsed.payload ? payloadBytes : given,
                               messageFormat: values.payloadFormat,
                               skipHashes: true,
-                              frame: async (candidate) => signedData((parsed as ParsedCose).protectedBytes, candidate, aad),
+                              frame: async (candidate) => signedData(parsed.protectedBytes, candidate, aad),
                           },
                           payloadBytes,
                       )
@@ -234,7 +379,7 @@ function Verify({
         setErrors((current) => ({ ...current, [field]: undefined }));
     };
 
-    const loadExample = (example: CoseExample) => {
+    const loadExample = (example: CoseVerifyExample) => {
         const values = {
             message: example.message,
             publicKey: example.publicKey,
@@ -256,9 +401,9 @@ function Verify({
     };
 
     const loadNextExample = () => {
-        const index = nextIndex(exampleIndex, COSE_EXAMPLES.length);
+        const index = nextIndex(exampleIndex, COSE_VERIFY_EXAMPLES.length);
         setExampleIndex(index);
-        loadExample(COSE_EXAMPLES[index]);
+        loadExample(COSE_VERIFY_EXAMPLES[index]);
     };
 
     const fragment = coseShareFragment({ message, publicKey, payload: file ? '' : payload, payloadFormat, externalData });
@@ -272,7 +417,7 @@ function Verify({
                 rows={4}
                 value={message}
                 error={errors.message}
-                placeholder="D2 84 43 A1 01 27 … (hex or base64 of the COSE_Sign1)"
+                placeholder="D2 84 43 A1 01 27 … (hex or base64 of the COSE_Sign1 or COSE_Sign)"
                 fileKind="binary"
                 onInput={(value) => {
                     setMessage(value);
@@ -322,8 +467,14 @@ function Verify({
                     setFormats(picked);
                     verify(picked);
                 }}
-                hint={coseKey ? 'COSE_Key (Ed25519)' : readingHint(publicKeyReading)}
-                placeholder="Hex, base64, PEM, OpenSSH, JWK, or a COSE_Key in hex or base64"
+                hint={
+                    coseKey
+                        ? 'COSE_Key (Ed25519)'
+                        : keySet
+                          ? `${keySet.length} Ed25519 keys, for a COSE_Sign (a COSE_KeySet, or one key per line)`
+                          : readingHint(publicKeyReading)
+                }
+                placeholder="Hex, base64, PEM, OpenSSH, JWK, or a COSE_Key in hex or base64 (a COSE_Sign: a COSE_KeySet, or one key per line)"
                 fileKind="key"
                 onInput={(value) => {
                     setPublicKey(value);
@@ -339,7 +490,7 @@ function Verify({
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : COSE_EXAMPLES[exampleIndex]} />
+            <ExampleNote example={exampleIndex === null ? null : COSE_VERIFY_EXAMPLES[exampleIndex]} />
             {shown?.verdict === 'valid' && <Banner kind="success">Signature is valid</Banner>}
             {shown?.verdict === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
             {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
@@ -349,6 +500,7 @@ function Verify({
                     used by some systems (e.g. Zcash).
                 </Banner>
             )}
+            {shown?.results && <SignersBanner results={shown.results} />}
             {shown && <Details shown={shown} />}
         </>
     );

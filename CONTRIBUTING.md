@@ -66,7 +66,7 @@ src/
   minisign.ts       minisign: the public key and signature files, what is signed, signing; MinisignPanel.tsx is its screen
   signify.ts        signify (OpenBSD): the two-line public key and signature files, signing; SignifyPanel.tsx is its screen
   blake2b.ts        BLAKE2b-512, for minisign (checked against OpenSSL)
-  cose.ts           COSE_Sign1: parsing, what is refused, the structure that is signed, COSE_Key, signing; CosePanel.tsx is its screen
+  cose.ts           COSE_Sign1 and COSE_Sign: parsing, what is refused, the structures that are signed, COSE_Key / KeySet, the claims of a CWT, signing; CosePanel.tsx is its screen
   cbor.ts           a small CBOR reader / writer for COSE (refuses indefinite lengths and duplicate keys)
   openpgp.ts        OpenPGP: armor, packets, public key blocks, signatures (v4 and v6), what is hashed, and what a key block says about its keys (self-signatures, expiry, revocation: `reviewCertificate`, `standingOf`); PgpPanel.tsx is its screen (verify only)
   files.ts          reading a key / signature file into a field, and saving one (names, binary keys, size limit)

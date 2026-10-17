@@ -41,7 +41,7 @@ const isCose = (text: string): boolean => {
     const compact = text.replace(/\s+/g, '').replace(/^0x/i, '');
     if (compact.length < 40 || compact.length > 2_000_000) return false;
     const bytes = parseHex(compact) ?? parseBase64(compact);
-    // a plain Ed25519 signature is 64 bytes: a COSE_Sign1 holds one and more
+    // a plain Ed25519 signature is 64 bytes: a COSE message holds one and more
     if (!bytes || bytes.length <= 64) return false;
     try {
         let value = decodeCbor(bytes);
@@ -52,7 +52,8 @@ const isCose = (text: string): boolean => {
             isBytes(value[0]) &&
             value[1] instanceof Map &&
             (isBytes(value[2]) || value[2] === null) &&
-            isBytes(value[3])
+            // a COSE_Sign1 holds a signature, a COSE_Sign a list of them
+            (isBytes(value[3]) || (Array.isArray(value[3]) && value[3].length > 0 && value[3].every(Array.isArray)))
         );
     } catch {
         return false;
