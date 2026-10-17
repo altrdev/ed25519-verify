@@ -1,4 +1,5 @@
 import VerifyEd25519, { encodeBytes, generateKeyPair, InputError, inspectField } from '../signature';
+import { hexToBytes } from '../bytes';
 import { CODECS } from '../codecs';
 import { MessageFormat, type RawFormat, SignEncoding } from '../enum';
 
@@ -158,11 +159,16 @@ describe('Hex or base64 is detected, not chosen', () => {
         expect(asked).toBeLessThan(15);
     });
 
-    it('reads the same private key the same way whatever it is written in', async () => {
-        const seed = random(32);
+    it.each([
+        ['a random one', () => random(32)],
+        // its 43 characters without padding are valid base64 and valid base58: the app asks which, and the user picks (about 1 in 70)
+        ['one whose unpadded base64 is also base58', () => hexToBytes('0f98fdda0b8243088681b0d940b8bb2fb6f8f62898487b9c276dc5aee3c65453')],
+    ])('reads the same private key the same way whatever it is written in: %s', async (_name, makeSeed) => {
         const signatures = new Set<string>();
-        for (const text of Object.values(variantsOf(seed))) {
-            signatures.add(await new VerifyEd25519('same message', null, null, text).sign(SignEncoding.Hex));
+        for (const [name, text] of Object.entries(variantsOf(makeSeed()))) {
+            // told the format when the text can be read in two ways, as the user is asked to do
+            const formats = name === 'unpadded' ? { privateKey: 'base64' as const } : {};
+            signatures.add(await new VerifyEd25519('same message', null, null, text, MessageFormat.Text, formats).sign(SignEncoding.Hex));
         }
         expect(signatures.size).toBe(1);
     });
