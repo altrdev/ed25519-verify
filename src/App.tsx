@@ -138,6 +138,8 @@ export default function App() {
                         </h1>
                     </div>
                     <div class="topbar-actions">
+                        <span class="local">Runs in your browser</span>
+                        <span class="divider" aria-hidden="true" />
                         <a
                             class="icon"
                             href={REPO_URL}

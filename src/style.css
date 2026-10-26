@@ -66,23 +66,22 @@ button { font: inherit; color: inherit; cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
-/* top bar */
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: color-mix(in srgb, var(--surface) 85%, transparent);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
-}
+/* top bar: a rounded translucent bar that floats over the page and stays on top while it scrolls */
+.topbar { position: sticky; top: 0; z-index: 10; padding: 12px 24px 0; pointer-events: none; }
 .topbar-inner {
-  max-width: var(--page-width);
+  max-width: calc(var(--page-width) - 48px);
   margin: 0 auto;
-  padding: 0 24px;
-  height: 60px;
+  padding: 7px 8px 7px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
 }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand h1 { margin: 0; font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; }
@@ -90,9 +89,9 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .logo {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   background: var(--primary);
   color: var(--on-primary);
 }
@@ -100,17 +99,20 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 a.icon, button.icon {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--border);
+  width: 36px;
+  height: 36px;
+  border: 0;
   border-radius: 10px;
-  background: var(--surface);
+  background: transparent;
   color: var(--muted);
   transition: color 0.15s, background 0.15s;
 }
 a.icon:hover, button.icon:hover { color: var(--text); background: var(--surface-2); }
 
-.topbar-actions { display: flex; gap: 8px; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.local { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px 4px 9px; border-radius: 999px; background: var(--success-bg); color: var(--success-fg); font-size: 0.75rem; font-weight: 500; }
+.local::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.divider { width: 1px; height: 20px; background: var(--border); }
 
 /* layout: the rail of formats, then the view that is open */
 .app {
@@ -125,7 +127,7 @@ a.icon:hover, button.icon:hover { color: var(--text); background: var(--surface-
 .bench-head h2 { margin: 0; font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.1; font-weight: 700; letter-spacing: -0.03em; text-wrap: balance; }
 .lead { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
 
-.rail { display: flex; flex-direction: column; gap: 22px; min-width: 0; align-self: start; position: sticky; top: 84px; }
+.rail { display: flex; flex-direction: column; gap: 22px; min-width: 0; align-self: start; position: sticky; top: 88px; }
 .rail-group h2 { margin: 0 0 6px; font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 .rail [role='tablist'] { display: flex; flex-direction: column; gap: 1px; }
 .rail [role='tab'] {
@@ -326,6 +328,7 @@ button.primary:active { transform: translateY(1px); }
 }
 
 @media (max-width: 760px) {
+  .local, .divider { display: none; }
   .app { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .rail { position: static; flex-direction: row; gap: 4px; overflow-x: auto; }
   .rail-group h2, .rail [role='tab'] small { display: none; }
@@ -337,7 +340,7 @@ button.primary:active { transform: translateY(1px); }
   .field > :not(.field-head) { grid-column: 1; }
 }
 @media (max-width: 520px) {
-  .topbar-inner, .app, .footer { padding-left: 16px; padding-right: 16px; }
+  .topbar, .app, .footer { padding-left: 16px; padding-right: 16px; }
   .brand h1 span { display: none; }
 }
 
