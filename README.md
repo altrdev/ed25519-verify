@@ -32,6 +32,7 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 - **Share a verification**: *Copy link* on the verification of a raw signature makes a link with the public key, message and signature in the part after `#`, which browsers never send to any server. Whoever opens it sees the fields filled in and the result at once. Private keys are never put in a link.
 - **Formats are recognised by themselves** for keys and signatures: hex, `0x` hex, base64, base64url, base58, base32 or a list of bytes, mixed as you like. When a text could be two things (rare) you are asked to pick, never guessed for. A menu on every field converts it to another format.
 - Private key hidden by default, one-click **copy** for private and public keys and for signatures.
+- **The verdict is easy to find**: a click on *Verify* (or *Load example*) scrolls to the verdict card when it is out of view, and a pill beside the button gives the verdict in a word (*Valid*, *Wrong*, *ZIP215 only*...).
 - **A help dialog** (the *?* in the top bar): what the page does, how to read *valid* and *wrong*, which view reads which file, and what the ZIP215 warning means. It closes with Escape, the close button or a click outside.
 - Light and dark theme, responsive layout, installable as a **PWA** (assets are precached by a service worker).
 
@@ -106,6 +107,7 @@ src/
   FormVerify.tsx    verify a raw signature
   FormSign.tsx      create a raw signature
   Results.tsx       the verdict card under a form (Banner, Checks)
+  Verdict.tsx       the verdict of a form: the pill beside Verify, the scroll to the card
   Checks.tsx        the steps of a verification, as a list
   __tests__/        tests
 ```

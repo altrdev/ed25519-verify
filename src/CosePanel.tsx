@@ -41,6 +41,7 @@ import { coseShareFragment, type SharedCose } from './share';
 import VerifyEd25519, { type FormatOverrides, inspectField, type Verdict, verdictOf } from './signature';
 import Results from './Results';
 import Checks from './Checks';
+import { VerdictPill, VerdictScope, VerifyButton } from './Verdict';
 
 type Errors = Partial<Record<'message' | 'publicKey' | 'payload' | 'privateKey' | 'kid' | 'contentType', string>>;
 
@@ -226,10 +227,10 @@ function SignersBanner({ results }: { results: SignerResult[] }) {
     const { valid, invalid, notChecked, total, overall } = summarizeSigners(results);
     const plural = (n: number) => `${n} signature${n === 1 ? '' : 's'}`;
     if (overall === 'invalid')
-        return <Banner kind="error" stamp>{`${invalid} of ${plural(total)} ${invalid === 1 ? 'is' : 'are'} wrong`}</Banner>;
+        return <Banner kind="error" stamp pill="Wrong">{`${invalid} of ${plural(total)} ${invalid === 1 ? 'is' : 'are'} wrong`}</Banner>;
     if (overall === 'permissive-only') {
         return (
-            <Banner kind="warning">
+            <Banner kind="warning" pill="ZIP215 only">
                 Not all signatures are valid under the strict RFC 8032 rules, but all would be accepted under ZIP215, the more permissive
                 rules used by some systems (e.g. Zcash).
             </Banner>
@@ -237,7 +238,7 @@ function SignersBanner({ results }: { results: SignerResult[] }) {
     }
     if (overall === 'incomplete') {
         return (
-            <Banner kind="warning">
+            <Banner kind="warning" pill="Not all checked">
                 {valid === 0
                     ? `None of ${plural(total)} could be checked, so the message is not proved.`
                     : `${valid} of ${plural(total)} ${valid === 1 ? 'is' : 'are'} valid; ${notChecked} not checked, so the message is not proved as a whole.`}
@@ -419,7 +420,7 @@ function Verify({
     const link = () => `${location.origin}${location.pathname}${location.search}${fragment}`;
 
     return (
-        <>
+        <VerdictScope>
             <Field
                 label="COSE message"
                 rows={4}
@@ -492,27 +493,26 @@ function Verify({
                 }}
             />
             <div class="actions">
-                <button type="button" class="primary" onClick={() => verify()}>
-                    Verify
-                </button>
+                <VerifyButton onClick={() => verify()} />
+                <VerdictPill />
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
             <Results>
                 <ExampleNote example={exampleIndex === null ? null : COSE_VERIFY_EXAMPLES[exampleIndex]} />
                 {shown?.verdict === 'valid' && (
-                    <Banner kind="success" stamp>
+                    <Banner kind="success" stamp pill="Valid">
                         Signature is valid
                     </Banner>
                 )}
                 {shown?.verdict === 'invalid' && (
-                    <Banner kind="error" stamp>
+                    <Banner kind="error" stamp pill="Wrong">
                         Signature is wrong
                     </Banner>
                 )}
                 {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
                 {shown?.verdict === 'permissive-only' && (
-                    <Banner kind="warning">
+                    <Banner kind="warning" pill="ZIP215 only">
                         Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
                         rules used by some systems (e.g. Zcash).
                     </Banner>
@@ -523,7 +523,7 @@ function Verify({
                 )}
                 {shown && <Details shown={shown} />}
             </Results>
-        </>
+        </VerdictScope>
     );
 }
 
