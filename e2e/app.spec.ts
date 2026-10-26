@@ -224,7 +224,7 @@ test.describe('signed formats: JWS / JWT', () => {
     test('verifies the token of RFC 8037 and shows what it contains', async ({ page }) => {
         const problems = collectProblems(page);
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await page.getByRole('tab', { name: 'JWS / JWT' }).click();
         await signed(page).getByLabel('Token', { exact: true }).fill(JWS.token);
         await signed(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
         await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
@@ -235,7 +235,7 @@ test.describe('signed formats: JWS / JWT', () => {
 
     test('refuses an unsigned token instead of calling it valid', async ({ page }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await page.getByRole('tab', { name: 'JWS / JWT' }).click();
         await signed(page).getByLabel('Token', { exact: true }).fill('eyJhbGciOiJub25lIn0.e30.');
         await signed(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
         await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
@@ -245,7 +245,7 @@ test.describe('signed formats: JWS / JWT', () => {
 
     test('a token made here is verified by Node crypto, which knows nothing about this code', async ({ page }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await page.getByRole('tab', { name: 'JWS / JWT' }).click();
         await panel(page).getByRole('button', { name: 'Create a signature' }).click();
         await signed(page).getByLabel('Private key', { exact: true }).fill(JWS.privateKeyHex);
         await signed(page).getByLabel('Payload', { exact: true }).fill('{"sub":"ada","name":"Zoë"}');
@@ -266,7 +266,7 @@ test.describe('signed formats: JWS / JWT', () => {
 
     test('suggests what may be wrong with a token, and following it makes it valid', async ({ page }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await page.getByRole('tab', { name: 'JWS / JWT' }).click();
         // the signature of RFC 8037 with its two halves swapped
         const [header, payload, signature] = JWS.token.split('.');
         const bytes = Buffer.from(signature, 'base64url');
@@ -280,7 +280,7 @@ test.describe('signed formats: JWS / JWT', () => {
 
     test('loads the examples, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await page.getByRole('tab', { name: 'JWS / JWT' }).click();
         await signed(page).getByRole('button', { name: 'Load example' }).click();
         await expect(signed(page).getByText('Signature is valid')).toBeVisible();
         await expect(signed(page).getByText('RFC 8037 appendix A.4.')).toBeVisible();
@@ -299,7 +299,7 @@ test.describe('signed formats: JWS / JWT', () => {
 
     test('verifies with the key of a JWK Set that the token names, and a link opens it elsewhere', async ({ page, context }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await page.getByRole('tab', { name: 'JWS / JWT' }).click();
         for (let i = 0; i < 3; i++) await signed(page).getByRole('button', { name: 'Load example' }).click();
         await expect(signed(page).getByText('Signature is valid')).toBeVisible();
         await expect(signed(page).getByText(/Using the key "key-2" of the set, as the token asks/)).toBeVisible();
@@ -324,7 +324,7 @@ test.describe('signed formats: JWS / JWT', () => {
 
     test('verifies with the method of a DID document that the token names, by its id or its fragment', async ({ page }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await page.getByRole('tab', { name: 'JWS / JWT' }).click();
         for (let i = 0; i < 4; i++) await signed(page).getByRole('button', { name: 'Load example' }).click();
         await expect(signed(page).getByText('Signature is valid')).toBeVisible();
         await expect(
@@ -346,7 +346,7 @@ test.describe('signed formats: JWS / JWT', () => {
 
     test('the Create tab reproduces the token of the RFC', async ({ page }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
+        await page.getByRole('tab', { name: 'JWS / JWT' }).click();
         await panel(page).getByRole('button', { name: 'Create a signature' }).click();
         await signed(page).getByRole('button', { name: 'Load example' }).click();
         await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
@@ -374,8 +374,7 @@ test.describe('signed formats: SSH signatures', () => {
         test.skip(!hasSshKeygen, 'ssh-keygen is not installed');
         const { publicKey, signature } = withSsh('git', 'a message\nof two lines\n');
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'SSH signature' }).click();
+        await page.getByRole('tab', { name: 'SSH signature' }).click();
         await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
         await signed(page).getByLabel('Message', { exact: true }).fill('a message\nof two lines\n');
         await signed(page).getByLabel('Public key you trust', { exact: true }).fill(publicKey);
@@ -407,8 +406,7 @@ test.describe('signed formats: SSH signatures', () => {
         expect(reference.status).toBe(0);
 
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'SSH signature' }).click();
+        await page.getByRole('tab', { name: 'SSH signature' }).click();
         await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
         await signed(page).getByLabel('Message', { exact: true }).fill('a message\n');
         await signed(page).getByLabel('Public key you trust', { exact: true }).fill(allowed);
@@ -422,8 +420,7 @@ test.describe('signed formats: SSH signatures', () => {
         const { dir, privateKey } = withSsh('file', 'unused');
         const message = 'signed in the page, with an accent: è\n';
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'SSH signature' }).click();
+        await page.getByRole('tab', { name: 'SSH signature' }).click();
         await panel(page).getByRole('button', { name: 'Create a signature' }).click();
         await signed(page).getByLabel('Private key', { exact: true }).fill(privateKey);
         await signed(page).getByLabel('Message', { exact: true }).fill(message);
@@ -450,8 +447,7 @@ test.describe('signed formats: SSH signatures', () => {
 
     test('loads the examples, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'SSH signature' }).click();
+        await page.getByRole('tab', { name: 'SSH signature' }).click();
         await signed(page).getByRole('button', { name: 'Load example' }).click();
         await expect(signed(page).getByText('Signature is valid')).toBeVisible();
         await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
@@ -460,7 +456,7 @@ test.describe('signed formats: SSH signatures', () => {
         const other = await context.newPage();
         await other.goto(link);
         await expect(signed(other).getByText('Signature is valid')).toBeVisible();
-        await expect(panel(other).getByRole('button', { name: 'SSH signature' })).toHaveAttribute('aria-pressed', 'true');
+        await expect(other.getByRole('tab', { name: 'SSH signature' })).toHaveAttribute('aria-selected', 'true');
     });
 });
 
@@ -486,8 +482,7 @@ test.describe('signed formats: minisign', () => {
         const signature = readFileSync(join(dir, 'message.txt.minisig'), 'utf8');
 
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'minisign' }).click();
+        await page.getByRole('tab', { name: 'minisign' }).click();
         await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
         await signed(page).getByLabel('Message', { exact: true }).fill(message);
         await signed(page)
@@ -513,8 +508,7 @@ test.describe('signed formats: minisign', () => {
         const dir = mkdtempSync(join(tmpdir(), 'e2e-minisign-'));
         const message = 'signed in the page, with an accent: è\n';
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'minisign' }).click();
+        await page.getByRole('tab', { name: 'minisign' }).click();
         await panel(page).getByRole('button', { name: 'Create a signature' }).click();
         await signed(page).getByLabel('Private key', { exact: true }).fill(RFC.privateKey);
         await signed(page).getByLabel('Message', { exact: true }).fill(message);
@@ -533,8 +527,7 @@ test.describe('signed formats: minisign', () => {
 
     test('loads the examples, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'minisign' }).click();
+        await page.getByRole('tab', { name: 'minisign' }).click();
         await signed(page).getByRole('button', { name: 'Load example' }).click();
         await expect(signed(page).getByText('Signature is valid')).toBeVisible();
         await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
@@ -543,7 +536,7 @@ test.describe('signed formats: minisign', () => {
         const other = await context.newPage();
         await other.goto(link);
         await expect(signed(other).getByText('Signature is valid')).toBeVisible();
-        await expect(panel(other).getByRole('button', { name: 'minisign' })).toHaveAttribute('aria-pressed', 'true');
+        await expect(other.getByRole('tab', { name: 'minisign' })).toHaveAttribute('aria-selected', 'true');
     });
 });
 
@@ -569,8 +562,7 @@ test.describe('signed formats: signify', () => {
         const signature = readFileSync(join(dir, 'm.sig'), 'utf8');
 
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'signify' }).click();
+        await page.getByRole('tab', { name: 'signify' }).click();
         await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
         await signed(page).getByLabel('Message', { exact: true }).fill(message);
         await signed(page)
@@ -589,8 +581,7 @@ test.describe('signed formats: signify', () => {
         const dir = mkdtempSync(join(tmpdir(), 'e2e-signify-'));
         const message = 'signed in the page, with an accent: è\n';
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'signify' }).click();
+        await page.getByRole('tab', { name: 'signify' }).click();
         await panel(page).getByRole('button', { name: 'Create a signature' }).click();
         await signed(page).getByLabel('Private key', { exact: true }).fill(RFC.privateKey);
         await signed(page).getByLabel('Message', { exact: true }).fill(message);
@@ -611,8 +602,7 @@ test.describe('signed formats: signify', () => {
 
     test('loads the example, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'signify' }).click();
+        await page.getByRole('tab', { name: 'signify' }).click();
         await signed(page).getByRole('button', { name: 'Load example' }).click();
         await expect(signed(page).getByText('Signature is valid')).toBeVisible();
         await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
@@ -621,7 +611,7 @@ test.describe('signed formats: signify', () => {
         const other = await context.newPage();
         await other.goto(link);
         await expect(signed(other).getByText('Signature is valid')).toBeVisible();
-        await expect(panel(other).getByRole('button', { name: 'signify' })).toHaveAttribute('aria-pressed', 'true');
+        await expect(other.getByRole('tab', { name: 'signify' })).toHaveAttribute('aria-selected', 'true');
     });
 });
 
@@ -632,8 +622,7 @@ test.describe('signed formats: COSE', () => {
 
     test('verifies the example of the COSE working group, and a message with a changed signature is wrong', async ({ page }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'COSE', exact: true }).click();
+        await page.getByRole('tab', { name: 'COSE' }).click();
         await signed(page).getByLabel('COSE message', { exact: true }).fill(ATTACHED);
         await signed(page)
             .getByLabel('Public key you trust', { exact: true })
@@ -649,8 +638,7 @@ test.describe('signed formats: COSE', () => {
 
     test('creates the published message, and downloads it as the binary file', async ({ page }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'COSE', exact: true }).click();
+        await page.getByRole('tab', { name: 'COSE' }).click();
         await panel(page).getByRole('button', { name: 'Create a signature' }).click();
         await signed(page).getByRole('button', { name: 'Load example' }).click();
         await signed(page).getByRole('button', { name: 'Sign', exact: true }).click();
@@ -671,8 +659,7 @@ test.describe('signed formats: COSE', () => {
         const file = join(dir, 'message.cose');
         writeFileSync(file, Buffer.from(ATTACHED, 'hex'));
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'COSE', exact: true }).click();
+        await page.getByRole('tab', { name: 'COSE' }).click();
         await signed(page).locator('input[type=file]').first().setInputFiles(file);
         await expect(signed(page).getByLabel('COSE message', { exact: true })).toHaveValue(ATTACHED);
         await signed(page)
@@ -686,7 +673,7 @@ test.describe('signed formats: COSE', () => {
         const other = await context.newPage();
         await other.goto(link);
         await expect(signed(other).getByText('Signature is valid')).toBeVisible();
-        await expect(panel(other).getByRole('button', { name: 'COSE', exact: true })).toHaveAttribute('aria-pressed', 'true');
+        await expect(other.getByRole('tab', { name: 'COSE' })).toHaveAttribute('aria-selected', 'true');
     });
 });
 
@@ -715,8 +702,7 @@ test.describe('signed formats: OpenPGP', () => {
         test.skip(!hasGpg, 'gpg is not installed');
         const { publicKey, signature } = withGpg('a message\nof two lines\n');
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'OpenPGP', exact: true }).click();
+        await page.getByRole('tab', { name: 'OpenPGP' }).click();
         await signed(page).getByLabel('Signature', { exact: true }).fill(signature);
         await signed(page).getByLabel('Message', { exact: true }).fill('a message\nof two lines\n');
         await signed(page).getByLabel('Public key you trust', { exact: true }).fill(publicKey);
@@ -732,8 +718,7 @@ test.describe('signed formats: OpenPGP', () => {
 
     test('loads the examples, and a copied link opens the same verification elsewhere', async ({ page, context }) => {
         await page.goto('/');
-        await page.getByRole('tab', { name: 'Tokens and files' }).click();
-        await panel(page).getByRole('button', { name: 'OpenPGP', exact: true }).click();
+        await page.getByRole('tab', { name: 'OpenPGP' }).click();
         await signed(page).getByRole('button', { name: 'Load example' }).click();
         await expect(signed(page).getByText('Signature is valid')).toBeVisible();
         await signed(page).getByRole('button', { name: 'Copy link to this verification' }).click();
@@ -742,7 +727,7 @@ test.describe('signed formats: OpenPGP', () => {
         const other = await context.newPage();
         await other.goto(link);
         await expect(signed(other).getByText('Signature is valid')).toBeVisible();
-        await expect(panel(other).getByRole('button', { name: 'OpenPGP', exact: true })).toHaveAttribute('aria-pressed', 'true');
+        await expect(other.getByRole('tab', { name: 'OpenPGP' })).toHaveAttribute('aria-selected', 'true');
     });
 });
 
@@ -752,8 +737,10 @@ test.describe('a container pasted in the Verify tab', () => {
         await raw(page).getByLabel('Signature', { exact: true }).fill(JWS.token);
         await expect(raw(page).getByText('This is a JWS / JWT token, not a plain signature.')).toBeVisible();
         await raw(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
-        await raw(page).getByRole('button', { name: 'Open in Tokens and files' }).click();
-        await expect(page.getByRole('tab', { name: 'Tokens and files' })).toHaveAttribute('aria-selected', 'true');
+        await raw(page)
+            .getByRole('button', { name: /^Open in / })
+            .click();
+        await expect(page.getByRole('tab', { name: 'JWS / JWT' })).toHaveAttribute('aria-selected', 'true');
         await expect(signed(page).getByText('Signature is valid')).toBeVisible();
         await expect(signed(page).getByLabel('Token', { exact: true })).toHaveValue(JWS.token);
     });

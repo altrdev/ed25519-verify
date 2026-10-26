@@ -30,16 +30,13 @@ const field = (name: string) =>
     screen.getAllByLabelText(name, { selector: 'textarea' }).find((element) => !element.closest('[hidden]')) as HTMLTextAreaElement;
 const type = (name: string, value: string) => fireEvent.input(field(name), { target: { value } });
 const click = (name: string) => fireEvent.click(screen.getByRole('button', { name, exact: true }));
-const useFormat = () =>
-    fireEvent.click(within(screen.getByRole('group', { name: 'Signature format' })).getByRole('button', { name: 'OpenPGP' }));
 const useAction = (name: string) => fireEvent.click(within(screen.getByRole('group', { name: 'Action' })).getByRole('button', { name }));
 const region = () => within(screen.getByRole('region', { name: 'Signature details' }));
 const spaced = (fingerprint: string) => fingerprint.replace(/(.{4})(?=.)/g, '$1 ');
 
 describe('OpenPGP tab, verifying', () => {
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="pgp" />);
     });
 
     it('verifies a signature made by gpg with the key block, finds the subkey that made it, and says what it holds', async () => {

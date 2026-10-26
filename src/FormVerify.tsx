@@ -2,9 +2,10 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import CopyButton from './CopyButton';
 import Banner from './Banner';
+import Checks from './Checks';
 import Field from './Field';
 import FormatMenu, { readingFormat, readingHint, readingLabel } from './FormatMenu';
-import { CONTAINER_NAMES, type Container, detectContainer } from './detect';
+import { CONTAINER_LABELS, CONTAINER_NAMES, type Container, detectContainer } from './detect';
 import { encodePublicKey, isKeyFile } from './keyfiles';
 import MessageField from './MessageField';
 import type { MessageFile } from './messagefile';
@@ -24,6 +25,7 @@ import VerifyEd25519, {
     type FormatOverrides,
     type Verdict,
 } from './signature';
+import Results from './Results';
 
 interface Props {
     /** shown at the top of the card (the switch between verifying and creating, in the tab that holds both) */
@@ -34,7 +36,7 @@ interface Props {
     messageFormat?: MessageFormat;
     /** open with everything filled in (a share link): verify at once */
     autoVerify?: boolean;
-    /** the signature is a container read by the "Tokens and files" tab: open it there with the other fields */
+    /** the signature is a container read by its own view: open it there with the other fields */
     onOpenContainer?: (
         format: Container,
         fields: { signature: string; publicKey: string; message: string; messageFormat: MessageFormat },
@@ -47,6 +49,8 @@ export default function FormVerify(props: Props) {
     const [signature, setSignature] = useState(props.signature ?? '');
     const [publicKey, setPublicKey] = useState(props.publicKey ?? '');
     const [verify, setVerify] = useState<Verdict | undefined>(undefined);
+    // the bytes the verdict was made on, for the list of what was checked
+    const [checked, setChecked] = useState<{ signature: Uint8Array; publicKey: Uint8Array } | undefined>(undefined);
     const [file, setFile] = useState<MessageFile | null>(null);
     const [hints, setHints] = useState<Hints | undefined>(undefined);
     const [exampleIndex, setExampleIndex] = useState<number | null>(null);
@@ -122,6 +126,7 @@ export default function FormVerify(props: Props) {
             return;
         }
         const verdict = await ed25519.verdict();
+        setChecked({ signature: ed25519.bytesOf('signature'), publicKey: ed25519.bytesOf('publicKey') });
         // a wrong signature: what usually causes it, when one of those makes it valid
         setHints(verdict === 'invalid' ? await ed25519.hints() : undefined);
         setVerify(verdict);
@@ -214,7 +219,7 @@ export default function FormVerify(props: Props) {
                         class="chip"
                         onClick={() => props.onOpenContainer?.(container, { signature, publicKey, message, messageFormat }, file)}
                     >
-                        Open in Tokens and files
+                        Open in {CONTAINER_LABELS[container]}
                     </button>
                 </div>
             )}
@@ -225,18 +230,29 @@ export default function FormVerify(props: Props) {
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : EXAMPLES[exampleIndex]} />
-            {file && <p class="field-hint">A link cannot carry a file: choose "Type a message" to share this verification.</p>}
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : EXAMPLES[exampleIndex]} />
+                {file && <p class="field-hint">A link cannot carry a file: choose "Type a message" to share this verification.</p>}
 
-            {verify === 'valid' && <Banner kind="success">Signature is valid</Banner>}
-            {verify === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
-            {verify === 'invalid' && hints && <HintList hints={hints} />}
-            {verify === 'permissive-only' && (
-                <Banner kind="warning">
-                    Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive rules
-                    used by some systems (e.g. Zcash).
-                </Banner>
-            )}
+                {verify === 'valid' && (
+                    <Banner kind="success" stamp>
+                        Signature is valid
+                    </Banner>
+                )}
+                {verify === 'invalid' && (
+                    <Banner kind="error" stamp>
+                        Signature is wrong
+                    </Banner>
+                )}
+                {verify === 'invalid' && hints && <HintList hints={hints} />}
+                {verify === 'permissive-only' && (
+                    <Banner kind="warning">
+                        Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
+                        rules used by some systems (e.g. Zcash).
+                    </Banner>
+                )}
+                {verify && checked && <Checks signature={checked.signature} publicKey={checked.publicKey} verdict={verify} />}
+            </Results>
         </section>
     );
 }

@@ -17,6 +17,7 @@ import { hexToBytes } from './bytes';
 import DownloadButton from './DownloadButton';
 import { fileNameFor } from './files';
 import { CODECS } from './codecs';
+import Results from './Results';
 
 interface Props {
     /** shown at the top of the card (the switch between verifying and creating, in the tab that holds both) */
@@ -265,30 +266,32 @@ export default function FormSign(props: Props) {
                 </button>
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : SIGNABLE_EXAMPLES[exampleIndex]} />
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : SIGNABLE_EXAMPLES[exampleIndex]} />
 
-            {signature && (
-                <Banner kind="success">
-                    <div class="result-head">
-                        <strong>Signature:</strong>
-                        <div class="field-actions">
-                            <FormatMenu
-                                name="Signature format"
-                                kind="signature"
-                                label={CODECS[formatPreference.signature.value].label}
-                                current={formatPreference.signature.value}
-                                onSelect={(format) => {
-                                    if (!isKeyFile(format)) formatPreference.signature.value = format;
-                                }}
-                            />
-                            <CopyButton text={signature} label="Copy signature" />
-                            <DownloadButton filename={fileNameFor('signature', null)} text={signature} label="Download signature" />
+                {signature && (
+                    <Banner kind="success">
+                        <div class="result-head">
+                            <strong>Signature:</strong>
+                            <div class="field-actions">
+                                <FormatMenu
+                                    name="Signature format"
+                                    kind="signature"
+                                    label={CODECS[formatPreference.signature.value].label}
+                                    current={formatPreference.signature.value}
+                                    onSelect={(format) => {
+                                        if (!isKeyFile(format)) formatPreference.signature.value = format;
+                                    }}
+                                />
+                                <CopyButton text={signature} label="Copy signature" />
+                                <DownloadButton filename={fileNameFor('signature', null)} text={signature} label="Download signature" />
+                            </div>
                         </div>
-                    </div>
-                    <div class="result">{signature}</div>
-                    {matchesPublished && <p>Identical to the signature published in RFC 8032.</p>}
-                </Banner>
-            )}
+                        <div class="result">{signature}</div>
+                        {matchesPublished && <p>Identical to the signature published in RFC 8032.</p>}
+                    </Banner>
+                )}
+            </Results>
         </section>
     );
 }

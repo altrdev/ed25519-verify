@@ -22,15 +22,12 @@ const field = (name: string) =>
     screen.getAllByLabelText(name, { selector: 'textarea' }).find((element) => !element.closest('[hidden]')) as HTMLTextAreaElement;
 const type = (name: string, value: string) => fireEvent.input(field(name), { target: { value } });
 const click = (name: string) => fireEvent.click(screen.getByRole('button', { name, exact: true }));
-const useFormat = () =>
-    fireEvent.click(within(screen.getByRole('group', { name: 'Signature format' })).getByRole('button', { name: 'minisign' }));
 const useAction = (name: string) => fireEvent.click(within(screen.getByRole('group', { name: 'Action' })).getByRole('button', { name }));
 const region = () => within(screen.getByRole('region', { name: 'Signature details' }));
 
 describe('minisign tab, verifying', () => {
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="minisign" />);
     });
 
     it('verifies a signature made by minisign with its .pub file, and shows the comments for what they are', async () => {
@@ -133,8 +130,7 @@ describe('minisign tab, verifying', () => {
 
 describe('minisign tab, creating', () => {
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="minisign" />);
         useAction('Create a signature');
     });
 

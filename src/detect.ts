@@ -21,6 +21,16 @@ export const CONTAINER_NAMES: Record<Container, string> = {
     pgp: 'an OpenPGP signature',
 };
 
+/** The name of each container in the rail and on the button that opens it. */
+export const CONTAINER_LABELS: Record<Container, string> = {
+    jws: 'JWS / JWT',
+    sshsig: 'SSH signature',
+    minisign: 'minisign',
+    signify: 'signify',
+    cose: 'COSE',
+    pgp: 'OpenPGP',
+};
+
 const isJws = (text: string): boolean => {
     const parts = text
         .trim()
