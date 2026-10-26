@@ -28,6 +28,7 @@ import { minisignShareFragment, type SharedMinisign } from './share';
 import VerifyEd25519, { type FormatOverrides, inspectField, type Verdict, verdictOf } from './signature';
 import Results from './Results';
 import Checks from './Checks';
+import { VerdictPill, VerdictScope, VerifyButton } from './Verdict';
 
 type Errors = Partial<Record<'signature' | 'publicKey' | 'message' | 'privateKey' | 'keyId' | 'comment', string>>;
 
@@ -210,7 +211,7 @@ function Verify({
     const link = () => `${location.origin}${location.pathname}${location.search}${fragment}`;
 
     return (
-        <>
+        <VerdictScope>
             <Field
                 label="Signature"
                 rows={4}
@@ -265,33 +266,32 @@ function Verify({
                 }}
             />
             <div class="actions">
-                <button type="button" class="primary" onClick={() => verify()}>
-                    Verify
-                </button>
+                <VerifyButton onClick={() => verify()} />
+                <VerdictPill />
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
             <Results>
                 <ExampleNote example={exampleIndex === null ? null : MINISIGN_EXAMPLES[exampleIndex]} />
                 {shown?.verdict === 'valid' && shown.commentOk && (
-                    <Banner kind="success" stamp>
+                    <Banner kind="success" stamp pill="Valid">
                         Signature is valid
                     </Banner>
                 )}
                 {shown?.verdict === 'valid' && !shown.commentOk && (
-                    <Banner kind="error">
+                    <Banner kind="error" pill="Comment altered">
                         The signature of the message is valid, but the trusted comment is not the one that was signed: it was changed, or it
                         belongs to another signature. minisign refuses such a file.
                     </Banner>
                 )}
                 {shown?.verdict === 'invalid' && (
-                    <Banner kind="error" stamp>
+                    <Banner kind="error" stamp pill="Wrong">
                         Signature is wrong
                     </Banner>
                 )}
                 {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
                 {shown?.verdict === 'permissive-only' && (
-                    <Banner kind="warning">
+                    <Banner kind="warning" pill="ZIP215 only">
                         Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
                         rules used by some systems (e.g. Zcash).
                     </Banner>
@@ -299,7 +299,7 @@ function Verify({
                 {shown && <Checks signature={shown.parsed.signature} publicKey={shown.publicKey} verdict={shown.verdict} />}
                 {shown && <Details shown={shown} />}
             </Results>
-        </>
+        </VerdictScope>
     );
 }
 

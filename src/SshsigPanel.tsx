@@ -29,6 +29,7 @@ import {
 } from './sshsig';
 import Results from './Results';
 import Checks from './Checks';
+import { VerdictPill, VerdictScope, VerifyButton } from './Verdict';
 
 type Errors = Partial<Record<'signature' | 'publicKey' | 'namespace' | 'message' | 'privateKey', string>>;
 
@@ -235,7 +236,7 @@ function Verify({
     const link = () => `${location.origin}${location.pathname}${location.search}${fragment}`;
 
     return (
-        <>
+        <VerdictScope>
             <Field
                 label="Signature"
                 rows={5}
@@ -301,33 +302,32 @@ function Verify({
                 }}
             />
             <div class="actions">
-                <button type="button" class="primary" onClick={() => verify()}>
-                    Verify
-                </button>
+                <VerifyButton onClick={() => verify()} />
+                <VerdictPill />
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
             <Results>
                 <ExampleNote example={exampleIndex === null ? null : SSHSIG_EXAMPLES[exampleIndex]} />
                 {shown?.verdict === 'valid' && shown.trusted && (
-                    <Banner kind="success" stamp>
+                    <Banner kind="success" stamp pill="Valid">
                         Signature is valid
                     </Banner>
                 )}
                 {shown?.verdict === 'valid' && !shown.trusted && (
-                    <Banner kind="warning">
+                    <Banner kind="warning" pill="Key not trusted">
                         The signature is valid for the key inside it, {shown.fingerprint}. Nothing says that it is the key you trust: paste
                         that key above to check it.
                     </Banner>
                 )}
                 {shown?.verdict === 'invalid' && (
-                    <Banner kind="error" stamp>
+                    <Banner kind="error" stamp pill="Wrong">
                         Signature is wrong
                     </Banner>
                 )}
                 {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
                 {shown?.verdict === 'permissive-only' && (
-                    <Banner kind="warning">
+                    <Banner kind="warning" pill="ZIP215 only">
                         Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
                         rules used by some systems (e.g. Zcash).
                     </Banner>
@@ -335,7 +335,7 @@ function Verify({
                 {shown && <Checks signature={shown.parsed.signature} publicKey={shown.publicKey} verdict={shown.verdict} />}
                 {shown && <Details shown={shown} />}
             </Results>
-        </>
+        </VerdictScope>
     );
 }
 
