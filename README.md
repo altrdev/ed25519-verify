@@ -32,6 +32,7 @@ Everything runs client-side: **nothing is uploaded anywhere**.
 - **Share a verification**: *Copy link* on the verification of a raw signature makes a link with the public key, message and signature in the part after `#`, which browsers never send to any server. Whoever opens it sees the fields filled in and the result at once. Private keys are never put in a link.
 - **Formats are recognised by themselves** for keys and signatures: hex, `0x` hex, base64, base64url, base58, base32 or a list of bytes, mixed as you like. When a text could be two things (rare) you are asked to pick, never guessed for. A menu on every field converts it to another format.
 - Private key hidden by default, one-click **copy** for private and public keys and for signatures.
+- **A help dialog** (the *?* in the top bar): what the page does, how to read *valid* and *wrong*, which view reads which file, and what the ZIP215 warning means. It closes with Escape, the close button or a click outside.
 - Light and dark theme, responsive layout, installable as a **PWA** (assets are precached by a service worker).
 
 ## Input formats
@@ -100,6 +101,7 @@ src/
   signature.ts      Ed25519 wrapper (hex/base64 conversion, sign, verify, public key)
   store.ts          theme and encoding preferences (signals, persisted in localStorage)
   App.tsx           page shell: top bar, rail of formats, footer, theme toggle
+  Help.tsx          the help dialog
   FormRaw.tsx       the raw signature view: the switch between verifying and creating
   FormVerify.tsx    verify a raw signature
   FormSign.tsx      create a raw signature

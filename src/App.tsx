@@ -1,7 +1,8 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import FormSigned from './FormSigned';
 import FormRaw from './FormRaw';
 import { CONTAINER_LABELS, type Container, type Handoff, handoffFor } from './detect';
+import Help from './Help';
 import { Icon } from './icons';
 import type { MessageFile } from './messagefile';
 import {
@@ -107,6 +108,12 @@ export default function App() {
     };
     const handed = <F extends Handoff['format']>(format: F, own: unknown) =>
         handoff?.data.format === format ? (handoff.data.shared as never) : (own as never);
+    const [helpOpen, setHelpOpen] = useState(false);
+    const helpButton = useRef<HTMLButtonElement>(null);
+    const closeHelp = () => {
+        setHelpOpen(false);
+        helpButton.current?.focus(); // some browsers do not focus a button when it is clicked, so it is not left to the dialog to remember it
+    };
     const dark = theme.value === 'dark';
     const current = VIEWS.find((v) => v.view === view) ?? RAW_VIEW;
 
@@ -140,6 +147,16 @@ export default function App() {
                     <div class="topbar-actions">
                         <span class="local">Runs in your browser</span>
                         <span class="divider" aria-hidden="true" />
+                        <button
+                            type="button"
+                            class="icon"
+                            ref={helpButton}
+                            aria-label="What is this?"
+                            title="What is this?"
+                            onClick={() => setHelpOpen(true)}
+                        >
+                            <Icon name="help" size={22} />
+                        </button>
                         <a
                             class="icon"
                             href={REPO_URL}
@@ -204,6 +221,7 @@ export default function App() {
                     </div>
                 </main>
             </div>
+            {helpOpen && <Help onClose={closeHelp} />}
             <footer class="footer">
                 <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
                     Open source on GitHub

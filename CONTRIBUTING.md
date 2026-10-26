@@ -77,6 +77,7 @@ src/
   bytes.ts          hex and base64 helpers
   store.ts          theme and encoding preferences (signals, persisted in localStorage)
   App.tsx           page shell: top bar, rail of formats, footer, theme toggle
+  Help.tsx          the help dialog
   FormRaw.tsx       the raw signature view: the switch between verifying and creating
   FormVerify.tsx    verify a raw signature
   FormSign.tsx      create a raw signature

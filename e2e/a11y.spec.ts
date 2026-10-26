@@ -236,6 +236,14 @@ for (const theme of ['light', 'dark'] as const) {
             await check(page);
         });
 
+        test('help dialog', async ({ page }) => {
+            await page.getByRole('button', { name: 'What is this?' }).click();
+            await expect(page.getByRole('dialog', { name: 'What is this?' })).toBeVisible();
+            await check(page);
+            await page.keyboard.press('Escape');
+            await expect(page.getByRole('dialog')).toHaveCount(0);
+        });
+
         test('format menu open', async ({ page }) => {
             await raw(page).getByLabel('Public key', { exact: true }).fill(RFC.publicKey);
             await page.getByRole('button', { name: /^Public key format:/ }).click();
