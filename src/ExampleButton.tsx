@@ -1,10 +1,19 @@
 import type { ExampleInfo } from './examples';
 import { Icon } from './icons';
+import { useVerdictScope } from './Verdict';
 
 /** "Load example": each click asks for the next example of the list. */
 export function ExampleButton({ onClick }: { onClick: () => void }) {
+    const scope = useVerdictScope();
     return (
-        <button type="button" class="chip" onClick={onClick}>
+        <button
+            type="button"
+            class="chip"
+            onClick={() => {
+                scope.armed.current = true; // the example shows its verdict at once, which is brought into view
+                onClick();
+            }}
+        >
             <Icon name="plus" size={16} />
             Load example
         </button>

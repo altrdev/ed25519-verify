@@ -82,6 +82,7 @@ src/
   FormVerify.tsx    verify a raw signature
   FormSign.tsx      create a raw signature
   Results.tsx       the verdict card under a form (Banner, Checks)
+  Verdict.tsx       the verdict of a form: the pill beside Verify, the scroll to the card
   Checks.tsx        the steps of a verification, as a list
   Field.tsx, Banner.tsx, Segmented.tsx, ...   small UI building blocks
   __tests__/        tests

@@ -26,6 +26,7 @@ import VerifyEd25519, {
     type Verdict,
 } from './signature';
 import Results from './Results';
+import { VerdictPill, VerdictScope, VerifyButton } from './Verdict';
 
 interface Props {
     /** shown at the top of the card (the switch between verifying and creating, in the tab that holds both) */
@@ -168,91 +169,92 @@ export default function FormVerify(props: Props) {
     };
 
     return (
-        <section class="card">
-            {props.header}
-            <Field
-                label="Public key"
-                rows={2}
-                growWithContent
-                value={publicKey}
-                error={errors.publicKey}
-                choices={choices.publicKey}
-                onChoose={choose('publicKey')}
-                hint={readingHint(publicKeyReading)}
-                copyable
-                formatControl={formatMenu('publicKey', publicKeyReading, 'Public key format')}
-                fileKind="key"
-                download={{ filename: fileNameFor('public', publicKeyReading ? readingFormat(publicKeyReading, 'public') : null) }}
-                placeholder="Hex, base64, PEM, OpenSSH or JWK"
-                onInput={edit(setPublicKey, 'publicKey')}
-            />
-            <MessageField
-                value={message}
-                onInput={edit(setMessage, 'message')}
-                format={messageFormat}
-                onFormatChange={changeMessageFormat}
-                error={errors.message}
-                file={file}
-                onFile={chooseFile}
-                onFileError={(error) => setErrors((current) => ({ ...current, message: error }))}
-            />
-            <Field
-                label="Signature"
-                value={signature}
-                error={errors.signature}
-                choices={choices.signature}
-                onChoose={choose('signature')}
-                hint={readingHint(signatureReading)}
-                copyable
-                formatControl={formatMenu('signature', signatureReading, 'Signature format')}
-                fileKind="signature"
-                download={{ filename: fileNameFor('signature', null) }}
-                onInput={edit(setSignature, 'signature')}
-            />
-            {container && (
-                <div class="field-choices">
-                    <p class="field-hint" role="status">
-                        This is {CONTAINER_NAMES[container]}, not a plain signature.
-                    </p>
-                    <button
-                        type="button"
-                        class="chip"
-                        onClick={() => props.onOpenContainer?.(container, { signature, publicKey, message, messageFormat }, file)}
-                    >
-                        Open in {CONTAINER_LABELS[container]}
-                    </button>
+        <VerdictScope>
+            <section class="card">
+                {props.header}
+                <Field
+                    label="Public key"
+                    rows={2}
+                    growWithContent
+                    value={publicKey}
+                    error={errors.publicKey}
+                    choices={choices.publicKey}
+                    onChoose={choose('publicKey')}
+                    hint={readingHint(publicKeyReading)}
+                    copyable
+                    formatControl={formatMenu('publicKey', publicKeyReading, 'Public key format')}
+                    fileKind="key"
+                    download={{ filename: fileNameFor('public', publicKeyReading ? readingFormat(publicKeyReading, 'public') : null) }}
+                    placeholder="Hex, base64, PEM, OpenSSH or JWK"
+                    onInput={edit(setPublicKey, 'publicKey')}
+                />
+                <MessageField
+                    value={message}
+                    onInput={edit(setMessage, 'message')}
+                    format={messageFormat}
+                    onFormatChange={changeMessageFormat}
+                    error={errors.message}
+                    file={file}
+                    onFile={chooseFile}
+                    onFileError={(error) => setErrors((current) => ({ ...current, message: error }))}
+                />
+                <Field
+                    label="Signature"
+                    value={signature}
+                    error={errors.signature}
+                    choices={choices.signature}
+                    onChoose={choose('signature')}
+                    hint={readingHint(signatureReading)}
+                    copyable
+                    formatControl={formatMenu('signature', signatureReading, 'Signature format')}
+                    fileKind="signature"
+                    download={{ filename: fileNameFor('signature', null) }}
+                    onInput={edit(setSignature, 'signature')}
+                />
+                {container && (
+                    <div class="field-choices">
+                        <p class="field-hint" role="status">
+                            This is {CONTAINER_NAMES[container]}, not a plain signature.
+                        </p>
+                        <button
+                            type="button"
+                            class="chip"
+                            onClick={() => props.onOpenContainer?.(container, { signature, publicKey, message, messageFormat }, file)}
+                        >
+                            Open in {CONTAINER_LABELS[container]}
+                        </button>
+                    </div>
+                )}
+                <div class="actions">
+                    <VerifyButton onClick={() => performVerify()} />
+                    <VerdictPill />
+                    <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
+                    <ExampleButton onClick={loadNextExample} />
                 </div>
-            )}
-            <div class="actions">
-                <button type="button" class="primary" onClick={() => performVerify()}>
-                    Verify
-                </button>
-                <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
-                <ExampleButton onClick={loadNextExample} />
-            </div>
-            <Results>
-                <ExampleNote example={exampleIndex === null ? null : EXAMPLES[exampleIndex]} />
-                {file && <p class="field-hint">A link cannot carry a file: choose "Type a message" to share this verification.</p>}
+                <Results>
+                    <ExampleNote example={exampleIndex === null ? null : EXAMPLES[exampleIndex]} />
+                    {file && <p class="field-hint">A link cannot carry a file: choose "Type a message" to share this verification.</p>}
 
-                {verify === 'valid' && (
-                    <Banner kind="success" stamp>
-                        Signature is valid
-                    </Banner>
-                )}
-                {verify === 'invalid' && (
-                    <Banner kind="error" stamp>
-                        Signature is wrong
-                    </Banner>
-                )}
-                {verify === 'invalid' && hints && <HintList hints={hints} />}
-                {verify === 'permissive-only' && (
-                    <Banner kind="warning">
-                        Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
-                        rules used by some systems (e.g. Zcash).
-                    </Banner>
-                )}
-                {verify && checked && <Checks signature={checked.signature} publicKey={checked.publicKey} verdict={verify} />}
-            </Results>
-        </section>
+                    {verify === 'valid' && (
+                        <Banner kind="success" stamp pill="Valid">
+                            Signature is valid
+                        </Banner>
+                    )}
+                    {verify === 'invalid' && (
+                        <Banner kind="error" stamp pill="Wrong">
+                            Signature is wrong
+                        </Banner>
+                    )}
+                    {verify === 'invalid' && hints && <HintList hints={hints} />}
+                    {verify === 'permissive-only' && (
+                        <Banner kind="warning" pill="ZIP215 only">
+                            Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more
+                            permissive rules used by some systems (e.g. Zcash).
+                        </Banner>
+                    )}
+                    {verify && checked && <Checks signature={checked.signature} publicKey={checked.publicKey} verdict={verify} />}
+                </Results>
+            </section>
+        </VerdictScope>
     );
 }

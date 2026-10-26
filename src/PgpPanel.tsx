@@ -35,6 +35,7 @@ import { pgpShareFragment, type SharedPgp } from './share';
 import VerifyEd25519, { type FormatOverrides, inspectField, type Verdict, verdictOf } from './signature';
 import Results from './Results';
 import Checks from './Checks';
+import { VerdictPill, VerdictScope, VerifyButton } from './Verdict';
 
 type Errors = Partial<Record<'signature' | 'publicKey' | 'message', string>>;
 
@@ -320,7 +321,7 @@ function Verify({
     const link = () => `${location.origin}${location.pathname}${location.search}${fragment}`;
 
     return (
-        <>
+        <VerdictScope>
             <Field
                 label="Signature"
                 rows={5}
@@ -375,16 +376,19 @@ function Verify({
                 }}
             />
             <div class="actions">
-                <button type="button" class="primary" onClick={() => verify()}>
-                    Verify
-                </button>
+                <VerifyButton onClick={() => verify()} />
+                <VerdictPill />
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
             <Results>
                 <ExampleNote example={exampleIndex === null ? null : PGP_EXAMPLES[exampleIndex]} />
                 {shown?.verdict === 'valid' && (
-                    <Banner kind={shown.standing?.issues.length ? 'warning' : 'success'} stamp>
+                    <Banner
+                        kind={shown.standing?.issues.length ? 'warning' : 'success'}
+                        stamp
+                        pill={shown.standing?.issues.length ? 'Valid, with notes' : 'Valid'}
+                    >
                         <div>Signature is valid</div>
                         {shown.standing && shown.standing.issues.length > 0 && (
                             <>
@@ -399,13 +403,13 @@ function Verify({
                     </Banner>
                 )}
                 {shown?.verdict === 'invalid' && (
-                    <Banner kind="error" stamp>
+                    <Banner kind="error" stamp pill="Wrong">
                         Signature is wrong
                     </Banner>
                 )}
                 {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
                 {shown?.verdict === 'permissive-only' && (
-                    <Banner kind="warning">
+                    <Banner kind="warning" pill="ZIP215 only">
                         Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
                         rules used by some systems (e.g. Zcash).
                     </Banner>
@@ -413,7 +417,7 @@ function Verify({
                 {shown && <Checks signature={shown.parsed.signature} publicKey={shown.publicKey} verdict={shown.verdict} />}
                 {shown && <Details shown={shown} />}
             </Results>
-        </>
+        </VerdictScope>
     );
 }
 
