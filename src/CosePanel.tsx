@@ -39,6 +39,8 @@ import type { MessageFile } from './messagefile';
 import Segmented from './Segmented';
 import { coseShareFragment, type SharedCose } from './share';
 import VerifyEd25519, { type FormatOverrides, inspectField, type Verdict, verdictOf } from './signature';
+import Results from './Results';
+import Checks from './Checks';
 
 type Errors = Partial<Record<'message' | 'publicKey' | 'payload' | 'privateKey' | 'kid' | 'contentType', string>>;
 
@@ -51,6 +53,7 @@ const asError = (error: unknown) => {
 interface Shown {
     /** of a COSE_Sign1; a COSE_Sign has one result for each signature */
     verdict?: Verdict;
+    publicKey?: Uint8Array;
     results?: SignerResult[];
     parsed: ParsedCose | ParsedCoseSign;
     /** where the payload came from, and how big it is */
@@ -223,7 +226,7 @@ function SignersBanner({ results }: { results: SignerResult[] }) {
     const { valid, invalid, notChecked, total, overall } = summarizeSigners(results);
     const plural = (n: number) => `${n} signature${n === 1 ? '' : 's'}`;
     if (overall === 'invalid')
-        return <Banner kind="error">{`${invalid} of ${plural(total)} ${invalid === 1 ? 'is' : 'are'} wrong`}</Banner>;
+        return <Banner kind="error" stamp>{`${invalid} of ${plural(total)} ${invalid === 1 ? 'is' : 'are'} wrong`}</Banner>;
     if (overall === 'permissive-only') {
         return (
             <Banner kind="warning">
@@ -241,7 +244,11 @@ function SignersBanner({ results }: { results: SignerResult[] }) {
             </Banner>
         );
     }
-    return <Banner kind="success">{total === 1 ? 'Signature is valid' : `All ${total} signatures are valid`}</Banner>;
+    return (
+        <Banner kind="success" stamp>
+            {total === 1 ? 'Signature is valid' : `All ${total} signatures are valid`}
+        </Banner>
+    );
 }
 
 function Verify({
@@ -348,6 +355,7 @@ function Verify({
         const verdict = await verdictOf(parsed.signature, signedData(parsed.protectedBytes, payloadBytes, aad), publicKey);
         setShown({
             verdict,
+            publicKey,
             parsed,
             payloadBytes,
             attached: !!parsed.payload,
@@ -490,18 +498,31 @@ function Verify({
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : COSE_VERIFY_EXAMPLES[exampleIndex]} />
-            {shown?.verdict === 'valid' && <Banner kind="success">Signature is valid</Banner>}
-            {shown?.verdict === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
-            {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
-            {shown?.verdict === 'permissive-only' && (
-                <Banner kind="warning">
-                    Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive rules
-                    used by some systems (e.g. Zcash).
-                </Banner>
-            )}
-            {shown?.results && <SignersBanner results={shown.results} />}
-            {shown && <Details shown={shown} />}
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : COSE_VERIFY_EXAMPLES[exampleIndex]} />
+                {shown?.verdict === 'valid' && (
+                    <Banner kind="success" stamp>
+                        Signature is valid
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && (
+                    <Banner kind="error" stamp>
+                        Signature is wrong
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
+                {shown?.verdict === 'permissive-only' && (
+                    <Banner kind="warning">
+                        Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
+                        rules used by some systems (e.g. Zcash).
+                    </Banner>
+                )}
+                {shown?.results && <SignersBanner results={shown.results} />}
+                {shown?.verdict && shown.publicKey && shown.parsed.kind === 'sign1' && (
+                    <Checks signature={shown.parsed.signature} publicKey={shown.publicKey} verdict={shown.verdict} />
+                )}
+                {shown && <Details shown={shown} />}
+            </Results>
         </>
     );
 }
@@ -682,39 +703,41 @@ function Create() {
                 </button>
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : COSE_EXAMPLES[exampleIndex]} />
-            {result && (
-                <>
-                    <Banner kind="success">
-                        <div class="result-head">
-                            <strong>COSE_Sign1:</strong>
-                            <div class="field-actions">
-                                <Segmented
-                                    label="Show the message as"
-                                    value={shownAs}
-                                    onChange={setShownAs}
-                                    options={[
-                                        { value: 'hex', label: 'Hex' },
-                                        { value: 'base64', label: 'Base64' },
-                                    ]}
-                                />
-                                <CopyButton text={written} label="Copy message" />
-                                <DownloadButton filename="message.cose" text="" bytes={result.bytes} label="Download message" />
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : COSE_EXAMPLES[exampleIndex]} />
+                {result && (
+                    <>
+                        <Banner kind="success">
+                            <div class="result-head">
+                                <strong>COSE_Sign1:</strong>
+                                <div class="field-actions">
+                                    <Segmented
+                                        label="Show the message as"
+                                        value={shownAs}
+                                        onChange={setShownAs}
+                                        options={[
+                                            { value: 'hex', label: 'Hex' },
+                                            { value: 'base64', label: 'Base64' },
+                                        ]}
+                                    />
+                                    <CopyButton text={written} label="Copy message" />
+                                    <DownloadButton filename="message.cose" text="" bytes={result.bytes} label="Download message" />
+                                </div>
                             </div>
-                        </div>
-                        <div class="result">{written}</div>
-                        {published === bytesToHex(result.bytes) && <p>Identical to the message of the example.</p>}
-                    </Banner>
-                    <Field
-                        label="Public key to verify it (COSE_Key)"
-                        rows={2}
-                        value={bytesToHex(encodeCoseKey(result.publicKey, kid ? encoder.encode(kid) : undefined))}
-                        copyable
-                        disabled
-                        hint="The public key as a COSE_Key; the same key as a plain 32-byte key also works in the Verify tab."
-                    />
-                </>
-            )}
+                            <div class="result">{written}</div>
+                            {published === bytesToHex(result.bytes) && <p>Identical to the message of the example.</p>}
+                        </Banner>
+                        <Field
+                            label="Public key to verify it (COSE_Key)"
+                            rows={2}
+                            value={bytesToHex(encodeCoseKey(result.publicKey, kid ? encoder.encode(kid) : undefined))}
+                            copyable
+                            disabled
+                            hint="The public key as a COSE_Key; the same key as a plain 32-byte key also works in the Verify tab."
+                        />
+                    </>
+                )}
+            </Results>
         </>
     );
 }

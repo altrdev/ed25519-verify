@@ -76,10 +76,12 @@ src/
   FormatMenu.tsx    the format menu of a key / signature field (converts the text, or picks how a result is written)
   bytes.ts          hex and base64 helpers
   store.ts          theme and encoding preferences (signals, persisted in localStorage)
-  App.tsx           page shell, tabs, theme toggle
-  FormRaw.tsx       the raw signature tab: the switch between verifying and creating
+  App.tsx           page shell: top bar, rail of formats, footer, theme toggle
+  FormRaw.tsx       the raw signature view: the switch between verifying and creating
   FormVerify.tsx    verify a raw signature
   FormSign.tsx      create a raw signature
+  Results.tsx       the verdict card under a form (Banner, Checks)
+  Checks.tsx        the steps of a verification, as a list
   Field.tsx, Banner.tsx, Segmented.tsx, ...   small UI building blocks
   __tests__/        tests
 scripts/            check_cose_fixtures.py: the reference tool (pycose) in CI
@@ -87,7 +89,7 @@ scripts/            check_cose_fixtures.py: the reference tool (pycose) in CI
 
 ### Guidelines
 
-- **Tests in two layers.** `src/__tests__` (Vitest, jsdom) covers the logic and the components; `e2e/` (Playwright) drives the built site in Chromium: verify and sign with RFC 8032 vectors, format conversion, share links, offline reload, no request to another host, and an [axe](https://github.com/dequelabs/axe-core) accessibility check of both tabs in both themes. A new screen or state should be added to `e2e/a11y.spec.ts`. If a Chromium is already installed, point `PLAYWRIGHT_CHROMIUM_PATH` to it.
+- **Tests in two layers.** `src/__tests__` (Vitest, jsdom) covers the logic and the components; `e2e/` (Playwright) drives the built site in Chromium: verify and sign with RFC 8032 vectors, format conversion, share links, offline reload, no request to another host, and an [axe](https://github.com/dequelabs/axe-core) accessibility check of the views in both themes. A new screen or state should be added to `e2e/a11y.spec.ts`. If a Chromium is already installed, point `PLAYWRIGHT_CHROMIUM_PATH` to it.
 - **Fixtures of the reference tools.** The COSE messages of `src/__tests__/fixtures/cose.ts` come from [pycose](https://github.com/TimothyClaeys/pycose). CI runs `python scripts/check_cose_fixtures.py` (`pip install -r scripts/requirements.txt`), which makes them again with pycose, compares them byte for byte and has pycose verify each signature; `--print` gives the new values when a change of the fixtures is intended. pycose 1.1.0 needs `cbor2` below 6. The OpenPGP version 6 fixtures (made once with Sequoia 2.4, which compiles in about a minute) are not regenerated in CI.
 - **Style is automatic.** Biome formats the code (4 spaces, single quotes, 140 columns) and lints it; `npm run format` fixes it. It replaces ESLint and Prettier on purpose: `typescript-eslint` does not support TypeScript 7 yet, and one tool is faster and simpler to keep. CSS is not covered.
 - **Keep it client-side and dependency-light.** The app must never send keys, messages or signatures anywhere, and the

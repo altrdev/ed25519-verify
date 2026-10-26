@@ -33,6 +33,8 @@ import {
 } from './openpgp';
 import { pgpShareFragment, type SharedPgp } from './share';
 import VerifyEd25519, { type FormatOverrides, inspectField, type Verdict, verdictOf } from './signature';
+import Results from './Results';
+import Checks from './Checks';
 
 type Errors = Partial<Record<'signature' | 'publicKey' | 'message', string>>;
 
@@ -43,6 +45,7 @@ const asError = (error: unknown) => {
 
 interface Shown {
     verdict: Verdict;
+    publicKey: Uint8Array;
     parsed: ParsedPgpSignature;
     /** the key that made it (one of the block), or null when a plain key was given */
     key: PgpKey | null;
@@ -251,6 +254,7 @@ function Verify({
         const parsedSignature = parsed;
         setShown({
             verdict,
+            publicKey: used.publicKey,
             parsed,
             key: used.key,
             review,
@@ -377,31 +381,38 @@ function Verify({
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : PGP_EXAMPLES[exampleIndex]} />
-            {shown?.verdict === 'valid' && (
-                <Banner kind={shown.standing?.issues.length ? 'warning' : 'success'}>
-                    <div>Signature is valid</div>
-                    {shown.standing && shown.standing.issues.length > 0 && (
-                        <>
-                            <p>But read it with this, from the key block:</p>
-                            <ul>
-                                {shown.standing.issues.map((issue) => (
-                                    <li key={issue}>{issue}</li>
-                                ))}
-                            </ul>
-                        </>
-                    )}
-                </Banner>
-            )}
-            {shown?.verdict === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
-            {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
-            {shown?.verdict === 'permissive-only' && (
-                <Banner kind="warning">
-                    Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive rules
-                    used by some systems (e.g. Zcash).
-                </Banner>
-            )}
-            {shown && <Details shown={shown} />}
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : PGP_EXAMPLES[exampleIndex]} />
+                {shown?.verdict === 'valid' && (
+                    <Banner kind={shown.standing?.issues.length ? 'warning' : 'success'} stamp>
+                        <div>Signature is valid</div>
+                        {shown.standing && shown.standing.issues.length > 0 && (
+                            <>
+                                <p>But read it with this, from the key block:</p>
+                                <ul>
+                                    {shown.standing.issues.map((issue) => (
+                                        <li key={issue}>{issue}</li>
+                                    ))}
+                                </ul>
+                            </>
+                        )}
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && (
+                    <Banner kind="error" stamp>
+                        Signature is wrong
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
+                {shown?.verdict === 'permissive-only' && (
+                    <Banner kind="warning">
+                        Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
+                        rules used by some systems (e.g. Zcash).
+                    </Banner>
+                )}
+                {shown && <Checks signature={shown.parsed.signature} publicKey={shown.publicKey} verdict={shown.verdict} />}
+                {shown && <Details shown={shown} />}
+            </Results>
         </>
     );
 }

@@ -29,9 +29,12 @@ import { readingHint } from './FormatMenu';
 import type { RawFormat } from './enum';
 import { MessageFormat } from './enum';
 import VerifyEd25519, { inspectField, type FormatOverrides, InputError, type Verdict, verdictOf } from './signature';
+import Results from './Results';
+import Checks from './Checks';
 
 interface Shown {
     verdict: Verdict;
+    publicKey: Uint8Array;
     hints?: Hints;
     parsed: ParsedJws;
     info: PayloadInfo;
@@ -122,6 +125,7 @@ function Verify({ initial, autoVerify }: { initial?: Partial<SharedToken>; autoV
         const verdict = await verdictOf(parsed.signature, parsed.signingInput, publicKeyBytes);
         setShown({
             verdict,
+            publicKey: publicKeyBytes,
             // what usually explains a wrong signature, when one of those makes it valid (the signed bytes are the signing input)
             hints:
                 verdict === 'invalid'
@@ -214,17 +218,28 @@ function Verify({ initial, autoVerify }: { initial?: Partial<SharedToken>; autoV
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : JWS_EXAMPLES[exampleIndex]} />
-            {shown?.verdict === 'valid' && <Banner kind="success">Signature is valid</Banner>}
-            {shown?.verdict === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
-            {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
-            {shown?.verdict === 'permissive-only' && (
-                <Banner kind="warning">
-                    Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive rules
-                    used by some systems (e.g. Zcash).
-                </Banner>
-            )}
-            {shown && <Decoded shown={shown} />}
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : JWS_EXAMPLES[exampleIndex]} />
+                {shown?.verdict === 'valid' && (
+                    <Banner kind="success" stamp>
+                        Signature is valid
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && (
+                    <Banner kind="error" stamp>
+                        Signature is wrong
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
+                {shown?.verdict === 'permissive-only' && (
+                    <Banner kind="warning">
+                        Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
+                        rules used by some systems (e.g. Zcash).
+                    </Banner>
+                )}
+                {shown && <Checks signature={shown.parsed.signature} publicKey={shown.publicKey} verdict={shown.verdict} />}
+                {shown && <Decoded shown={shown} />}
+            </Results>
         </>
     );
 }
@@ -328,30 +343,32 @@ function Create() {
                 </button>
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : JWS_EXAMPLES[exampleIndex]} />
-            {result && (
-                <>
-                    <Banner kind="success">
-                        <div class="result-head">
-                            <strong>Token:</strong>
-                            <div class="field-actions">
-                                <CopyButton text={result.token} label="Copy token" />
-                                <DownloadButton filename="token.jwt" text={result.token} label="Download token" />
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : JWS_EXAMPLES[exampleIndex]} />
+                {result && (
+                    <>
+                        <Banner kind="success">
+                            <div class="result-head">
+                                <strong>Token:</strong>
+                                <div class="field-actions">
+                                    <CopyButton text={result.token} label="Copy token" />
+                                    <DownloadButton filename="token.jwt" text={result.token} label="Download token" />
+                                </div>
                             </div>
-                        </div>
-                        <div class="result">{result.token}</div>
-                        {published === result.token && <p>Identical to the token of the example.</p>}
-                    </Banner>
-                    <Field
-                        label="Public key to verify it, as a JWK"
-                        rows={3}
-                        value={result.jwk}
-                        copyable
-                        disabled
-                        download={{ filename: fileNameFor('public', 'jwk') }}
-                    />
-                </>
-            )}
+                            <div class="result">{result.token}</div>
+                            {published === result.token && <p>Identical to the token of the example.</p>}
+                        </Banner>
+                        <Field
+                            label="Public key to verify it, as a JWK"
+                            rows={3}
+                            value={result.jwk}
+                            copyable
+                            disabled
+                            download={{ filename: fileNameFor('public', 'jwk') }}
+                        />
+                    </>
+                )}
+            </Results>
         </>
     );
 }

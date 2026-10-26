@@ -18,7 +18,7 @@ const click = (name: string) => fireEvent.click(screen.getByRole('button', { nam
 
 describe('JWS / JWT tab, verifying', () => {
     it('says a token of RFC 8037 is valid, and shows what it contains', async () => {
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
         type('Token', TOKEN);
         type('Public key', JWK_PUBLIC);
         click('Verify');
@@ -29,7 +29,7 @@ describe('JWS / JWT tab, verifying', () => {
     });
 
     it('says a changed token is wrong, and keeps the contents visible (what it says is not what is proven)', async () => {
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
         const [header, payload, signature] = TOKEN.split('.');
         type('Token', `${header}.${payload.slice(0, -1)}A.${signature}`);
         type('Public key', JWK_PUBLIC);
@@ -39,7 +39,7 @@ describe('JWS / JWT tab, verifying', () => {
     });
 
     it('creates a token, which the other mode verifies, with the times of the JWT noted', async () => {
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
         fireEvent.click(screen.getByRole('button', { name: 'Create a signature' }));
         type('Private key', Buffer.from(D, 'base64url').toString('hex'));
         type('Payload', '{"sub":"ada","exp":1000000000}');
@@ -57,7 +57,7 @@ describe('JWS / JWT tab, verifying', () => {
     });
 
     it('explains an input that cannot be verified instead of saying the signature is wrong', async () => {
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
         type('Token', 'eyJhbGciOiJub25lIn0.e30.');
         type('Public key', JWK_PUBLIC);
         click('Verify');
@@ -75,7 +75,7 @@ describe('JWS / JWT tab, verifying', () => {
     });
 
     it('drops the result when something is edited', async () => {
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
         type('Token', TOKEN);
         type('Public key', JWK_PUBLIC);
         click('Verify');
@@ -94,7 +94,7 @@ describe('JWS tab: the same help as the other tabs', () => {
     };
 
     it('hints that the halves of the signature are swapped, and that the public key field holds a private key', async () => {
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
         type('Token', swapped());
         type('Public key', JWK_PUBLIC);
         click('Verify');
@@ -108,7 +108,7 @@ describe('JWS tab: the same help as the other tabs', () => {
     });
 
     it('says nothing more for a signature that is simply wrong, and does not suggest hashes', async () => {
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
         const [header, payload, signature] = TOKEN.split('.');
         type('Token', `${header}.${payload.slice(0, -1)}A.${signature}`);
         type('Public key', JWK_PUBLIC);
@@ -118,7 +118,7 @@ describe('JWS tab: the same help as the other tabs', () => {
     });
 
     it('goes through the examples, and the Create tab reproduces the token of the example', async () => {
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
         fireEvent.click(within(screen.getByRole('group', { name: 'Action' })).getByRole('button', { name: 'Verify a signature' }));
         const load = () => fireEvent.click(screen.getAllByRole('button', { name: 'Load example' })[0]);
         load();
@@ -141,7 +141,7 @@ describe('JWS tab: the same help as the other tabs', () => {
     it('copies a link to the token and the public key, never anything private', async () => {
         const writeText = vi.fn().mockResolvedValue(undefined);
         Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
         expect(screen.getAllByRole('button', { name: 'Copy link to this verification' })[0]).toBeDisabled();
         type('Token', TOKEN);
         type('Public key', JWK_PUBLIC);
@@ -153,7 +153,7 @@ describe('JWS tab: the same help as the other tabs', () => {
     });
 
     it('opens a token from a text file, and says so for a file that is not text', async () => {
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
         const input = screen.getByLabelText('File for token') as HTMLInputElement;
         fireEvent.change(input, { target: { files: [new File([`${TOKEN}\n`], 'token.jwt')] } });
         await waitFor(() => expect(field('Token').value).toBe(`${TOKEN}\n`));

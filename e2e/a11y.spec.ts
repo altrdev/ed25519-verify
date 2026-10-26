@@ -86,12 +86,12 @@ for (const theme of ['light', 'dark'] as const) {
                 .fill(
                     'eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc.hgyY0il_MGCjP0JzlnLWG1PPOt7-09PGcvMg3AIbQR6dWbhijcNR4ki4iylGjg5BhVsPt9g7sVvpAr_MuM0KAg',
                 );
-            await expect(raw(page).getByRole('button', { name: 'Open in Tokens and files' })).toBeVisible();
+            await expect(raw(page).getByRole('button', { name: /^Open in / })).toBeVisible();
             await check(page);
         });
 
         test('signed formats, a token verified', async ({ page }) => {
-            await page.getByRole('tab', { name: 'Tokens and files' }).click();
+            await page.getByRole('tab', { name: 'JWS / JWT' }).click();
             await signed(page).getByLabel('Token', { exact: true }).fill(JWS.token);
             await signed(page).getByLabel('Public key', { exact: true }).fill(JWS.jwkPublic);
             await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
@@ -100,7 +100,7 @@ for (const theme of ['light', 'dark'] as const) {
         });
 
         test('signed formats, hints and an example', async ({ page }) => {
-            await page.getByRole('tab', { name: 'Tokens and files' }).click();
+            await page.getByRole('tab', { name: 'JWS / JWT' }).click();
             const [header, payload, signature] = JWS.token.split('.');
             const bytes = Buffer.from(signature, 'base64url');
             const swapped = `${header}.${payload}.${Buffer.concat([bytes.subarray(32), bytes.subarray(0, 32)]).toString('base64url')}`;
@@ -116,8 +116,7 @@ for (const theme of ['light', 'dark'] as const) {
         });
 
         test('signed formats, an SSH signature verified, hints and created', async ({ page }) => {
-            await page.getByRole('tab', { name: 'Tokens and files' }).click();
-            await panel(page).getByRole('button', { name: 'SSH signature' }).click();
+            await page.getByRole('tab', { name: 'SSH signature' }).click();
             await signed(page).getByRole('button', { name: 'Load example' }).click();
             await expect(signed(page).getByText('Signature is valid')).toBeVisible();
             await check(page);
@@ -133,8 +132,7 @@ for (const theme of ['light', 'dark'] as const) {
         });
 
         test('signed formats, a minisign signature verified, hints and created', async ({ page }) => {
-            await page.getByRole('tab', { name: 'Tokens and files' }).click();
-            await panel(page).getByRole('button', { name: 'minisign' }).click();
+            await page.getByRole('tab', { name: 'minisign' }).click();
             await signed(page).getByRole('button', { name: 'Load example' }).click();
             await expect(signed(page).getByText('Signature is valid')).toBeVisible();
             await check(page);
@@ -150,8 +148,7 @@ for (const theme of ['light', 'dark'] as const) {
         });
 
         test('signed formats, a signify signature verified, hints and created', async ({ page }) => {
-            await page.getByRole('tab', { name: 'Tokens and files' }).click();
-            await panel(page).getByRole('button', { name: 'signify' }).click();
+            await page.getByRole('tab', { name: 'signify' }).click();
             await signed(page).getByRole('button', { name: 'Load example' }).click();
             await expect(signed(page).getByText('Signature is valid')).toBeVisible();
             await check(page);
@@ -167,7 +164,7 @@ for (const theme of ['light', 'dark'] as const) {
         });
 
         test('signed formats, a token with a DID document, and its choice of key', async ({ page }) => {
-            await page.getByRole('tab', { name: 'Tokens and files' }).click();
+            await page.getByRole('tab', { name: 'JWS / JWT' }).click();
             for (let i = 0; i < 4; i++) await signed(page).getByRole('button', { name: 'Load example' }).click();
             await expect(signed(page).getByText('Signature is valid')).toBeVisible();
             await check(page);
@@ -181,8 +178,7 @@ for (const theme of ['light', 'dark'] as const) {
         });
 
         test('signed formats, a COSE message verified, hints and created', async ({ page }) => {
-            await page.getByRole('tab', { name: 'Tokens and files' }).click();
-            await panel(page).getByRole('button', { name: 'COSE', exact: true }).click();
+            await page.getByRole('tab', { name: 'COSE' }).click();
             await signed(page).getByRole('button', { name: 'Load example' }).click();
             await expect(signed(page).getByText('Signature is valid')).toBeVisible();
             await check(page);
@@ -199,8 +195,7 @@ for (const theme of ['light', 'dark'] as const) {
         });
 
         test('signed formats, an OpenPGP signature verified, hints, and the note on creating', async ({ page }) => {
-            await page.getByRole('tab', { name: 'Tokens and files' }).click();
-            await panel(page).getByRole('button', { name: 'OpenPGP', exact: true }).click();
+            await page.getByRole('tab', { name: 'OpenPGP' }).click();
             await signed(page).getByRole('button', { name: 'Load example' }).click();
             await expect(signed(page).getByText('Signature is valid')).toBeVisible();
             await check(page);
@@ -214,7 +209,7 @@ for (const theme of ['light', 'dark'] as const) {
         });
 
         test('signed formats, a JWK Set: the key picked, and the choice when the token names none', async ({ page }) => {
-            await page.getByRole('tab', { name: 'Tokens and files' }).click();
+            await page.getByRole('tab', { name: 'JWS / JWT' }).click();
             for (let i = 0; i < 3; i++) await signed(page).getByRole('button', { name: 'Load example' }).click();
             await expect(signed(page).getByText(/Using the key "key-2" of the set/)).toBeVisible();
             await check(page);
@@ -228,7 +223,7 @@ for (const theme of ['light', 'dark'] as const) {
         });
 
         test('signed formats, a token with an error, and creating one', async ({ page }) => {
-            await page.getByRole('tab', { name: 'Tokens and files' }).click();
+            await page.getByRole('tab', { name: 'JWS / JWT' }).click();
             await signed(page).getByLabel('Token', { exact: true }).fill('a.b');
             await signed(page).getByRole('button', { name: 'Verify', exact: true }).click();
             await expect(signed(page).getByText(/three parts/)).toBeVisible();

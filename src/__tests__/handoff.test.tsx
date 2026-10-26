@@ -8,7 +8,7 @@ const field = (name: string) =>
     screen.getAllByLabelText(name, { selector: 'textarea' }).find((element) => !element.closest('[hidden]')) as HTMLTextAreaElement;
 const type = (name: string, value: string) => fireEvent.input(field(name), { target: { value } });
 const tab = (name: string) => screen.getByRole('tab', { name });
-const open = () => fireEvent.click(screen.getByRole('button', { name: 'Open in Tokens and files' }));
+const open = () => fireEvent.click(screen.getByRole('button', { name: /^Open in / }));
 
 describe('a container pasted in the Verify tab', () => {
     it('is named, and opens in the tab that reads it with the key, verified at once', async () => {
@@ -17,7 +17,7 @@ describe('a container pasted in the Verify tab', () => {
         expect(screen.getByText('This is a JWS / JWT token, not a plain signature.')).toBeInTheDocument();
         type('Public key', JWS_EXAMPLES[0].publicKey);
         open();
-        expect(tab('Tokens and files')).toHaveAttribute('aria-selected', 'true');
+        expect(tab('JWS / JWT')).toHaveAttribute('aria-selected', 'true');
         await waitFor(() =>
             expect(within(screen.getByRole('tabpanel', { hidden: false })).getByText('Signature is valid')).toBeInTheDocument(),
         );
@@ -38,7 +38,7 @@ describe('a container pasted in the Verify tab', () => {
         expect(screen.getByText(`This is ${name}, not a plain signature.`)).toBeInTheDocument();
         open();
         await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
-        expect(screen.getByRole('button', { name: button, exact: true })).toHaveAttribute('aria-pressed', 'true');
+        expect(tab(button)).toHaveAttribute('aria-selected', 'true');
         expect(field('Message').value).toBe(message);
     });
 
@@ -49,7 +49,7 @@ describe('a container pasted in the Verify tab', () => {
         type('Message', 'hello world');
         expect(screen.getByText('This is a COSE message, not a plain signature.')).toBeInTheDocument();
         open();
-        await waitFor(() => expect(screen.getByRole('button', { name: 'COSE', exact: true })).toHaveAttribute('aria-pressed', 'true'));
+        await waitFor(() => expect(tab('COSE')).toHaveAttribute('aria-selected', 'true'));
         expect(field('Payload').value).toBe('hello world');
         await waitFor(() => expect(screen.getByText('Signature is valid')).toBeInTheDocument());
     });
@@ -73,9 +73,9 @@ describe('a container pasted in the Verify tab', () => {
         type('Signature', 'a'.repeat(128));
         expect(screen.queryByText(/not a plain signature/)).not.toBeInTheDocument();
         type('Signature', JWS_EXAMPLES[0].token);
-        expect(screen.getByRole('button', { name: 'Open in Tokens and files' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^Open in / })).toBeInTheDocument();
         type('Signature', 'a'.repeat(128));
-        expect(screen.queryByRole('button', { name: 'Open in Tokens and files' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /^Open in / })).not.toBeInTheDocument();
     });
 
     it('opening a second time replaces what the tab held', async () => {

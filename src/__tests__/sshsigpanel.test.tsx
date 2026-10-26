@@ -19,14 +19,11 @@ const field = (name: string) =>
     screen.getAllByLabelText(name, { selector: 'textarea' }).find((element) => !element.closest('[hidden]')) as HTMLTextAreaElement;
 const type = (name: string, value: string) => fireEvent.input(field(name), { target: { value } });
 const click = (name: string) => fireEvent.click(screen.getByRole('button', { name, exact: true }));
-const useFormat = () =>
-    fireEvent.click(within(screen.getByRole('group', { name: 'Signature format' })).getByRole('button', { name: 'SSH signature' }));
 const useAction = (name: string) => fireEvent.click(within(screen.getByRole('group', { name: 'Action' })).getByRole('button', { name }));
 
 describe('SSH signature tab, verifying', () => {
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="sshsig" />);
     });
 
     it('verifies a signature made by ssh-keygen with the key that is trusted, and says what it is for', async () => {
@@ -111,8 +108,7 @@ describe('SSH signature tab, with an allowed_signers file as the key', () => {
     const ALLOWED = `alice@example.com namespaces="git" ${SSH_PUBLIC}\nbob@example.com valid-before="20300101" ${BOB}\n`;
 
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="sshsig" />);
         type('Message', SSH_MESSAGE);
     });
 
@@ -162,8 +158,7 @@ describe('SSH signature tab, with an allowed_signers file as the key', () => {
 
 describe('SSH signature tab, creating', () => {
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="sshsig" />);
         useAction('Create a signature');
     });
 

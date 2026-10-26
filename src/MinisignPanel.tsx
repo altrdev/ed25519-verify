@@ -26,6 +26,8 @@ import MessageField from './MessageField';
 import type { MessageFile } from './messagefile';
 import { minisignShareFragment, type SharedMinisign } from './share';
 import VerifyEd25519, { type FormatOverrides, inspectField, type Verdict, verdictOf } from './signature';
+import Results from './Results';
+import Checks from './Checks';
 
 type Errors = Partial<Record<'signature' | 'publicKey' | 'message' | 'privateKey' | 'keyId' | 'comment', string>>;
 
@@ -36,6 +38,7 @@ const asError = (error: unknown) => {
 
 interface Shown {
     verdict: Verdict;
+    publicKey: Uint8Array;
     parsed: ParsedMinisign;
     /** the signature of the trusted comment is valid: the comment is the one that was signed */
     commentOk: boolean;
@@ -145,6 +148,7 @@ function Verify({
             (await verdictOf(parsed.globalSignature, commentSignedBytes(parsed.signature, parsed.trustedComment), key)) === 'valid';
         setShown({
             verdict,
+            publicKey: key,
             parsed,
             commentOk,
             size: bytes.length,
@@ -267,23 +271,34 @@ function Verify({
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : MINISIGN_EXAMPLES[exampleIndex]} />
-            {shown?.verdict === 'valid' && shown.commentOk && <Banner kind="success">Signature is valid</Banner>}
-            {shown?.verdict === 'valid' && !shown.commentOk && (
-                <Banner kind="error">
-                    The signature of the message is valid, but the trusted comment is not the one that was signed: it was changed, or it
-                    belongs to another signature. minisign refuses such a file.
-                </Banner>
-            )}
-            {shown?.verdict === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
-            {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
-            {shown?.verdict === 'permissive-only' && (
-                <Banner kind="warning">
-                    Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive rules
-                    used by some systems (e.g. Zcash).
-                </Banner>
-            )}
-            {shown && <Details shown={shown} />}
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : MINISIGN_EXAMPLES[exampleIndex]} />
+                {shown?.verdict === 'valid' && shown.commentOk && (
+                    <Banner kind="success" stamp>
+                        Signature is valid
+                    </Banner>
+                )}
+                {shown?.verdict === 'valid' && !shown.commentOk && (
+                    <Banner kind="error">
+                        The signature of the message is valid, but the trusted comment is not the one that was signed: it was changed, or it
+                        belongs to another signature. minisign refuses such a file.
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && (
+                    <Banner kind="error" stamp>
+                        Signature is wrong
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
+                {shown?.verdict === 'permissive-only' && (
+                    <Banner kind="warning">
+                        Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
+                        rules used by some systems (e.g. Zcash).
+                    </Banner>
+                )}
+                {shown && <Checks signature={shown.parsed.signature} publicKey={shown.publicKey} verdict={shown.verdict} />}
+                {shown && <Details shown={shown} />}
+            </Results>
         </>
     );
 }
@@ -414,31 +429,33 @@ function Create() {
                 </button>
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : MINISIGN_EXAMPLES[exampleIndex]} />
-            {result && (
-                <>
-                    <Banner kind="success">
-                        <div class="result-head">
-                            <strong>Signature:</strong>
-                            <div class="field-actions">
-                                <CopyButton text={result.armored} label="Copy signature" />
-                                <DownloadButton filename="signature.minisig" text={result.armored} label="Download signature" />
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : MINISIGN_EXAMPLES[exampleIndex]} />
+                {result && (
+                    <>
+                        <Banner kind="success">
+                            <div class="result-head">
+                                <strong>Signature:</strong>
+                                <div class="field-actions">
+                                    <CopyButton text={result.armored} label="Copy signature" />
+                                    <DownloadButton filename="signature.minisig" text={result.armored} label="Download signature" />
+                                </div>
                             </div>
-                        </div>
-                        <pre class="armor">{result.armored}</pre>
-                        {published === result.armored && <p>Identical to the signature made by minisign.</p>}
-                    </Banner>
-                    <Field
-                        label="Public key to verify it"
-                        rows={2}
-                        value={result.publicFile}
-                        copyable
-                        disabled
-                        hint={`minisign public key, ID ${result.keyId}`}
-                        download={{ filename: 'minisign.pub' }}
-                    />
-                </>
-            )}
+                            <pre class="armor">{result.armored}</pre>
+                            {published === result.armored && <p>Identical to the signature made by minisign.</p>}
+                        </Banner>
+                        <Field
+                            label="Public key to verify it"
+                            rows={2}
+                            value={result.publicFile}
+                            copyable
+                            disabled
+                            hint={`minisign public key, ID ${result.keyId}`}
+                            download={{ filename: 'minisign.pub' }}
+                        />
+                    </>
+                )}
+            </Results>
         </>
     );
 }

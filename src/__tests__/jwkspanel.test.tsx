@@ -27,7 +27,7 @@ const click = (name: string) => fireEvent.click(screen.getByRole('button', { nam
 
 describe('JWS tab with a JWK Set', () => {
     beforeEach(() => {
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
     });
 
     it('picks the key the token names, and says which', async () => {
@@ -142,7 +142,7 @@ describe('JWS tab with a DID document', () => {
     const DOCUMENT = JSON.stringify({ id: DID, verificationMethod: [method('key-1', X1), method('key-2', X2)] });
 
     beforeEach(() => {
-        render(<FormSigned />);
+        render(<FormSigned format="jws" />);
     });
 
     it('picks the method the token names, by its whole id or by its fragment', async () => {

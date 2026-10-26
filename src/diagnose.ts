@@ -33,27 +33,52 @@ const littleEndian = (bytes: Uint8Array) => bytes.reduceRight((total, byte) => (
 const utf8 = (text: string) => new TextEncoder().encode(text);
 const same = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((value, i) => value === b[i]);
 
+export interface InputFacts {
+    /** the second half of the signature (S) is smaller than the group order */
+    sReduced: boolean;
+    /** the first half of the signature (R) is a point of the curve */
+    rOnCurve: boolean;
+    /** the public key is a point of the curve, and whether it is of small order (a weak key) */
+    keyOnCurve: boolean;
+    keySmallOrder: boolean;
+}
+
+/** What can be told about the key and the signature before any message is looked at. */
+export function inspectInputs(publicKey: Uint8Array, signature: Uint8Array): InputFacts {
+    let rOnCurve = true;
+    try {
+        ed.Point.fromBytes(signature.slice(0, 32), false);
+    } catch {
+        rOnCurve = false;
+    }
+    let keyOnCurve = true;
+    let keySmallOrder = false;
+    try {
+        keySmallOrder = ed.Point.fromBytes(publicKey, false).isSmallOrder();
+    } catch {
+        keyOnCurve = false;
+    }
+    return { sReduced: littleEndian(signature.slice(32)) < L, rOnCurve, keyOnCurve, keySmallOrder };
+}
+
 /** What is certain about the inputs, whatever the message is. */
 function facts({ publicKey, signature }: DiagnoseInput): string[] {
     const found: string[] = [];
-    if (littleEndian(signature.slice(32)) >= L) {
+    const inputs = inspectInputs(publicKey, signature);
+    if (!inputs.sReduced) {
         found.push(
             'The second half of the signature (S) is not reduced: it is not smaller than the group order. The strict RFC 8032 rules reject such a signature, whatever the message and the key; it is not a signature made by a standard signer.',
         );
     }
-    try {
-        ed.Point.fromBytes(signature.slice(0, 32), false);
-    } catch {
+    if (!inputs.rOnCurve) {
         found.push('The first half of the signature (R) is not a point of the curve, so no message or key can make this signature valid.');
     }
-    try {
-        if (ed.Point.fromBytes(publicKey, false).isSmallOrder()) {
-            found.push(
-                'The public key is a point of small order, a weak key that is not produced by key generation: nothing signed with a real key looks like this.',
-            );
-        }
-    } catch {
+    if (!inputs.keyOnCurve) {
         found.push('The public key is not a point of the curve: it cannot be the public key of any private key.');
+    } else if (inputs.keySmallOrder) {
+        found.push(
+            'The public key is a point of small order, a weak key that is not produced by key generation: nothing signed with a real key looks like this.',
+        );
     }
     return found;
 }

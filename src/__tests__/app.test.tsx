@@ -14,21 +14,30 @@ describe('App', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Verify a signature' }));
         expect(messageField().value).toBe('keep me');
 
-        fireEvent.click(screen.getByRole('tab', { name: 'Tokens and files' }));
+        fireEvent.click(screen.getByRole('tab', { name: 'JWS / JWT' }));
         expect(within(screen.getByRole('tabpanel')).getByLabelText('Token')).toBeVisible();
         fireEvent.click(screen.getByRole('tab', { name: 'Raw signature' }));
         expect(messageField().value).toBe('keep me');
     });
 
-    it('has two tabs, each with the same switch between verifying and creating', () => {
+    it('has a tab for the raw signature and one for each container, each with the same switch between verifying and creating', () => {
         render(<App />);
-        expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Raw signature', 'Tokens and files']);
+        expect(screen.getAllByRole('tab').map((tab) => tab.getAttribute('aria-selected'))).toEqual(['true', ...Array(6).fill('false')]);
+        expect(screen.getAllByRole('tab').map((tab) => tab.firstChild?.textContent)).toEqual([
+            'Raw signature',
+            'JWS / JWT',
+            'SSH signature',
+            'minisign',
+            'signify',
+            'COSE',
+            'OpenPGP',
+        ]);
         expect(
             within(screen.getByRole('group', { name: 'Action' }))
                 .getAllByRole('button')
                 .map((b) => b.textContent),
         ).toEqual(['Verify a signature', 'Create a signature']);
-        fireEvent.click(screen.getByRole('tab', { name: 'Tokens and files' }));
+        fireEvent.click(screen.getByRole('tab', { name: 'minisign' }));
         expect(
             within(screen.getByRole('group', { name: 'Action' }))
                 .getAllByRole('button')

@@ -30,15 +30,12 @@ const field = (name: string) =>
     screen.getAllByLabelText(name, { selector: 'textarea' }).find((element) => !element.closest('[hidden]')) as HTMLTextAreaElement;
 const type = (name: string, value: string) => fireEvent.input(field(name), { target: { value } });
 const click = (name: string) => fireEvent.click(screen.getByRole('button', { name, exact: true }));
-const useFormat = () =>
-    fireEvent.click(within(screen.getByRole('group', { name: 'Signature format' })).getByRole('button', { name: 'COSE' }));
 const useAction = (name: string) => fireEvent.click(within(screen.getByRole('group', { name: 'Action' })).getByRole('button', { name }));
 const region = () => within(screen.getByRole('region', { name: 'Message details' }));
 
 describe('COSE tab, verifying', () => {
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="cose" />);
     });
 
     it('verifies the example of the COSE working group and shows both headers, the signed one apart', async () => {
@@ -140,8 +137,7 @@ describe('COSE tab, verifying', () => {
 
 describe('COSE tab, creating', () => {
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="cose" />);
         useAction('Create a signature');
     });
 
@@ -215,8 +211,7 @@ describe('a link to a COSE verification', () => {
 
 describe('COSE tab, a CWT', () => {
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="cose" />);
     });
     afterEach(() => vi.useRealTimers());
 
@@ -277,8 +272,7 @@ describe('COSE tab, a CWT', () => {
 
 describe('COSE tab, a message with several signatures (COSE_Sign)', () => {
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="cose" />);
     });
 
     const signatures = () => within(screen.getByRole('region', { name: 'Signatures' }));

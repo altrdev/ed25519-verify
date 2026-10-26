@@ -14,15 +14,12 @@ const field = (name: string) =>
     screen.getAllByLabelText(name, { selector: 'textarea' }).find((element) => !element.closest('[hidden]')) as HTMLTextAreaElement;
 const type = (name: string, value: string) => fireEvent.input(field(name), { target: { value } });
 const click = (name: string) => fireEvent.click(screen.getByRole('button', { name, exact: true }));
-const useFormat = () =>
-    fireEvent.click(within(screen.getByRole('group', { name: 'Signature format' })).getByRole('button', { name: 'signify' }));
 const useAction = (name: string) => fireEvent.click(within(screen.getByRole('group', { name: 'Action' })).getByRole('button', { name }));
 const region = () => within(screen.getByRole('region', { name: 'Signature details' }));
 
 describe('signify tab, verifying', () => {
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="signify" />);
     });
 
     it('verifies a signature made by signify with its .pub file, and shows the comment for what it is', async () => {
@@ -106,8 +103,7 @@ describe('signify tab, verifying', () => {
 
 describe('signify tab, creating', () => {
     beforeEach(() => {
-        render(<FormSigned />);
-        useFormat();
+        render(<FormSigned format="signify" />);
         useAction('Create a signature');
     });
 

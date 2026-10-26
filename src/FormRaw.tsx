@@ -12,7 +12,7 @@ const MODES: { value: Mode; label: string }[] = [
 
 type VerifyProps = Parameters<typeof FormVerify>[0];
 
-/** The raw Ed25519 signature: a public key, a message and 64 bytes. Verify and create share the tab, as in "Tokens and files". */
+/** The raw Ed25519 signature: a public key, a message and 64 bytes. Verify and create share the view, as in the views of the containers. */
 export default function FormRaw(props: VerifyProps) {
     const [mode, setMode] = useState<Mode>('verify');
     const header = (

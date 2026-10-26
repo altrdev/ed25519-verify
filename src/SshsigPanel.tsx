@@ -27,6 +27,8 @@ import {
     SshsigError,
     signSshsig,
 } from './sshsig';
+import Results from './Results';
+import Checks from './Checks';
 
 type Errors = Partial<Record<'signature' | 'publicKey' | 'namespace' | 'message' | 'privateKey', string>>;
 
@@ -38,6 +40,7 @@ const asError = (error: unknown) => {
 
 interface Shown {
     verdict: Verdict;
+    publicKey: Uint8Array;
     parsed: ParsedSshsig;
     fingerprint: string;
     /** the verification used the key the user gave; otherwise the key inside the signature */
@@ -166,6 +169,7 @@ function Verify({
         const verdict = await verdictOf(parsed.signature, await signedDataOf(parsed, bytes), key);
         setShown({
             verdict,
+            publicKey: key,
             parsed,
             fingerprint: embedded,
             trusted: !!trusted,
@@ -303,23 +307,34 @@ function Verify({
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : SSHSIG_EXAMPLES[exampleIndex]} />
-            {shown?.verdict === 'valid' && shown.trusted && <Banner kind="success">Signature is valid</Banner>}
-            {shown?.verdict === 'valid' && !shown.trusted && (
-                <Banner kind="warning">
-                    The signature is valid for the key inside it, {shown.fingerprint}. Nothing says that it is the key you trust: paste that
-                    key above to check it.
-                </Banner>
-            )}
-            {shown?.verdict === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
-            {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
-            {shown?.verdict === 'permissive-only' && (
-                <Banner kind="warning">
-                    Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive rules
-                    used by some systems (e.g. Zcash).
-                </Banner>
-            )}
-            {shown && <Details shown={shown} />}
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : SSHSIG_EXAMPLES[exampleIndex]} />
+                {shown?.verdict === 'valid' && shown.trusted && (
+                    <Banner kind="success" stamp>
+                        Signature is valid
+                    </Banner>
+                )}
+                {shown?.verdict === 'valid' && !shown.trusted && (
+                    <Banner kind="warning">
+                        The signature is valid for the key inside it, {shown.fingerprint}. Nothing says that it is the key you trust: paste
+                        that key above to check it.
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && (
+                    <Banner kind="error" stamp>
+                        Signature is wrong
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
+                {shown?.verdict === 'permissive-only' && (
+                    <Banner kind="warning">
+                        Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
+                        rules used by some systems (e.g. Zcash).
+                    </Banner>
+                )}
+                {shown && <Checks signature={shown.parsed.signature} publicKey={shown.publicKey} verdict={shown.verdict} />}
+                {shown && <Details shown={shown} />}
+            </Results>
         </>
     );
 }
@@ -450,31 +465,33 @@ function Create() {
                 </button>
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : SSHSIG_EXAMPLES[exampleIndex]} />
-            {result && (
-                <>
-                    <Banner kind="success">
-                        <div class="result-head">
-                            <strong>Signature:</strong>
-                            <div class="field-actions">
-                                <CopyButton text={result.armored} label="Copy signature" />
-                                <DownloadButton filename="signature.sig" text={result.armored} label="Download signature" />
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : SSHSIG_EXAMPLES[exampleIndex]} />
+                {result && (
+                    <>
+                        <Banner kind="success">
+                            <div class="result-head">
+                                <strong>Signature:</strong>
+                                <div class="field-actions">
+                                    <CopyButton text={result.armored} label="Copy signature" />
+                                    <DownloadButton filename="signature.sig" text={result.armored} label="Download signature" />
+                                </div>
                             </div>
-                        </div>
-                        <pre class="armor">{result.armored}</pre>
-                        {published === result.armored && <p>Identical to the signature made by ssh-keygen.</p>}
-                    </Banner>
-                    <Field
-                        label="Public key to verify it"
-                        rows={2}
-                        value={result.publicKey}
-                        copyable
-                        disabled
-                        hint={result.fingerprint}
-                        download={{ filename: 'id_ed25519.pub' }}
-                    />
-                </>
-            )}
+                            <pre class="armor">{result.armored}</pre>
+                            {published === result.armored && <p>Identical to the signature made by ssh-keygen.</p>}
+                        </Banner>
+                        <Field
+                            label="Public key to verify it"
+                            rows={2}
+                            value={result.publicKey}
+                            copyable
+                            disabled
+                            hint={result.fingerprint}
+                            download={{ filename: 'id_ed25519.pub' }}
+                        />
+                    </>
+                )}
+            </Results>
         </>
     );
 }

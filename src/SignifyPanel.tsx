@@ -24,6 +24,8 @@ import MessageField from './MessageField';
 import type { MessageFile } from './messagefile';
 import { signifyShareFragment, type SharedSignify } from './share';
 import VerifyEd25519, { type FormatOverrides, inspectField, type Verdict, verdictOf } from './signature';
+import Results from './Results';
+import Checks from './Checks';
 
 type Errors = Partial<Record<'signature' | 'publicKey' | 'message' | 'privateKey' | 'keyNumber', string>>;
 
@@ -34,6 +36,7 @@ const asError = (error: unknown) => {
 
 interface Shown {
     verdict: Verdict;
+    publicKey: Uint8Array;
     parsed: ParsedSignify;
     size: number;
     hints?: Hints;
@@ -129,6 +132,7 @@ function Verify({
         const verdict = await verdictOf(parsed.signature, bytes, key);
         setShown({
             verdict,
+            publicKey: key,
             parsed,
             size: bytes.length,
             hints:
@@ -242,17 +246,28 @@ function Verify({
                 <CopyButton text={shareable ? link() : ''} label="Copy link to this verification" caption="Copy link" />
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : SIGNIFY_EXAMPLES[exampleIndex]} />
-            {shown?.verdict === 'valid' && <Banner kind="success">Signature is valid</Banner>}
-            {shown?.verdict === 'invalid' && <Banner kind="error">Signature is wrong</Banner>}
-            {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
-            {shown?.verdict === 'permissive-only' && (
-                <Banner kind="warning">
-                    Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive rules
-                    used by some systems (e.g. Zcash).
-                </Banner>
-            )}
-            {shown && <Details shown={shown} />}
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : SIGNIFY_EXAMPLES[exampleIndex]} />
+                {shown?.verdict === 'valid' && (
+                    <Banner kind="success" stamp>
+                        Signature is valid
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && (
+                    <Banner kind="error" stamp>
+                        Signature is wrong
+                    </Banner>
+                )}
+                {shown?.verdict === 'invalid' && shown.hints && <HintList hints={shown.hints} />}
+                {shown?.verdict === 'permissive-only' && (
+                    <Banner kind="warning">
+                        Signature is not valid under the strict RFC 8032 rules, but it would be accepted under ZIP215, the more permissive
+                        rules used by some systems (e.g. Zcash).
+                    </Banner>
+                )}
+                {shown && <Checks signature={shown.parsed.signature} publicKey={shown.publicKey} verdict={shown.verdict} />}
+                {shown && <Details shown={shown} />}
+            </Results>
         </>
     );
 }
@@ -369,31 +384,33 @@ function Create() {
                 </button>
                 <ExampleButton onClick={loadNextExample} />
             </div>
-            <ExampleNote example={exampleIndex === null ? null : SIGNIFY_EXAMPLES[exampleIndex]} />
-            {result && (
-                <>
-                    <Banner kind="success">
-                        <div class="result-head">
-                            <strong>Signature:</strong>
-                            <div class="field-actions">
-                                <CopyButton text={result.armored} label="Copy signature" />
-                                <DownloadButton filename="signature.sig" text={result.armored} label="Download signature" />
+            <Results>
+                <ExampleNote example={exampleIndex === null ? null : SIGNIFY_EXAMPLES[exampleIndex]} />
+                {result && (
+                    <>
+                        <Banner kind="success">
+                            <div class="result-head">
+                                <strong>Signature:</strong>
+                                <div class="field-actions">
+                                    <CopyButton text={result.armored} label="Copy signature" />
+                                    <DownloadButton filename="signature.sig" text={result.armored} label="Download signature" />
+                                </div>
                             </div>
-                        </div>
-                        <pre class="armor">{result.armored}</pre>
-                        {published === result.armored && <p>Identical to the signature made by signify.</p>}
-                    </Banner>
-                    <Field
-                        label="Public key to verify it"
-                        rows={2}
-                        value={result.publicFile}
-                        copyable
-                        disabled
-                        hint={`signify public key, key number ${result.keyNumber}`}
-                        download={{ filename: 'signify.pub' }}
-                    />
-                </>
-            )}
+                            <pre class="armor">{result.armored}</pre>
+                            {published === result.armored && <p>Identical to the signature made by signify.</p>}
+                        </Banner>
+                        <Field
+                            label="Public key to verify it"
+                            rows={2}
+                            value={result.publicFile}
+                            copyable
+                            disabled
+                            hint={`signify public key, key number ${result.keyNumber}`}
+                            download={{ filename: 'signify.pub' }}
+                        />
+                    </>
+                )}
+            </Results>
         </>
     );
 }
