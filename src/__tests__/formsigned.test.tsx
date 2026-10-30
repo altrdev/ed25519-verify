@@ -14,7 +14,7 @@ const TOKEN =
 const field = (name: string) =>
     screen.getAllByLabelText(name, { selector: 'textarea' }).find((element) => !element.closest('[hidden]')) as HTMLTextAreaElement;
 const type = (name: string, value: string) => fireEvent.input(field(name), { target: { value } });
-const click = (name: string) => fireEvent.click(screen.getByRole('button', { name, exact: true }));
+const click = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
 
 describe('JWS / JWT tab, verifying', () => {
     it('says a token of RFC 8037 is valid, and shows what it contains', async () => {
