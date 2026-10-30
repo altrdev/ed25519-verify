@@ -13,7 +13,7 @@ import { SG_KEY_NUMBER, SG_MESSAGE, SG_PUBLIC_FILE, SG_PUBLIC_HEX, SG_PUBLIC_LIN
 const field = (name: string) =>
     screen.getAllByLabelText(name, { selector: 'textarea' }).find((element) => !element.closest('[hidden]')) as HTMLTextAreaElement;
 const type = (name: string, value: string) => fireEvent.input(field(name), { target: { value } });
-const click = (name: string) => fireEvent.click(screen.getByRole('button', { name, exact: true }));
+const click = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
 const useAction = (name: string) => fireEvent.click(within(screen.getByRole('group', { name: 'Action' })).getByRole('button', { name }));
 const region = () => within(screen.getByRole('region', { name: 'Signature details' }));
 
